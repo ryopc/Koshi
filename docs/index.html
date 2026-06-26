@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Koshi | Terminal-First SNS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f8fafc; color: #334155; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <header class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+        <nav class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <img src="https://res.cloudinary.com/dt0zmgv8k/image/upload/v1782450296/KoShi_horboh.png" alt="Koshi Logo" class="h-8">
+                <span class="text-xl font-bold tracking-widest uppercase text-slate-900">Koshi</span>
+            </div>
+            <div class="flex gap-8 text-sm font-semibold text-slate-600">
+                <a href="index.html" class="text-emerald-600">Home</a>
+                <a href="docs.html" class="hover:text-orange-500 transition-colors">Documentation</a>
+                <a href="https://github.com/ryopc/koshi" class="hover:text-slate-900">GitHub</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="pt-32 pb-20 px-6">
+        <!-- Hero -->
+        <section class="max-w-5xl mx-auto text-center mb-32">
+            <div class="mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-100 text-orange-600 text-xs font-bold uppercase tracking-wider">
+                Under Active Development
+            </div>
+            <h1 class="text-6xl md:text-8xl font-black text-slate-900 mb-8 leading-tight">The social network<br><span class="text-emerald-600">for your terminal.</span></h1>
+            <p class="text-xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed">Koshi is a decentralized, terminal-first SNS built on ed25519 lattice cryptography. Experience a pure CLI-driven social experience.</p>
+            <div class="bg-slate-900 text-emerald-400 rounded-xl p-6 inline-block font-mono text-lg shadow-2xl">
+                $ npm install -g @ryopc/koshi
+            </div>
+        </section>
+
+        <!-- Features Detail -->
+        <section class="max-w-7xl mx-auto py-24 border-t border-slate-200">
+            <h2 class="text-4xl font-black text-slate-900 mb-16 text-center">Core Features</h2>
+            <div class="grid md:grid-cols-2 gap-12">
+                <div class="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm">
+                    <h3 class="text-2xl font-bold text-slate-900 mb-4">Terminal-Native</h3>
+                    <p class="text-slate-600 leading-relaxed">No browser bloat. Everything from posting to DMing is handled natively within your command line environment. Designed to work perfectly with tmux or Zellij.</p>
+                </div>
+                <div class="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm">
+                    <h3 class="text-2xl font-bold text-slate-900 mb-4">Cryptographic Identity</h3>
+                    <p class="text-slate-600 leading-relaxed">Your identity is your public key. Secure authentication based on ed25519 ensures you own your social presence without relying on password databases.</p>
+                </div>
+                <div class="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm">
+                    <h3 class="text-2xl font-bold text-slate-900 mb-4">Edge-First Protocol</h3>
+                    <p class="text-slate-600 leading-relaxed">Leveraging Cloudflare Workers and D1 for global distribution. Experience sub-millisecond interaction with zero cold starts.</p>
+                </div>
+                <div class="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm">
+                    <h3 class="text-2xl font-bold text-slate-900 mb-4">Developer Centric</h3>
+                    <p class="text-slate-600 leading-relaxed">Interact with your feed using familiar piping and standard CLI flags. Integrate Koshi directly into your CI/CD or automation scripts.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vision -->
+        <section class="max-w-5xl mx-auto py-24">
+            <h2 class="text-4xl font-black text-slate-900 mb-12 text-center">Why build on Koshi?</h2>
+            <div class="bg-slate-900 text-slate-300 p-16 rounded-[3rem] shadow-xl">
+                <p class="text-xl leading-relaxed mb-8">
+                    Modern social networks have become heavy, ad-driven, and disconnected from the developer workflow. 
+                    Koshi returns to the roots: text-based, protocol-focused, and developer-centric.
+                </p>
+                <p class="text-xl leading-relaxed">
+                    By providing a unified CLI tool, we enable developers to curate their feed and interact with the network without leaving their favorite editor.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-slate-100 py-16 text-center text-slate-500 text-sm border-t border-slate-200">
+        <p>© 2026 game-ryo. Built on the edge for the future of development.</p>
+    </footer>
+</body>
+</html>
