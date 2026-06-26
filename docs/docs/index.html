@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation | Koshi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f8fafc; color: #334155; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <header class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+        <nav class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <img src="https://res.cloudinary.com/dt0zmgv8k/image/upload/v1782450296/KoShi_horboh.png" alt="Koshi Logo" class="h-8">
+                <span class="text-xl font-bold tracking-widest uppercase text-slate-900">Koshi</span>
+            </div>
+            <div class="flex gap-8 text-sm font-semibold text-slate-600">
+                <a href="index.html" class="hover:text-emerald-600 transition-colors">Home</a>
+                <a href="docs.html" class="text-orange-600">Documentation</a>
+                <a href="https://github.com/ryopc/koshi" class="hover:text-slate-900 transition-colors">GitHub</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="flex-1 pt-32 pb-24 px-6 max-w-4xl mx-auto w-full">
+        <div class="bg-white p-12 rounded-3xl border border-slate-200 shadow-sm text-center">
+            <div class="mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-100 text-orange-600 text-xs font-bold uppercase tracking-wider">
+                Under Active Development
+            </div>
+            <h1 class="text-5xl font-black text-slate-900 mb-8">Documentation</h1>
+            
+            <p class="text-lg text-slate-600 mb-12 leading-relaxed">
+                Official documentation for Koshi is currently in progress.<br>
+                Detailed guides on ed25519 authentication, D1 database schema, and CLI specifications are coming soon.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-6 text-left mb-12">
+                <div class="p-6 bg-slate-50 rounded-xl border border-slate-200">
+                    <h3 class="font-bold text-slate-900 mb-2">🚀 Getting Started</h3>
+                    <p class="text-sm text-slate-600">Quick guide from installation to setup.</p>
+                </div>
+                <div class="p-6 bg-slate-50 rounded-xl border border-slate-200">
+                    <h3 class="font-bold text-slate-900 mb-2">🔐 Security Protocol</h3>
+                    <p class="text-sm text-slate-600">About ed25519 cryptography and Nostr compatibility.</p>
+                </div>
+            </div>
+
+            <p class="text-2xl font-bold text-emerald-600 mb-10">Stay tuned for the official release!</p>
+            
+            <a href="index.html" class="inline-block px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-bold transition-all">
+                Return to Home
+            </a>
+        </div>
+    </main>
+
+    <footer class="py-16 text-center text-slate-400 text-sm border-t border-slate-200">
+        <p>© 2026 game-ryo. Documentation in progress.</p>
+    </footer>
+</body>
+</html>
