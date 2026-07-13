@@ -1,0 +1,47 @@
+# ============================================================================
+# koshi – Terminal-Native Decentralized SNS
+# .dockerignore
+# License: MIT
+# ============================================================================
+# Exclude unnecessary files from Docker build context for faster builds
+# and smaller images.
+# ============================================================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Dependencies (reinstalled in Docker)
+node_modules
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+
+# IDE and editor config
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test and coverage
+coverage
+.nyc_output
+
+# Documentation (not needed at runtime)
+README.md
+LICENSE
+
+# CI/CD
+.github
