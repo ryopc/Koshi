@@ -75,8 +75,10 @@ const wss = initWebSocket(server, logger);
 startHeartbeat();
 
 // Start listening
-server.listen(PORT, () => {
+// '0.0.0.0' を明示的に指定して、Render の外部からの通信を受け付けられるようにします。
+server.listen(PORT, '0.0.0.0', () => {
     logger.info(
+
         { port: PORT, env: process.env.NODE_ENV || 'development' },
         `🚀 koshi server running on port ${PORT}`
     );
