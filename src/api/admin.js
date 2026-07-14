@@ -22,6 +22,23 @@ const router = Router();
 router.use(requireAdmin);
 
 // ============================================================================
+// Helpers
+// ============================================================================
+// UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolve whether the :id parameter is a UUID or a username.
+ * Returns the appropriate SQL clause and value for the WHERE condition.
+ */
+function resolveUserClause(param) {
+    if (UUID_REGEX.test(param)) {
+        return { clause: 'u.id = $1', value: param };
+    }
+    return { clause: 'u.username = $1', value: param.toLowerCase().trim() };
+}
+
+// ============================================================================
 // GET /api/admin/users
 // ============================================================================
 // List all registered users with their details.
@@ -83,6 +100,7 @@ router.get('/users', async (req, res) => {
 // GET /api/admin/users/:id
 // ============================================================================
 // Get detailed info about a specific user (admin view).
+// Accepts either a UUID or a username as the :id parameter.
 //
 // Headers: Authorization: Bearer {token}
 // Returns: { user object with all details }
@@ -90,6 +108,7 @@ router.get('/users', async (req, res) => {
 router.get('/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        const { clause, value } = resolveUserClause(id);
 
         const result = await query(
             `SELECT
@@ -107,8 +126,8 @@ router.get('/users/:id', async (req, res) => {
                 (SELECT COUNT(*) FROM kb_posts WHERE author_id = u.id)::int AS posts_count,
                 (SELECT COUNT(*) FROM dms WHERE sender_id = u.id OR recipient_id = u.id)::int AS dms_count
             FROM users u
-            WHERE u.id = $1`,
-            [id]
+            WHERE ${clause}`,
+            [value]
         );
 
         if (result.rows.length === 0) {
@@ -143,24 +162,21 @@ router.get('/users/:id', async (req, res) => {
 // ============================================================================
 // Permanently delete a user account and all associated data.
 // Posts, follows, and DMs are cascade-deleted by the database.
+// Accepts either a UUID or a username as the :id parameter.
 //
 // Headers: Authorization: Bearer {token}
 // Returns: { success: true, deletedUser: { username, id } }
 // ============================================================================
 router.delete('/users/:id', async (req, res) => {
     try {
-        const targetUserId = req.params.id;
+        const targetId = req.params.id;
         const adminUserId = req.user.userId;
-
-        // Prevent admin from deleting themselves
-        if (targetUserId === adminUserId) {
-            return res.status(400).json({ error: 'Cannot delete your own account. Use an admin account to remove another admin.' });
-        }
+        const { clause: lookupClause, value: lookupValue } = resolveUserClause(targetId);
 
         // Fetch user info before deletion for the response
         const userResult = await query(
-            'SELECT id, username FROM users WHERE id = $1',
-            [targetUserId]
+            `SELECT id, username FROM users WHERE ${lookupClause}`,
+            [lookupValue]
         );
 
         if (userResult.rows.length === 0) {
@@ -169,11 +185,16 @@ router.delete('/users/:id', async (req, res) => {
 
         const deletedUser = userResult.rows[0];
 
+        // Prevent admin from deleting themselves
+        if (deletedUser.id === adminUserId) {
+            return res.status(400).json({ error: 'Cannot delete your own account. Use an admin account to remove another admin.' });
+        }
+
         // Delete the user — all related data (posts, follows, DMs) is cascade-deleted
-        await query('DELETE FROM users WHERE id = $1', [targetUserId]);
+        await query('DELETE FROM users WHERE id = $1', [deletedUser.id]);
 
         logger.info(
-            { targetUserId, targetUsername: deletedUser.username, adminUserId },
+            { targetUserId: deletedUser.id, targetUsername: deletedUser.username, adminUserId },
             'User deleted by admin'
         );
 
@@ -194,6 +215,7 @@ router.delete('/users/:id', async (req, res) => {
 // PUT /api/admin/users/:id/admin
 // ============================================================================
 // Toggle admin status for a user (grant or revoke admin privileges).
+// Accepts either a UUID or a username as the :id parameter.
 //
 // Body: { isAdmin: boolean }
 // Headers: Authorization: Bearer {token}
@@ -201,12 +223,27 @@ router.delete('/users/:id', async (req, res) => {
 // ============================================================================
 router.put('/users/:id/admin', async (req, res) => {
     try {
-        const targetUserId = req.params.id;
+        const targetId = req.params.id;
         const { isAdmin } = req.body;
 
         if (typeof isAdmin !== 'boolean') {
             return res.status(400).json({ error: 'isAdmin must be a boolean.' });
         }
+
+        const { clause, value } = resolveUserClause(targetId);
+
+        // We need to handle the self-revoke check differently now
+        // First, resolve the target user to get their ID
+        const targetResult = await query(
+            `SELECT id FROM users WHERE ${clause}`,
+            [value]
+        );
+
+        if (targetResult.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        const targetUserId = targetResult.rows[0].id;
 
         // Prevent admin from revoking their own admin status
         if (targetUserId === req.user.userId && !isAdmin) {

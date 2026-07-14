@@ -689,7 +689,7 @@ function showHelp(command = null) {
     }
 
     console.log(`\n  ${chalk.bold.cyan('🏄 koshi — Terminal-Native Decentralized SNS')}`);
-    console.log(`  ${chalk.dim('Version 1.1.1')}`);
+    console.log(`  ${chalk.dim('Version 1.2.0')}`);
     console.log(`\n  ${chalk.bold('Usage:')} kb <command> [options]\n`);
     console.log(`  ${chalk.bold('Commands:')}\n`);
 
@@ -713,7 +713,7 @@ function showHelp(command = null) {
 // Command: version
 // ============================================================================
 function showVersion() {
-    console.log('koshi v1.1.1');
+    console.log('koshi v1.2.0');
     console.log('Terminal-native decentralized SNS');
     console.log('License: MIT');
     console.log('Author: game_ryo');

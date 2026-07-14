@@ -395,7 +395,7 @@
         <p>Welcome to the Koshi documentation. This guide covers everything from installation to the full API reference. Koshi is a terminal-native, decentralized social network powered by ed25519 cryptography.</p>
 
         <div class="info-box info">
-            <p><strong>📦 Version:</strong> 1.1.1 · <strong>License:</strong> MIT · <strong>Author:</strong> game_ryo</p>
+            <p><strong>📦 Version:</strong> 1.2.0 · <strong>License:</strong> MIT · <strong>Author:</strong> game_ryo</p>
         </div>
 
         <h2 id="getting-started">Installation</h2>
@@ -479,7 +479,7 @@ NODE_ENV=development</code></pre>
         <pre><code><span class="prompt">$</span> kb --help
 
 <span class="cmd-out">  🏄 koshi — Terminal-Native Decentralized SNS</span>
-<span class="cmd-out">  Version 1.1.1</span>
+<span class="cmd-out">  Version 1.2.0</span>
 
 <span class="cmd-out">  Commands:</span>
 <span class="cmd-out">    register   Create a new account with ed25519 keypair</span>
@@ -663,8 +663,8 @@ NODE_ENV=development</code></pre>
 <span class="cmd-out">  bob — Bob</span>
 <span class="cmd-out">    ID: f8e11574-...  |  Posts: 7  |  Followers: 3  |  Joined: 7/14/2026</span></code></pre>
 
-        <h4>kb admin user &lt;id&gt;</h4>
-        <p>View detailed information about a specific user, including public key, DM count, and admin status.</p>
+        <h4>kb admin user &lt;id|username&gt;</h4>
+        <p>View detailed information about a specific user, including public key, DM count, and admin status. Accepts either a UUID or a username.</p>
 
         <h4>kb admin delete-user &lt;username&gt;</h4>
         <p>Permanently delete a user account and all associated data (posts, follows, DMs — cascade deleted). Uses interactive confirmation.</p>
@@ -855,16 +855,20 @@ NODE_ENV=development</code></pre>
                 <thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead>
                 <tbody>
                     <tr><td><span class="method method-get">GET</span></td><td><code>/api/admin/users</code></td><td>Admin</td><td>List all users with stats</td></tr>
-                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/admin/users/:id</code></td><td>Admin</td><td>Get detailed user info (incl. keys, DMs)</td></tr>
-                    <tr><td><span class="method method-delete">DELETE</span></td><td><code>/api/admin/users/:id</code></td><td>Admin</td><td>Permanently delete a user</td></tr>
-                    <tr><td><span class="method method-put">PUT</span></td><td><code>/api/admin/users/:id/admin</code></td><td>Admin</td><td>Grant/revoke admin privileges</td></tr>
+                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/admin/users/:id</code></td><td>Admin</td><td>Get detailed user info — accepts UUID or username</td></tr>
+                    <tr><td><span class="method method-delete">DELETE</span></td><td><code>/api/admin/users/:id</code></td><td>Admin</td><td>Permanently delete a user — accepts UUID or username</td></tr>
+                    <tr><td><span class="method method-put">PUT</span></td><td><code>/api/admin/users/:id/admin</code></td><td>Admin</td><td>Grant/revoke admin privileges — accepts UUID or username</td></tr>
                 </tbody>
             </table>
         </div>
 
         <h4>DELETE /api/admin/users/:id</h4>
-        <p>Deletes a user and all associated data (posts, follows, DMs) via database CASCADE.</p>
-        <pre><code><span class="prompt">$</span> curl -X DELETE https://koshi-api.ryopc.f5.si/api/admin/users/USER_ID \
+        <p>Permanently deletes a user and all associated data (posts, follows, DMs) via database CASCADE. Accepts either a UUID or a username as the <code>:id</code> parameter.</p>
+        <pre><code><span class="prompt">$</span> curl -X DELETE https://koshi-api.ryopc.f5.si/api/admin/users/bob \
+  -H <span class="string">"Authorization: Bearer &lt;admin-token&gt;"</span>
+
+<span class="comment"># Or using a UUID:</span>
+<span class="prompt">$</span> curl -X DELETE https://koshi-api.ryopc.f5.si/api/admin/users/f8e11574-38f8-4d85-8231-6762bb988f7d \
   -H <span class="string">"Authorization: Bearer &lt;admin-token&gt;"</span>
 
 {
@@ -875,9 +879,13 @@ NODE_ENV=development</code></pre>
   }
 }</code></pre>
 
+        <div class="info-box success">
+            <p><strong>💡 Tip:</strong> All admin user endpoints accept both a <strong>UUID</strong> or a <strong>username</strong> in the <code>:id</code> path parameter. The server automatically detects which one you're using.</p>
+        </div>
+
         <h4>PUT /api/admin/users/:id/admin</h4>
-        <p>Toggle admin status. Body: <code>{ "isAdmin": true }</code> or <code>{ "isAdmin": false }</code>.</p>
-        <pre><code><span class="prompt">$</span> curl -X PUT https://koshi-api.ryopc.f5.si/api/admin/users/USER_ID/admin \
+        <p>Toggle admin status for a user. Accepts either a UUID or a username as the <code>:id</code> parameter. Body: <code>{ "isAdmin": true }</code> or <code>{ "isAdmin": false }</code>.</p>
+        <pre><code><span class="prompt">$</span> curl -X PUT https://koshi-api.ryopc.f5.si/api/admin/users/bob/admin \
   -H <span class="string">"Authorization: Bearer &lt;admin-token&gt;"</span> \
   -H <span class="string">"Content-Type: application/json"</span> \
   -d '{"isAdmin": true}'
@@ -933,7 +941,7 @@ NODE_ENV=development</code></pre>
 {
   <span class="string">"status"</span>: <span class="string">"ok"</span>,
   <span class="string">"service"</span>: <span class="string">"koshi-api"</span>,
-  <span class="string">"version"</span>: <span class="string">"1.1.1"</span>,
+  <span class="string">"version"</span>: <span class="string">"1.2.0"</span>,
   <span class="string">"timestamp"</span>: <span class="string">"2026-07-14T05:00:00.000Z"</span>
 }</code></pre>
 
