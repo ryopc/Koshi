@@ -41,8 +41,9 @@ services:
     autoDeploy: true
     branch: main
 
-    # Pre-deploy command: runs migrations before each deploy
-    preDeployCommand: node src/db/migrate.js
+    # Pre-deploy command: now handled by auto-migration in bin/server.js on startup.
+    # Removed to avoid race condition with the concurrent migration in server.js.
+    # preDeployCommand: node src/db/migrate.js
 
     # Environment Variables
     envVars:
