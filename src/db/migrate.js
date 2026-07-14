@@ -103,4 +103,9 @@ async function main() {
     }
 }
 
-main();
+import { isMainThread } from 'node:worker_threads';
+
+// ファイルが直接実行された場合（node src/db/migrate.js）のみ main() を動かす
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    main();
+}
