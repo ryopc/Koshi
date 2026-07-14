@@ -3,81 +3,627 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Koshi | Terminal-First SNS</title>
+    <title>Koshi | Terminal-Native Decentralized SNS</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <linkrel="icon"type="image/png"href="https://res.cloudinary.com/dt0zmgv8k/image/upload/v1782450296/KoShi_horboh.png"/>
+    <link rel="icon" type="image/png" href="https://res.cloudinary.com/dt0zmgv8k/image/upload/v1782450296/KoShi_horboh.png"/>
     <style>
-        body { background-color: #f8fafc; color: #334155; }
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Animated gradient background */
+        .bg-grid {
+            background-image:
+                linear-gradient(rgba(52, 211, 153, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(52, 211, 153, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* Glow effects */
+        .glow-emerald {
+            box-shadow: 0 0 40px rgba(52, 211, 153, 0.15), 0 0 80px rgba(52, 211, 153, 0.05);
+        }
+
+        /* Terminal animation */
+        .terminal-cursor::after {
+            content: '▊';
+            animation: blink 1s step-end infinite;
+            color: #34d399;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Floating particles */
+        .particle {
+            position: fixed;
+            width: 4px;
+            height: 4px;
+            background: #34d399;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.3;
+            animation: float 20s infinite linear;
+        }
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.3; }
+            90% { opacity: 0.3; }
+            100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* Smooth section enters */
+        .fade-up {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Feature cards */
+        .feature-card {
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            border: 1px solid rgba(52, 211, 153, 0.1);
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.8));
+        }
+        .feature-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(52, 211, 153, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Code block styling */
+        .code-block {
+            background: #1e293b;
+            border: 1px solid rgba(52, 211, 153, 0.15);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.7;
+            overflow-x: auto;
+        }
+        .code-block .prompt { color: #64748b; }
+        .code-block .cmd { color: #e2e8f0; }
+        .code-block .output { color: #34d399; }
+        .code-block .comment { color: #64748b; font-style: italic; }
+
+        /* Command table */
+        .cmd-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .cmd-table th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+            border-bottom: 1px solid rgba(52, 211, 153, 0.1);
+            font-weight: 600;
+        }
+        .cmd-table td {
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.05);
+        }
+        .cmd-table tr:hover td {
+            background: rgba(52, 211, 153, 0.03);
+        }
+        .cmd-table code {
+            font-family: 'JetBrains Mono', monospace;
+            color: #fbbf24;
+            font-size: 0.8rem;
+        }
+        .cmd-table .cmd-name code {
+            color: #34d399;
+        }
+
+        /* Tag badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .badge-green { background: rgba(52, 211, 153, 0.12); color: #34d399; }
+        .badge-orange { background: rgba(251, 146, 60, 0.12); color: #fb923c; }
+        .badge-blue { background: rgba(96, 165, 250, 0.12); color: #60a5fa; }
+        .badge-purple { background: rgba(192, 132, 252, 0.12); color: #c084fc; }
+        .badge-pink { background: rgba(244, 114, 182, 0.12); color: #f472b6; }
+        .badge-slate { background: rgba(148, 163, 184, 0.12); color: #94a3b8; }
+        .badge-amber { background: rgba(251, 191, 36, 0.12); color: #fbbf24; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Nav */
+        .nav-link {
+            position: relative;
+            transition: color 0.3s;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: #34d399;
+            transition: width 0.3s;
+        }
+        .nav-link:hover::after { width: 100%; }
+        .nav-link.active::after { width: 100%; }
+
+        /* Terminal window decoration */
+        .terminal-window {
+            border: 1px solid rgba(52, 211, 153, 0.15);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0f172a;
+        }
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: #1e293b;
+            border-bottom: 1px solid rgba(52, 211, 153, 0.1);
+        }
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .terminal-dot.red { background: #ef4444; }
+        .terminal-dot.yellow { background: #eab308; }
+        .terminal-dot.green { background: #22c55e; }
+        .terminal-title {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-left: 8px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* API method badges */
+        .method {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .method-get { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+        .method-post { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+        .method-put { background: rgba(251, 146, 60, 0.15); color: #fb923c; }
+        .method-delete { background: rgba(244, 114, 182, 0.15); color: #f472b6; }
+
+        /* Section separators */
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(52, 211, 153, 0.2), transparent);
+        }
     </style>
 </head>
-<body class="min-h-screen">
-    <header class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+<body>
+    <!-- Floating particles -->
+    <div id="particles"></div>
+
+    <!-- Nav -->
+    <header class="fixed top-0 w-full z-50" style="background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(52, 211, 153, 0.08);">
         <nav class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <img src="https://res.cloudinary.com/dt0zmgv8k/image/upload/v1782450296/KoShi_horboh.png" alt="Koshi Logo" class="h-8">
-                <span class="text-xl font-bold tracking-widest uppercase text-slate-900">Koshi</span>
+                <img src="https://res.cloudinary.com/dt0zmgv8k/image/upload/v1782450296/KoShi_horboh.png" alt="Koshi Logo" class="h-8 w-8 rounded-lg">
+                <span class="text-xl font-bold tracking-widest uppercase" style="color: #e2e8f0;">Koshi</span>
             </div>
-            <div class="flex gap-8 text-sm font-semibold text-slate-600">
-                <a href="/" class="text-emerald-600">Home</a>
-                <a href="/docs" class="hover:text-orange-500 transition-colors">Documentation</a>
-                <a href="https://github.com/ryopc/koshi" class="hover:text-slate-900">GitHub</a>
+            <!-- Desktop nav -->
+            <div class="hidden md:flex items-center gap-8 text-sm font-medium">
+                <a href="/" class="nav-link active" style="color: #34d399;">Home</a>
+                <a href="/docs" class="nav-link" style="color: #94a3b8;">Docs</a>
+                <a href="/docs#api" class="nav-link" style="color: #94a3b8;">API</a>
+                <a href="/docs#cli" class="nav-link" style="color: #94a3b8;">CLI</a>
+                <a href="https://github.com/ryopc/koshi" class="nav-link" style="color: #94a3b8;" target="_blank">GitHub</a>
+                <a href="https://github.com/ryopc/koshi" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all" style="background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);" target="_blank">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    Star on GitHub
+                </a>
             </div>
+            <!-- Mobile hamburger -->
+            <button class="md:hidden flex items-center justify-center w-10 h-10 rounded-lg" style="color: #94a3b8;" onclick="document.getElementById('mobileNav').classList.toggle('open')">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
         </nav>
     </header>
 
-    <main class="pt-32 pb-20 px-6">
-        <!-- Hero -->
-        <section class="max-w-5xl mx-auto text-center mb-32">
-            <div class="mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-100 text-orange-600 text-xs font-bold uppercase tracking-wider">
-                Under Active Development
-            </div>
-            <h1 class="text-6xl md:text-8xl font-black text-slate-900 mb-8 leading-tight">The social network<br><span class="text-emerald-600">for your terminal.</span></h1>
-            <p class="text-xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed">Koshi is a decentralized, terminal-first SNS built on ed25519 lattice cryptography. Experience a pure CLI-driven social experience.</p>
-            <div class="bg-slate-900 text-emerald-400 rounded-xl p-6 inline-block font-mono text-lg shadow-2xl">
-                $ npm install -g @ryopc/koshi
-            </div>
-        </section>
+    <!-- Mobile nav overlay -->
+    <div id="mobileNav" class="fixed inset-0 z-40 md:hidden" style="background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(20px); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);" onclick="this.classList.remove('open')">
+        <div class="flex flex-col items-center justify-center h-full gap-8 text-lg font-semibold">
+            <a href="/" class="nav-link active" style="color: #34d399;" onclick="document.getElementById('mobileNav').classList.remove('open')">Home</a>
+            <a href="/docs" class="nav-link" style="color: #94a3b8;" onclick="document.getElementById('mobileNav').classList.remove('open')">Docs</a>
+            <a href="/docs#api" class="nav-link" style="color: #94a3b8;" onclick="document.getElementById('mobileNav').classList.remove('open')">API</a>
+            <a href="/docs#cli" class="nav-link" style="color: #94a3b8;" onclick="document.getElementById('mobileNav').classList.remove('open')">CLI</a>
+            <a href="https://github.com/ryopc/koshi" class="nav-link" style="color: #94a3b8;" target="_blank" onclick="document.getElementById('mobileNav').classList.remove('open')">GitHub</a>
+            <a href="https://github.com/ryopc/koshi" class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-base font-bold" style="background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);" target="_blank">Star on GitHub</a>
+        </div>
+    </div>
 
-        <!-- Features Detail -->
-        <section class="max-w-7xl mx-auto py-24 border-t border-slate-200">
-            <h2 class="text-4xl font-black text-slate-900 mb-16 text-center">Core Features</h2>
-            <div class="grid md:grid-cols-2 gap-12">
-                <div class="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm">
-                    <h3 class="text-2xl font-bold text-slate-900 mb-4">Terminal-Native</h3>
-                    <p class="text-slate-600 leading-relaxed">No browser bloat. Everything from posting to DMing is handled natively within your command line environment. Designed to work perfectly with tmux or Zellij.</p>
-                </div>
-                <div class="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm">
-                    <h3 class="text-2xl font-bold text-slate-900 mb-4">Cryptographic Identity</h3>
-                    <p class="text-slate-600 leading-relaxed">Your identity is your public key. Secure authentication based on ed25519 ensures you own your social presence without relying on password databases.</p>
-                </div>
-                <div class="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm">
-                    <h3 class="text-2xl font-bold text-slate-900 mb-4">Edge-First Protocol</h3>
-                    <p class="text-slate-600 leading-relaxed">Leveraging Cloudflare Workers and D1 for global distribution. Experience sub-millisecond interaction with zero cold starts.</p>
-                </div>
-                <div class="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm">
-                    <h3 class="text-2xl font-bold text-slate-900 mb-4">Developer Centric</h3>
-                    <p class="text-slate-600 leading-relaxed">Interact with your feed using familiar piping and standard CLI flags. Integrate Koshi directly into your CI/CD or automation scripts.</p>
-                </div>
-            </div>
-        </section>
+    <style>
+        #mobileNav.open { transform: translateX(0) !important; }
+    </style>
 
-        <!-- Vision -->
-        <section class="max-w-5xl mx-auto py-24">
-            <h2 class="text-4xl font-black text-slate-900 mb-12 text-center">Why build on Koshi?</h2>
-            <div class="bg-slate-900 text-slate-300 p-16 rounded-[3rem] shadow-xl">
-                <p class="text-xl leading-relaxed mb-8">
-                    Modern social networks have become heavy, ad-driven, and disconnected from the developer workflow. 
-                    Koshi returns to the roots: text-based, protocol-focused, and developer-centric.
+    <!-- Hero -->
+    <section class="min-h-screen flex items-center relative overflow-hidden pt-16" style="background: linear-gradient(180deg, #0f172a 0%, #1a2332 50%, #0f172a 100%);">
+        <div class="bg-grid absolute inset-0 opacity-50"></div>
+        <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full" style="background: radial-gradient(circle, rgba(52, 211, 153, 0.06) 0%, transparent 70%);"></div>
+
+        <div class="max-w-5xl mx-auto px-6 relative z-10">
+            <div class="text-center mb-12">
+                <div class="mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider" style="background: rgba(251, 146, 60, 0.1); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.2);">
+                    <span class="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
+                    Under Active Development — v0.2.0
+                </div>
+                <h1 class="text-6xl md:text-8xl font-black leading-[1.1] mb-6" style="color: #e2e8f0;">
+                    The social network<br>
+                    <span style="background: linear-gradient(135deg, #34d399, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">for your terminal.</span>
+                </h1>
+                <p class="text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10" style="color: #94a3b8;">
+                    A decentralized, terminal-native SNS built on <strong style="color: #e2e8f0;">ed25519 lattice cryptography</strong>. 
+                    Every post is signed, every identity is your key — zero passwords, zero gatekeepers.
                 </p>
-                <p class="text-xl leading-relaxed">
-                    By providing a unified CLI tool, we enable developers to curate their feed and interact with the network without leaving their favorite editor.
-                </p>
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="/docs#getting-started" class="inline-flex items-center gap-2 px-8 py-3.5 rounded-full text-base font-bold transition-all" style="background: linear-gradient(135deg, #059669, #10b981); color: white; box-shadow: 0 4px 20px rgba(52, 211, 153, 0.3);">
+                        Get Started →
+                    </a>
+                    <a href="/docs" class="inline-flex items-center gap-2 px-8 py-3.5 rounded-full text-base font-semibold transition-all" style="background: rgba(148, 163, 184, 0.08); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.15);">
+                        Read the Docs
+                    </a>
+                </div>
             </div>
-        </section>
-    </main>
 
-    <footer class="bg-slate-100 py-16 text-center text-slate-500 text-sm border-t border-slate-200">
-        <p>© 2026 game-ryo. Built on the edge for the future of development.</p>
+            <!-- Terminal demo -->
+            <div class="terminal-window max-w-2xl mx-auto glow-emerald">
+                <div class="terminal-header">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                    <span class="terminal-title">kb — Koshi Board CLI</span>
+                </div>
+                <div class="p-5 font-mono text-sm leading-7">
+                    <div><span class="prompt">$ </span><span class="cmd">kb register alice</span></div>
+                    <div><span class="output">✔ Registration successful!</span></div>
+                    <div class="mt-2"><span class="prompt">$ </span><span class="cmd">kb post "Hello, koshi! 🌊"</span></div>
+                    <div><span class="output">✔ Post created!</span></div>
+                    <div class="mt-2"><span class="prompt">$ </span><span class="cmd">kb feed --limit=5</span></div>
+                    <div><span class="output">📋 Koshi Board Feed (5 posts)</span></div>
+                    <div><span class="output">  ────────────────────────────</span></div>
+                    <div><span class="output">  alice @alice</span></div>
+                    <div><span class="output">  Hello, koshi! 🌊</span></div>
+                    <div class="mt-2"><span class="prompt">$ </span><span class="terminal-cursor"></span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="py-16 relative" style="background: #0f172a;">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+                <div class="fade-up">
+                    <div class="text-3xl font-black font-mono" style="color: #34d399;">0.2.0</div>
+                    <div class="text-sm mt-1" style="color: #64748b;">Version</div>
+                </div>
+                <div class="fade-up">
+                    <div class="text-3xl font-black font-mono" style="color: #34d399;">12</div>
+                    <div class="text-sm mt-1" style="color: #64748b;">CLI Commands</div>
+                </div>
+                <div class="fade-up">
+                    <div class="text-3xl font-black font-mono" style="color: #34d399;">16</div>
+                    <div class="text-sm mt-1" style="color: #64748b;">API Endpoints</div>
+                </div>
+                <div class="fade-up">
+                    <div class="text-3xl font-black font-mono" style="color: #34d399;">MIT</div>
+                    <div class="text-sm mt-1" style="color: #64748b;">License</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="py-24 relative" style="background: #0f172a;">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <span class="badge badge-green mb-4">Features</span>
+                <h2 class="text-4xl font-black" style="color: #e2e8f0;">Why Koshi?</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(52, 211, 153, 0.1);">💻</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Terminal-Native</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">No browser bloat. Everything from posting to DMing is handled natively within your command line. Perfect with tmux or Zellij.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(96, 165, 250, 0.1);">🔐</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Cryptographic Identity</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Your identity is your ed25519 public key. Secure authentication without passwords — every action is cryptographically signed.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(251, 146, 60, 0.1);">⚡</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Real-Time Feed</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">WebSocket-powered live updates. Connect to the stream and see posts, DMs, and presence changes as they happen.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(192, 132, 252, 0.1);">📝</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Signed Posts</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Every post carries an ed25519 signature, ensuring authenticity. Verify authorship without trusting a central authority.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(244, 114, 182, 0.1);">✉️</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Direct Messages</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Signed, authenticated DMs with real-time delivery via WebSocket. Every message is verifiable and tamper-proof.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(251, 191, 36, 0.1);">☁️</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Edge Deployed</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Runs on Render.com + Neon.tech with Docker support. One-click deploy with automatic migrations on startup.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start -->
+    <section class="py-24 relative" style="background: #1a2332;" id="quick-start">
+        <div class="max-w-4xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <span class="badge badge-orange mb-4">Quick Start</span>
+                <h2 class="text-4xl font-black" style="color: #e2e8f0;">Get started in seconds</h2>
+            </div>
+
+            <div class="space-y-6">
+                <div class="code-block fade-up">
+                    <div><span class="comment"># Install Koshi globally</span></div>
+                    <div><span class="prompt">$ </span><span class="cmd">npm install -g @ryopc/koshi</span></div>
+                </div>
+
+                <div class="code-block fade-up">
+                    <div><span class="comment"># Register a new account (generates ed25519 keypair)</span></div>
+                    <div><span class="prompt">$ </span><span class="cmd">kb register alice</span></div>
+                    <div><span class="output">✔ Registration successful!</span></div>
+                </div>
+
+                <div class="code-block fade-up">
+                    <div><span class="comment"># Post to the koshi board</span></div>
+                    <div><span class="prompt">$ </span><span class="cmd">kb post "Hello, koshi! 🌊"</span></div>
+                    <div><span class="output">✔ Post created!</span></div>
+                </div>
+
+                <div class="code-block fade-up">
+                    <div><span class="comment"># View your feed</span></div>
+                    <div><span class="prompt">$ </span><span class="cmd">kb feed --limit=10</span></div>
+                    <div><span class="output">📋 Koshi Board Feed (3 posts)</span></div>
+                </div>
+
+                <div class="code-block fade-up">
+                    <div><span class="comment"># Connect to real-time stream</span></div>
+                    <div><span class="prompt">$ </span><span class="cmd">kb realtime</span></div>
+                    <div><span class="output">📡 Connecting to realtime feed...</span></div>
+                    <div><span class="output">✓ Connected! Waiting for new posts...</span></div>
+                </div>
+            </div>
+
+            <div class="text-center mt-10">
+                <a href="/docs#getting-started" class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all" style="color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">
+                    Full installation guide →
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture -->
+    <section class="py-24 relative" style="background: #0f172a;" id="architecture">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <span class="badge badge-purple mb-4">Architecture</span>
+                <h2 class="text-4xl font-black" style="color: #e2e8f0;">How Koshi works</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="p-8 rounded-2xl" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(52, 211, 153, 0.1);">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style="background: rgba(52, 211, 153, 0.1);">🔧</div>
+                        <h3 class="font-bold" style="color: #e2e8f0;">Stack</h3>
+                    </div>
+                    <div class="space-y-4 text-sm" style="color: #94a3b8;">
+                        <div class="flex justify-between items-center py-2" style="border-bottom: 1px solid rgba(148, 163, 184, 0.05);">
+                            <span>Runtime</span>
+                            <span class="font-mono text-emerald-400">Node.js 20+</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2" style="border-bottom: 1px solid rgba(148, 163, 184, 0.05);">
+                            <span>Framework</span>
+                            <span class="font-mono text-emerald-400">Express.js</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2" style="border-bottom: 1px solid rgba(148, 163, 184, 0.05);">
+                            <span>Database</span>
+                            <span class="font-mono text-emerald-400">PostgreSQL 15</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2" style="border-bottom: 1px solid rgba(148, 163, 184, 0.05);">
+                            <span>Auth</span>
+                            <span class="font-mono text-emerald-400">ed25519 + JWT</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2" style="border-bottom: 1px solid rgba(148, 163, 184, 0.05);">
+                            <span>Real-time</span>
+                            <span class="font-mono text-emerald-400">WebSocket (ws)</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2">
+                            <span>CLI</span>
+                            <span class="font-mono text-emerald-400">Chalk + Ora</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-8 rounded-2xl" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(52, 211, 153, 0.1);">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style="background: rgba(96, 165, 250, 0.1);">📁</div>
+                        <h3 class="font-bold" style="color: #e2e8f0;">Project Structure</h3>
+                    </div>
+                    <div class="font-mono text-xs leading-6" style="color: #94a3b8;">
+                        <div style="color: #64748b;">koshi/</div>
+                        <div class="pl-4">├── <span style="color: #34d399;">bin/</span></div>
+                        <div class="pl-7">├── cli.js<span style="color: #64748b;">  # CLI entry point</span></div>
+                        <div class="pl-7">└── server.js<span style="color: #64748b;">  # Express + WS server</span></div>
+                        <div class="pl-4">├── <span style="color: #34d399;">src/</span></div>
+                        <div class="pl-7">├── <span style="color: #fbbf24;">api/</span> auth.js, users.js, posts.js, dms.js</div>
+                        <div class="pl-7">├── <span style="color: #fbbf24;">auth/</span> ed25519.js, jwt.js, utils.js</div>
+                        <div class="pl-7">├── <span style="color: #fbbf24;">db/</span> schema.sql, migrate.js, pool.js</div>
+                        <div class="pl-7">├── <span style="color: #fbbf24;">ws/</span> index.js, handlers.js</div>
+                        <div class="pl-7">└── <span style="color: #fbbf24;">middleware/</span> auth.js, rateLimit.js</div>
+                        <div class="pl-4">├── Dockerfile</div>
+                        <div class="pl-4">├── render.yaml<span style="color: #64748b;">  # Render Blueprint</span></div>
+                        <div class="pl-4">└── package.json</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Commands Preview -->
+    <section class="py-24 relative" style="background: #1a2332;" id="commands">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <span class="badge badge-amber mb-4">CLI</span>
+                <h2 class="text-4xl font-black" style="color: #e2e8f0;">All Commands</h2>
+            </div>
+
+            <div class="overflow-x-auto rounded-2xl" style="border: 1px solid rgba(52, 211, 153, 0.1);">
+                <table class="cmd-table">
+                    <thead>
+                        <tr><th>Command</th><th>Description</th><th>Auth</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td class="cmd-name"><code>kb register &lt;username&gt;</code></td><td style="color: #94a3b8;">Create a new account with ed25519 keypair</td><td><span class="badge badge-slate">No</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb login &lt;username&gt;</code></td><td style="color: #94a3b8;">Authenticate using existing keypair</td><td><span class="badge badge-slate">No</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb whoami</code></td><td style="color: #94a3b8;">Show your profile information</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb post &lt;message&gt;</code></td><td style="color: #94a3b8;">Create a new post on the board</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb feed [--limit=N]</code></td><td style="color: #94a3b8;">Display your post feed</td><td><span class="badge badge-blue">Opt</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb follow &lt;username&gt;</code></td><td style="color: #94a3b8;">Follow a user</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb unfollow &lt;username&gt;</code></td><td style="color: #94a3b8;">Unfollow a user</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb dm &lt;user&gt; &lt;msg&gt;</code></td><td style="color: #94a3b8;">Send a direct message</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb dms [--unread]</code></td><td style="color: #94a3b8;">View your direct messages</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb profile [username]</code></td><td style="color: #94a3b8;">View a user's profile</td><td><span class="badge badge-blue">Opt</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb search &lt;query&gt;</code></td><td style="color: #94a3b8;">Search users by username</td><td><span class="badge badge-blue">Opt</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb realtime</code></td><td style="color: #94a3b8;">Connect to the live event stream</td><td><span class="badge badge-green">Yes</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="text-center mt-10">
+                <a href="/docs#cli" class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all" style="color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">
+                    Full CLI reference with examples →
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-16" style="background: #0c1325; border-top: 1px solid rgba(52, 211, 153, 0.05);">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="grid md:grid-cols-4 gap-10 mb-12">
+                <div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <img src="https://res.cloudinary.com/dt0zmgv8k/image/upload/v1782450296/KoShi_horboh.png" alt="Koshi" class="h-6 w-6 rounded">
+                        <span class="font-bold" style="color: #e2e8f0;">Koshi</span>
+                    </div>
+                    <p class="text-xs leading-relaxed" style="color: #64748b;">Terminal-native decentralized social network. MIT licensed.</p>
+                </div>
+                <div>
+                    <h4 class="text-xs font-semibold uppercase tracking-wider mb-4" style="color: #64748b;">Docs</h4>
+                    <div class="space-y-2 text-sm">
+                        <a href="/docs#getting-started" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors">Getting Started</a>
+                        <a href="/docs#cli" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors">CLI Reference</a>
+                        <a href="/docs#api" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors">API Reference</a>
+                        <a href="/docs#crypto" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors">Cryptography</a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-xs font-semibold uppercase tracking-wider mb-4" style="color: #64748b;">Deploy</h4>
+                    <div class="space-y-2 text-sm">
+                        <a href="/docs#deploy" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors">Render + Neon</a>
+                        <a href="/docs#deploy" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors">Docker</a>
+                        <a href="/docs#deploy" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors">Environment</a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-xs font-semibold uppercase tracking-wider mb-4" style="color: #64748b;">Links</h4>
+                    <div class="space-y-2 text-sm">
+                        <a href="https://github.com/ryopc/koshi" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors" target="_blank">GitHub</a>
+                        <a href="https://github.com/ryopc/koshi/issues" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors" target="_blank">Issues</a>
+                        <a href="https://neon.tech" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors" target="_blank">Neon.tech</a>
+                        <a href="https://render.com" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors" target="_blank">Render.com</a>
+                    </div>
+                </div>
+            </div>
+            <div class="section-divider mb-8"></div>
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-xs" style="color: #475569;">
+                <p>© 2026 game_ryo. Built with Node.js, Express, and ed25519.</p>
+                <p>Made for the terminal. Made for developers.</p>
+            </div>
+        </div>
     </footer>
+
+    <script>
+        // Particles
+        (function() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 20; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = Math.random() * 100 + '%';
+                p.style.width = (Math.random() * 3 + 2) + 'px';
+                p.style.height = p.style.width;
+                p.style.animationDelay = (Math.random() * 20) + 's';
+                p.style.animationDuration = (Math.random() * 15 + 15) + 's';
+                p.style.opacity = Math.random() * 0.2 + 0.1;
+                container.appendChild(p);
+            }
+        })();
+
+        // Intersection observer for fade-up
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+    </script>
 </body>
 </html>
