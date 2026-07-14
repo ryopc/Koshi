@@ -1,6 +1,6 @@
 # 🏄 koshi — Terminal-Native Decentralized SNS
 
-**Version 1.0.0** · MIT License · by [game_ryo](https://github.com/ryopc)
+**Version 1.1.0** · MIT License · by [game_ryo](https://github.com/ryopc)
 
 > A terminal-native, decentralized social network powered by ed25519 cryptography.
 
@@ -12,7 +12,10 @@
 - **📝 Posts** — Create and view posts on the koshi board
 - **👥 Follow System** — Follow/unfollow other users
 - **✉️ Direct Messages** — Signed, private DMs
-- **📡 Real-time** — WebSocket-powered live updates
+- **💬 Real-time Chat** — Interactive DM chat via WebSocket
+- **📡 Real-time Feed** — WebSocket-powered live updates
+- **✏️ Profile Editing** — Update your display name, bio, and avatar
+- **🛠️ Admin Controls** — User management, account deletion, admin grants
 - **💻 Terminal-native** — Beautiful CLI with chalk colors and spinners
 - **🐳 Docker-ready** — Containerized for easy deployment
 - **☁️ Render.com** — One-click deploy to Render.com
@@ -96,9 +99,12 @@ The `kb` command is your gateway to the koshi board.
 | `kb unfollow <username>` | Unfollow a user |
 | `kb dm <username> <message>` | Send a direct message |
 | `kb dms [--unread]` | View your direct messages |
+| `kb chat <username>` | Start an interactive real-time DM chat |
+| `kb edit-profile --display-name=... --bio=...` | Update your own profile |
 | `kb profile [username]` | View a user profile |
 | `kb search <query>` | Search users by username |
 | `kb realtime` | Connect to the real-time event stream |
+| `kb admin <command>` | Admin commands (users, delete-user, grant, revoke) |
 | `kb help [command]` | Show help |
 
 ### Examples
@@ -122,11 +128,26 @@ kb follow bob
 # Send a DM
 kb dm bob "Hey, how's it going?"
 
+# Start an interactive real-time DM chat
+kb chat bob
+
+# Edit your profile
+kb edit-profile --display-name="Alice" --bio="Building the terminal future"
+
 # Search for users
 kb search alice
 
 # Live stream
 kb realtime
+
+# Admin: list all users
+kb admin users
+
+# Admin: delete a user account (requires confirmation)
+kb admin delete-user bob
+
+# Admin: grant admin privileges
+kb admin grant alice
 ```
 
 ### Configuration
@@ -240,6 +261,17 @@ Authorization: Bearer <token>
 | PUT | `/api/dms/:id/read` | Yes | Mark DM as read |
 | GET | `/api/dms/unread/count` | Yes | Count unread DMs |
 
+#### Admin
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/admin/users` | Admin | List all users |
+| GET | `/api/admin/users/:id` | Admin | Get user details (with keys, DM count) |
+| DELETE | `/api/admin/users/:id` | Admin | Permanently delete a user account |
+| PUT | `/api/admin/users/:id/admin` | Admin | Grant or revoke admin privileges |
+
+> Admin privileges: Set `ADMIN_USERNAME` environment variable, or mark user as admin via `UPDATE users SET is_admin = TRUE WHERE username = '...';`
+
 #### WebSocket
 
 Connect: `ws://host:port/ws?token={jwt}`
@@ -339,6 +371,7 @@ volumes:
 
 - **Ed25519 Signatures** — All posts and DMs are signed for authenticity
 - **JWT Auth** — Tokens expire after 24 hours
+- **Admin Auth** — Admin-only endpoints protected by `requireAdmin` middleware
 - **Rate Limiting** — Auth endpoints limited to 10 req/min per IP
 - **SQL Injection Prevention** — Parameterized queries throughout
 - **Input Validation** — All endpoints validate input
@@ -376,7 +409,8 @@ koshi/
 │   │   ├── auth.js       # Auth routes (register/login)
 │   │   ├── users.js      # User management routes
 │   │   ├── posts.js      # Posts routes (koshi board)
-│   │   └── dms.js        # Direct messages routes
+│   │   ├── dms.js        # Direct messages routes
+│   │   └── admin.js      # Admin routes (users, delete, grant)
 │   ├── auth/
 │   │   ├── ed25519.js    # Ed25519 crypto utilities
 │   │   ├── jwt.js        # JWT token utilities

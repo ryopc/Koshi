@@ -62,18 +62,20 @@ import authRouter from './api/auth.js';
 import usersRouter from './api/users.js';
 import postsRouter from './api/posts.js';
 import dmsRouter from './api/dms.js';
+import adminRouter from './api/admin.js';
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/posts', postsRouter);
 app.use('/api/dms', dmsRouter);
+app.use('/api/admin', adminRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
         service: 'koshi-api',
-        version: '0.2.0',
+        version: '1.1.0',
         timestamp: new Date().toISOString(),
     });
 });

@@ -328,6 +328,9 @@
             <a href="#cli-social" class="sidebar-link">Social (follow / profile)</a>
             <a href="#cli-dms" class="sidebar-link">Messages (dm / dms)</a>
             <a href="#cli-realtime" class="sidebar-link">Realtime</a>
+            <a href="#cli-chat" class="sidebar-link">Chat (Interactive DM)</a>
+            <a href="#cli-edit-profile" class="sidebar-link">Profile Editing</a>
+            <a href="#cli-admin" class="sidebar-link">Admin Commands</a>
             <a href="#cli-env" class="sidebar-link">Environment Variables</a>
         </div>
         <div class="sidebar-group">
@@ -337,6 +340,7 @@
             <a href="#api-users" class="sidebar-link">User Endpoints</a>
             <a href="#api-posts" class="sidebar-link">Post Endpoints</a>
             <a href="#api-dms" class="sidebar-link">DM Endpoints</a>
+            <a href="#api-admin" class="sidebar-link">Admin Endpoints</a>
             <a href="#api-health" class="sidebar-link">Health Check</a>
         </div>
         <div class="sidebar-group">
@@ -391,7 +395,7 @@
         <p>Welcome to the Koshi documentation. This guide covers everything from installation to the full API reference. Koshi is a terminal-native, decentralized social network powered by ed25519 cryptography.</p>
 
         <div class="info-box info">
-            <p><strong>📦 Version:</strong> 1.0.0 · <strong>License:</strong> MIT · <strong>Author:</strong> game_ryo</p>
+            <p><strong>📦 Version:</strong> 1.1.0 · <strong>License:</strong> MIT · <strong>Author:</strong> game_ryo</p>
         </div>
 
         <h2 id="getting-started">Installation</h2>
@@ -475,7 +479,7 @@ NODE_ENV=development</code></pre>
         <pre><code><span class="prompt">$</span> kb --help
 
 <span class="cmd-out">  🏄 koshi — Terminal-Native Decentralized SNS</span>
-<span class="cmd-out">  Version 1.0.0</span>
+<span class="cmd-out">  Version 1.1.0</span>
 
 <span class="cmd-out">  Commands:</span>
 <span class="cmd-out">    register   Create a new account with ed25519 keypair</span>
@@ -490,6 +494,9 @@ NODE_ENV=development</code></pre>
 <span class="cmd-out">    profile    View a user profile</span>
 <span class="cmd-out">    search     Search users by username</span>
 <span class="cmd-out">    realtime   Connect to the real-time event stream</span>
+<span class="cmd-out">    chat       Real-time interactive DM chat</span>
+<span class="cmd-out">    edit-profile  Update your own profile</span>
+<span class="cmd-out">    admin      Admin: users, delete-user, grant, revoke</span>
 <span class="cmd-out">    help       Show this help message</span></code></pre>
 
         <h3 id="cli-auth">Auth Commands</h3>
@@ -571,6 +578,21 @@ NODE_ENV=development</code></pre>
 <span class="cmd-out">  Following:       12</span>
 <span class="cmd-out">  Joined:          7/14/2026</span></code></pre>
 
+        <h4 id="cli-edit-profile">kb edit-profile --display-name=... --bio=... --avatar-url=...</h4>
+        <p>Update your own profile fields. Only include the flags you want to change.</p>
+        <pre><code><span class="prompt">$</span> kb edit-profile --display-name="Alice" --bio="Building the terminal future"
+<span class="cmd-out">⠋ Updating profile...</span>
+<span class="cmd-out">✔ Profile updated!</span>
+
+<span class="cmd-out">  Username:        alice</span>
+<span class="cmd-out">  Display Name:    Alice</span>
+<span class="cmd-out">  Bio:             Building the terminal future</span></code></pre>
+
+        <p>Available flags:</p>
+        <pre><code>--display-name="Your Name"   <span class="comment"># Max 64 characters</span>
+--bio="About you"            <span class="comment"># Max 500 characters</span>
+--avatar-url="https://..."   <span class="comment"># Max 512 characters, must be valid URL</span></code></pre>
+
         <h3 id="cli-dms">Message Commands</h3>
 
         <h4>kb dm &lt;username&gt; &lt;message&gt;</h4>
@@ -603,6 +625,68 @@ NODE_ENV=development</code></pre>
 <span class="cmd-out">  Just joined koshi!</span></code></pre>
 
         <p>Press <strong>Ctrl+C</strong> to disconnect.</p>
+
+        <h3 id="cli-chat">Interactive Chat Command</h3>
+
+        <h4>kb chat &lt;username&gt;</h4>
+        <p>Starts an interactive real-time DM session with another user. Messages are sent and received via WebSocket in real time, with ed25519 signatures for authenticity.</p>
+        <pre><code><span class="prompt">$</span> kb chat bob
+<span class="cmd-out">  💬 Live Chat with bob</span>
+<span class="cmd-out">  Connect to real-time DMs. Type your message and press Enter.</span>
+<span class="cmd-out">  Type /exit or press Ctrl+C to quit.</span>
+
+<span class="cmd-out">  ✓ Connected!</span>
+
+<span class="cmd-out">  🟢 bob is now online</span>
+<span class="cmd-out">  > </span><span style="color: #e2e8f0;">Hey Bob! How are you?</span>
+<span class="cmd-out">  Bob: Hey Alice! I'm great, thanks!</span>
+<span class="cmd-out">  > </span></code></pre>
+
+        <p>Features:</p>
+        <ul>
+            <li>Real-time message delivery via WebSocket</li>
+            <li>Messages signed with your ed25519 key</li>
+            <li>See when the other user is online/offline</li>
+            <li>Type <code>/exit</code> or press Ctrl+C to quit</li>
+        </ul>
+
+        <h3 id="cli-admin">Admin Commands</h3>
+
+        <h4>kb admin users</h4>
+        <p>List all registered users with their stats (posts, followers, join date). Admin privileges required.</p>
+        <pre><code><span class="prompt">$</span> kb admin users
+<span class="cmd-out">  👥 All Users (3 total)</span>
+<span class="cmd-out">  ──────────────────────────────────────────────────────</span>
+<span class="cmd-out">  alice [ADMIN] — Alice</span>
+<span class="cmd-out">    ID: e7d00463-...  |  Posts: 42  |  Followers: 12  |  Joined: 7/14/2026</span>
+
+<span class="cmd-out">  bob — Bob</span>
+<span class="cmd-out">    ID: f8e11574-...  |  Posts: 7  |  Followers: 3  |  Joined: 7/14/2026</span></code></pre>
+
+        <h4>kb admin user &lt;id&gt;</h4>
+        <p>View detailed information about a specific user, including public key, DM count, and admin status.</p>
+
+        <h4>kb admin delete-user &lt;username&gt;</h4>
+        <p>Permanently delete a user account and all associated data (posts, follows, DMs — cascade deleted). Uses interactive confirmation.</p>
+        <pre><code><span class="prompt">$</span> kb admin delete-user bob
+<span class="cmd-out">  ⚠️  WARNING: This will permanently delete the user and all their data.</span>
+<span class="cmd-out">  This action cannot be undone.</span>
+
+<span class="cmd-out">  Target: @bob</span>
+<span class="cmd-out">  Type the username to confirm: bob</span>
+<span class="cmd-out">✔ User @bob has been permanently deleted.</span></code></pre>
+
+        <p>Use <code>--force</code> flag to skip confirmation for scripting.</p>
+
+        <h4>kb admin grant &lt;username&gt;</h4>
+        <p>Grant admin privileges to a user.</p>
+        <pre><code><span class="prompt">$</span> kb admin grant bob
+<span class="cmd-out">✔ @bob is now an admin!</span></code></pre>
+
+        <h4>kb admin revoke &lt;username&gt;</h4>
+        <p>Revoke admin privileges from a user.</p>
+        <pre><code><span class="prompt">$</span> kb admin revoke bob
+<span class="cmd-out">✔ Admin privileges removed from @bob.</span></code></pre>
 
         <h3 id="cli-env">CLI Environment Variables</h3>
         <div class="table-wrap">
@@ -763,6 +847,50 @@ NODE_ENV=development</code></pre>
   <span class="string">"createdAt"</span>: <span class="string">"2026-07-14T05:00:00.000Z"</span>
 }</code></pre>
 
+        <h3 id="api-admin">Admin Endpoints</h3>
+        <p>Admin endpoints require authentication AND admin privileges. Admin status is determined by the <code>is_admin</code> flag in the database or the <code>ADMIN_USERNAME</code> environment variable.</p>
+
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/admin/users</code></td><td>Admin</td><td>List all users with stats</td></tr>
+                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/admin/users/:id</code></td><td>Admin</td><td>Get detailed user info (incl. keys, DMs)</td></tr>
+                    <tr><td><span class="method method-delete">DELETE</span></td><td><code>/api/admin/users/:id</code></td><td>Admin</td><td>Permanently delete a user</td></tr>
+                    <tr><td><span class="method method-put">PUT</span></td><td><code>/api/admin/users/:id/admin</code></td><td>Admin</td><td>Grant/revoke admin privileges</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h4>DELETE /api/admin/users/:id</h4>
+        <p>Deletes a user and all associated data (posts, follows, DMs) via database CASCADE.</p>
+        <pre><code><span class="prompt">$</span> curl -X DELETE https://koshi-api.ryopc.f5.si/api/admin/users/USER_ID \
+  -H <span class="string">"Authorization: Bearer &lt;admin-token&gt;"</span>
+
+{
+  <span class="string">"success"</span>: <span class="keyword">true</span>,
+  <span class="string">"deletedUser"</span>: {
+    <span class="string">"id"</span>: <span class="string">"f8e11574-..."</span>,
+    <span class="string">"username"</span>: <span class="string">"bob"</span>
+  }
+}</code></pre>
+
+        <h4>PUT /api/admin/users/:id/admin</h4>
+        <p>Toggle admin status. Body: <code>{ "isAdmin": true }</code> or <code>{ "isAdmin": false }</code>.</p>
+        <pre><code><span class="prompt">$</span> curl -X PUT https://koshi-api.ryopc.f5.si/api/admin/users/USER_ID/admin \
+  -H <span class="string">"Authorization: Bearer &lt;admin-token&gt;"</span> \
+  -H <span class="string">"Content-Type: application/json"</span> \
+  -d '{"isAdmin": true}'
+
+{
+  <span class="string">"success"</span>: <span class="keyword">true</span>,
+  <span class="string">"user"</span>: {
+    <span class="string">"id"</span>: <span class="string">"..."</span>,
+    <span class="string">"username"</span>: <span class="string">"bob"</span>,
+    <span class="string">"isAdmin"</span>: <span class="keyword">true</span>
+  }
+}</code></pre>
+
         <h3 id="api-dms">DM Endpoints</h3>
 
         <div class="table-wrap">
@@ -805,7 +933,7 @@ NODE_ENV=development</code></pre>
 {
   <span class="string">"status"</span>: <span class="string">"ok"</span>,
   <span class="string">"service"</span>: <span class="string">"koshi-api"</span>,
-  <span class="string">"version"</span>: <span class="string">"1.0.0"</span>,
+  <span class="string">"version"</span>: <span class="string">"1.1.0"</span>,
   <span class="string">"timestamp"</span>: <span class="string">"2026-07-14T05:00:00.000Z"</span>
 }</code></pre>
 
@@ -967,6 +1095,7 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
                     <tr><td><code>display_name</code></td><td><code>VARCHAR(64)</code></td><td>Nullable</td></tr>
                     <tr><td><code>bio</code></td><td><code>TEXT</code></td><td>Nullable</td></tr>
                     <tr><td><code>avatar_url</code></td><td><code>VARCHAR(512)</code></td><td>Nullable</td></tr>
+                    <tr><td><code>is_admin</code></td><td><code>BOOLEAN</code></td><td>NOT NULL, default FALSE</td></tr>
                     <tr><td><code>created_at</code></td><td><code>TIMESTAMPTZ</code></td><td>NOT NULL, default NOW()</td></tr>
                     <tr><td><code>updated_at</code></td><td><code>TIMESTAMPTZ</code></td><td>NOT NULL, auto-updated</td></tr>
                 </tbody>
@@ -1065,6 +1194,7 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
                     <tr><td><code>PORT</code></td><td>❌</td><td>Server port (default: 3000)</td></tr>
                     <tr><td><code>NODE_ENV</code></td><td>❌</td><td><code>development</code> or <code>production</code></td></tr>
                     <tr><td><code>LOG_LEVEL</code></td><td>❌</td><td><code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code></td></tr>
+                    <tr><td><code>ADMIN_USERNAME</code></td><td>❌</td><td>Bootstrap the first admin user (e.g., <code>alice</code>)</td></tr>
                 </tbody>
             </table>
         </div>
@@ -1158,7 +1288,8 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
 │   │   ├── auth.js         <span class="comment"># Auth routes (register/login)</span>
 │   │   ├── users.js        <span class="comment"># User management routes</span>
 │   │   ├── posts.js        <span class="comment"># Posts routes (koshi board)</span>
-│   │   └── dms.js          <span class="comment"># Direct messages routes</span>
+│   │   ├── dms.js          <span class="comment"># Direct messages routes</span>
+│   │   └── admin.js        <span class="comment"># Admin routes (users, delete, grant)</span>
 │   ├── auth/
 │   │   ├── ed25519.js      <span class="comment"># Ed25519 crypto utilities</span>
 │   │   ├── jwt.js          <span class="comment"># JWT token utilities</span>

@@ -282,7 +282,7 @@
             <div class="text-center mb-12">
                 <div class="mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider" style="background: rgba(251, 146, 60, 0.1); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.2);">
                     <span class="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
-                    Under Active Development — v1.0.0
+                    Under Active Development — v1.1.0
                 </div>
                 <h1 class="text-6xl md:text-8xl font-black leading-[1.1] mb-6" style="color: #e2e8f0;">
                     The social network<br>
@@ -331,15 +331,15 @@
         <div class="max-w-5xl mx-auto px-6">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
                 <div class="fade-up">
-                    <div class="text-3xl font-black font-mono" style="color: #34d399;">1.0.0</div>
+                    <div class="text-3xl font-black font-mono" style="color: #34d399;">1.1.0</div>
                     <div class="text-sm mt-1" style="color: #64748b;">Version</div>
                 </div>
                 <div class="fade-up">
-                    <div class="text-3xl font-black font-mono" style="color: #34d399;">12</div>
+                    <div class="text-3xl font-black font-mono" style="color: #34d399;">16</div>
                     <div class="text-sm mt-1" style="color: #64748b;">CLI Commands</div>
                 </div>
                 <div class="fade-up">
-                    <div class="text-3xl font-black font-mono" style="color: #34d399;">16</div>
+                    <div class="text-3xl font-black font-mono" style="color: #34d399;">21</div>
                     <div class="text-sm mt-1" style="color: #64748b;">API Endpoints</div>
                 </div>
                 <div class="fade-up">
@@ -387,6 +387,24 @@
                     <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(244, 114, 182, 0.1);">✉️</div>
                     <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Direct Messages</h3>
                     <p class="text-sm leading-relaxed" style="color: #94a3b8;">Signed, authenticated DMs with real-time delivery via WebSocket. Every message is verifiable and tamper-proof.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(52, 211, 153, 0.1);">💬</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Real-Time Chat</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Interactive DM chat mode with live WebSocket messaging. Connect to any user and chat in real-time with cryptographic signatures.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(251, 191, 36, 0.1);">✏️</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Profile Editing</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Update your display name, bio, and avatar URL directly from the CLI with the <code>kb edit-profile</code> command.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(251, 146, 60, 0.1);">🛠️</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Admin Controls</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Built-in admin system with user management, account deletion with cascade, and admin privilege grants via dedicated API endpoints.</p>
                 </div>
 
                 <div class="feature-card p-8 rounded-2xl fade-up">
@@ -536,9 +554,12 @@
                         <tr><td class="cmd-name"><code>kb unfollow &lt;username&gt;</code></td><td style="color: #94a3b8;">Unfollow a user</td><td><span class="badge badge-green">Yes</span></td></tr>
                         <tr><td class="cmd-name"><code>kb dm &lt;user&gt; &lt;msg&gt;</code></td><td style="color: #94a3b8;">Send a direct message</td><td><span class="badge badge-green">Yes</span></td></tr>
                         <tr><td class="cmd-name"><code>kb dms [--unread]</code></td><td style="color: #94a3b8;">View your direct messages</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb chat &lt;username&gt;</code></td><td style="color: #94a3b8;">Interactive real-time DM chat</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb edit-profile &lt;flags&gt;</code></td><td style="color: #94a3b8;">Update your display name, bio, avatar</td><td><span class="badge badge-green">Yes</span></td></tr>
                         <tr><td class="cmd-name"><code>kb profile [username]</code></td><td style="color: #94a3b8;">View a user's profile</td><td><span class="badge badge-blue">Opt</span></td></tr>
                         <tr><td class="cmd-name"><code>kb search &lt;query&gt;</code></td><td style="color: #94a3b8;">Search users by username</td><td><span class="badge badge-blue">Opt</span></td></tr>
                         <tr><td class="cmd-name"><code>kb realtime</code></td><td style="color: #94a3b8;">Connect to the live event stream</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb admin &lt;cmd&gt;</code></td><td style="color: #94a3b8;">Admin: users, delete-user, grant, revoke</td><td><span class="badge badge-pink">Admin</span></td></tr>
                     </tbody>
                 </table>
             </div>

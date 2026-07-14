@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
     display_name VARCHAR(64),
     bio         TEXT,
     avatar_url  VARCHAR(512),
+    is_admin    BOOLEAN NOT NULL DEFAULT FALSE,   -- admin privileges
     created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
@@ -99,6 +100,14 @@ DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
 CREATE TRIGGER trg_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
+-- 6. Seed: promote first registered user to admin (optional trigger)
+--    Alternatively, set via: UPDATE users SET is_admin = TRUE WHERE username = 'adminusername';
+-- ============================================================================
+-- Admin is managed via API or direct DB update.
+-- The first user can be made admin by setting the ADMIN_USERNAME env var.
+-- See src/middleware/auth.js for how admin status is checked.
 
 -- Apply to kb_posts
 DROP TRIGGER IF EXISTS trg_posts_updated_at ON kb_posts;

@@ -522,6 +522,56 @@ async function cmdProfile(args) {
 }
 
 // ============================================================================
+// Command: edit-profile
+// ============================================================================
+async function cmdEditProfile(args) {
+    const config = loadConfig();
+    if (!config.token) {
+        console.error(chalk.red('✖ Not logged in.'));
+        process.exit(1);
+    }
+
+    // Parse flags
+    let displayName, bio, avatarUrl;
+    for (const arg of args) {
+        if (arg.startsWith('--display-name=')) {
+            displayName = arg.slice('--display-name='.length);
+        } else if (arg.startsWith('--bio=')) {
+            bio = arg.slice('--bio='.length);
+        } else if (arg.startsWith('--avatar-url=')) {
+            avatarUrl = arg.slice('--avatar-url='.length);
+        }
+    }
+
+    if (!displayName && !bio && !avatarUrl) {
+        console.error(chalk.red('✖ Error: Provide at least one field to update.'));
+        console.error(chalk.dim('  Usage: kb edit-profile --display-name="My Name" --bio="Hello!" --avatar-url="https://..."'));
+        process.exit(1);
+    }
+
+    const spinner = ora('Updating profile...').start();
+
+    try {
+        const body = {};
+        if (displayName !== undefined) body.displayName = displayName.trim();
+        if (bio !== undefined) body.bio = bio.trim();
+        if (avatarUrl !== undefined) body.avatarUrl = avatarUrl;
+
+        const data = await apiRequest('PUT', '/api/users/me', body, config.token);
+
+        spinner.succeed(chalk.green('Profile updated!'));
+
+        console.log(`\n  ${chalk.bold('Username:')}       ${chalk.cyan(data.username)}`);
+        if (data.displayName) console.log(`  ${chalk.bold('Display Name:')}   ${data.displayName}`);
+        if (data.bio) console.log(`  ${chalk.bold('Bio:')}            ${data.bio}`);
+        if (data.avatarUrl) console.log(`  ${chalk.bold('Avatar:')}         ${chalk.dim(data.avatarUrl)}`);
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed to update profile: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+// ============================================================================
 // Command: search
 // ============================================================================
 async function cmdSearch(args) {
@@ -600,11 +650,27 @@ function showHelp(command = null) {
         },
         profile: {
             usage: 'kb profile [username]',
-            desc: 'View a user profile (default: your own)',
+            desc: 'View a user profile',
+        },
+        'edit-profile': {
+            usage: 'kb edit-profile --display-name=... --bio=... --avatar-url=...',
+            desc: 'Update your own profile',
         },
         search: {
             usage: 'kb search <query>',
             desc: 'Search users by username or display name',
+        },
+        chat: {
+            usage: 'kb chat <username>',
+            desc: 'Real-time interactive DM chat',
+        },
+        realtime: {
+            usage: 'kb realtime',
+            desc: 'Stream live posts and events',
+        },
+        admin: {
+            usage: 'kb admin <command>',
+            desc: 'Admin: users, delete-user, grant, revoke',
         },
         help: {
             usage: 'kb help [command]',
@@ -623,7 +689,7 @@ function showHelp(command = null) {
     }
 
     console.log(`\n  ${chalk.bold.cyan('🏄 koshi — Terminal-Native Decentralized SNS')}`);
-    console.log(`  ${chalk.dim('Version 1.0.0')}`);
+    console.log(`  ${chalk.dim('Version 1.1.0')}`);
     console.log(`\n  ${chalk.bold('Usage:')} kb <command> [options]\n`);
     console.log(`  ${chalk.bold('Commands:')}\n`);
 
@@ -647,10 +713,334 @@ function showHelp(command = null) {
 // Command: version
 // ============================================================================
 function showVersion() {
-    console.log('koshi v1.0.0');
+    console.log('koshi v1.1.0');
     console.log('Terminal-native decentralized SNS');
     console.log('License: MIT');
     console.log('Author: game_ryo');
+}
+
+// ============================================================================
+// Command: admin
+// ============================================================================
+async function cmdAdmin(args) {
+    const config = loadConfig();
+    if (!config.token) {
+        console.error(chalk.red('✖ Not logged in. Admin commands require authentication.'));
+        process.exit(1);
+    }
+
+    const subcommand = args[0];
+
+    if (!subcommand || subcommand === 'help') {
+        console.log(`\n  ${chalk.bold.cyan('🛠️  Admin Commands')}`);
+        console.log(`  ${chalk.dim('─'.repeat(50))}`);
+        console.log(`  ${chalk.cyan('kb admin users')}          List all registered users`);
+        console.log(`  ${chalk.cyan('kb admin user <id>')}      View detailed user info`);
+        console.log(`  ${chalk.cyan('kb admin delete-user <username>')}  Permanently delete a user account`);
+        console.log(`  ${chalk.cyan('kb admin grant <username>')}     Grant admin privileges`);
+        console.log(`  ${chalk.cyan('kb admin revoke <username>')}    Revoke admin privileges`);
+        console.log(`  ${chalk.dim('─'.repeat(50))}\n`);
+        return;
+    }
+
+    switch (subcommand) {
+        case 'users':
+            await cmdAdminUsers(config);
+            break;
+        case 'user':
+            await cmdAdminUserDetail(config, args.slice(1));
+            break;
+        case 'delete-user':
+            await cmdAdminDeleteUser(config, args.slice(1));
+            break;
+        case 'grant':
+            await cmdAdminSetAdmin(config, args.slice(1), true);
+            break;
+        case 'revoke':
+            await cmdAdminSetAdmin(config, args.slice(1), false);
+            break;
+        default:
+            console.error(chalk.red(`✖ Unknown admin command: "${subcommand}"`));
+            process.exit(1);
+    }
+}
+
+async function cmdAdminUsers(config) {
+    const spinner = ora('Fetching user list...').start();
+    try {
+        const data = await apiRequest('GET', '/api/admin/users', null, config.token);
+        spinner.stop();
+
+        console.log(`\n  ${chalk.bold.cyan(`👥 All Users (${data.total} total)`)}`);
+        console.log(`  ${chalk.dim('─'.repeat(70))}`);
+
+        for (const user of data.users) {
+            const adminBadge = user.isAdmin ? chalk.yellow(' [ADMIN]') : '';
+            const display = user.displayName || '(no display name)';
+            console.log(`  ${chalk.bold(user.username)}${adminBadge} ${chalk.dim(`— ${display}`)}`);
+            console.log(`    ${chalk.dim(`ID: ${user.id}  |  Posts: ${user.postsCount}  |  Followers: ${user.followersCount}  |  Joined: ${new Date(user.createdAt).toLocaleDateString()}`)}`);
+            console.log();
+        }
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed to list users: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdAdminUserDetail(config, args) {
+    const userId = args[0];
+    if (!userId) {
+        console.error(chalk.red('✖ Error: User ID is required. Usage: kb admin user <id>'));
+        process.exit(1);
+    }
+
+    const spinner = ora('Fetching user details...').start();
+    try {
+        const data = await apiRequest('GET', `/api/admin/users/${userId}`, null, config.token);
+        spinner.stop();
+
+        console.log(`\n  ${chalk.bold.cyan('🔍 User Details')}`);
+        console.log(`  ${chalk.dim('─'.repeat(50))}`);
+        console.log(`  ${chalk.bold('Username:')}       ${chalk.cyan(data.username)}`);
+        console.log(`  ${chalk.bold('ID:')}             ${chalk.dim(data.id)}`);
+        console.log(`  ${chalk.bold('Public Key:')}     ${chalk.dim(data.publicKey ? data.publicKey.substring(0, 32) + '...' : 'N/A')}`);
+        if (data.displayName) console.log(`  ${chalk.bold('Display Name:')}   ${data.displayName}`);
+        if (data.bio) console.log(`  ${chalk.bold('Bio:')}            ${data.bio}`);
+        console.log(`  ${chalk.bold('Admin:')}          ${data.isAdmin ? chalk.green('✓ Yes') : chalk.dim('No')}`);
+        console.log(`  ${chalk.bold('Posts:')}          ${data.postsCount}`);
+        console.log(`  ${chalk.bold('DMs:')}            ${data.dmsCount}`);
+        console.log(`  ${chalk.bold('Followers:')}      ${data.followersCount}`);
+        console.log(`  ${chalk.bold('Following:')}      ${data.followingCount}`);
+        console.log(`  ${chalk.bold('Joined:')}         ${new Date(data.createdAt).toLocaleDateString()}`);
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed to fetch user: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdAdminDeleteUser(config, args) {
+    const username = args.find(a => !a.startsWith('--'));
+    const force = args.includes('--force');
+
+    if (!username) {
+        console.error(chalk.red('✖ Error: Username is required. Usage: kb admin delete-user <username>'));
+        process.exit(1);
+    }
+
+    if (!force) {
+        // Confirm deletion interactively
+        console.log(`\n  ${chalk.yellow('⚠️  WARNING: This will permanently delete the user and all their data.')}`);
+        console.log(`  ${chalk.yellow('This action cannot be undone.')}\n`);
+        console.log(`  ${chalk.bold('Target:')} @${username}`);
+        console.log();
+
+        const confirmation = await new Promise((resolve) => {
+            process.stdout.write(`  ${chalk.bold('Type the username to confirm')}: `);
+            process.stdin.once('data', (buf) => {
+                resolve(buf.toString().trim());
+            });
+        });
+
+        if (confirmation !== username) {
+            console.log(chalk.yellow('\n  ✖ Confirmation does not match. Aborted.'));
+            process.exit(1);
+        }
+    }
+
+    const spinner = ora(`Deleting user @${username}...`).start();
+
+    try {
+        // Resolve username to ID first
+        const userData = await apiRequest('GET', `/api/users/${username}`, null, config.token);
+
+        const result = await apiRequest('DELETE', `/api/admin/users/${userData.id}`, {}, config.token);
+
+        spinner.succeed(chalk.green(`User @${username} has been permanently deleted.`));
+    } catch (err) {
+        spinner.fail(chalk.red(`Delete failed: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdAdminSetAdmin(config, args, makeAdmin) {
+    const username = args[0];
+    if (!username) {
+        const action = makeAdmin ? 'grant' : 'revoke';
+        console.error(chalk.red(`✖ Error: Username is required. Usage: kb admin ${action} <username>`));
+        process.exit(1);
+    }
+
+    const actionLabel = makeAdmin ? 'Granting admin to' : 'Revoking admin from';
+    const spinner = ora(`${actionLabel} @${username}...`).start();
+
+    try {
+        const userData = await apiRequest('GET', `/api/users/${username}`, null, config.token);
+
+        const result = await apiRequest('PUT', `/api/admin/users/${userData.id}/admin`, {
+            isAdmin: makeAdmin,
+        }, config.token);
+
+        if (makeAdmin) {
+            spinner.succeed(chalk.green(`@${username} is now an admin!`));
+        } else {
+            spinner.succeed(chalk.yellow(`Admin privileges removed from @${username}.`));
+        }
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+// ============================================================================
+// Command: chat (interactive real-time DM mode)
+// ============================================================================
+async function cmdChat(args) {
+    const config = loadConfig();
+    if (!config.token || !config.secretKey) {
+        console.error(chalk.red('✖ Not logged in. Use "kb login" or "kb register" first.'));
+        process.exit(1);
+    }
+
+    const targetUsername = args[0];
+    if (!targetUsername) {
+        console.error(chalk.red('✖ Error: Usage: kb chat <username>'));
+        process.exit(1);
+    }
+
+    console.log(`\n  ${chalk.bold.cyan('💬 Live Chat with')} ${chalk.bold(targetUsername)}`);
+    console.log(`  ${chalk.dim('Connect to real-time DMs. Type your message and press Enter.')}`);
+    console.log(`  ${chalk.dim('Type /exit or press Ctrl+C to quit.')}\n`);
+
+    try {
+        // Resolve target user
+        const userData = await apiRequest('GET', `/api/users/${targetUsername}`, null, config.token);
+        const { default: WebSocket } = await import('ws');
+
+        // Connect to WebSocket
+        const ws = new WebSocket(`${WS_URL}/ws?token=${config.token}`);
+
+        ws.on('open', () => {
+            console.log(chalk.green('  ✓ Connected!\n'));
+            promptForInput();
+        });
+
+        // Handle incoming messages
+        ws.on('message', (data) => {
+            try {
+                const msg = JSON.parse(data.toString());
+
+                switch (msg.type) {
+                    case 'connected':
+                        // Initial connection confirmation
+                        break;
+
+                    case 'dm_received':
+                        if (msg.payload.from.username === targetUsername) {
+                            console.log(`\n  ${chalk.bold.green(`${targetUsername}:`)} ${msg.payload.content}`);
+                            promptForInput();
+                        }
+                        break;
+
+                    case 'dm:sent':
+                        console.log(`\n  ${chalk.bold.cyan(`You:`)} ${msg.payload.content}`);
+                        promptForInput();
+                        break;
+
+                    case 'error':
+                        console.log(`\n  ${chalk.red(`✖ Error: ${msg.payload.message}`)}`);
+                        promptForInput();
+                        break;
+
+                    case 'user_online':
+                        if (msg.payload.username === targetUsername) {
+                            console.log(`\n  ${chalk.green('🟢')} ${chalk.bold(targetUsername)} ${chalk.dim('is now online')}`);
+                        }
+                        break;
+
+                    case 'user_offline':
+                        if (msg.payload.userId === userData.id) {
+                            console.log(`\n  ${chalk.red('🔴')} ${chalk.bold(targetUsername)} ${chalk.dim('went offline')}`);
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+            } catch {
+                // Ignore parse errors
+            }
+        });
+
+        ws.on('close', () => {
+            console.log(chalk.yellow('\n  Disconnected.'));
+            process.exit(0);
+        });
+
+        ws.on('error', (err) => {
+            console.error(chalk.red(`\n  WebSocket error: ${err.message}`));
+            process.exit(1);
+        });
+
+        // Handle user input
+        let inputBuffer = '';
+        function promptForInput() {
+            process.stdout.write(chalk.cyan('  > '));
+        }
+
+        process.stdin.setEncoding('utf-8');
+        process.stdin.on('data', async (chunk) => {
+            inputBuffer += chunk;
+
+            if (inputBuffer.includes('\n')) {
+                const lines = inputBuffer.split('\n');
+                inputBuffer = lines.pop(); // Keep incomplete line
+
+                for (const line of lines) {
+                    const trimmed = line.trim();
+
+                    if (!trimmed) {
+                        promptForInput();
+                        continue;
+                    }
+
+                    if (trimmed === '/exit') {
+                        console.log(chalk.dim('  Closing connection...'));
+                        ws.close();
+                        return;
+                    }
+
+                    // Sign and send the message
+                    try {
+                        const { signMessage } = await import('../src/auth/ed25519.js');
+                        const signature = await signMessage(trimmed, config.secretKey);
+
+                        ws.send(JSON.stringify({
+                            type: 'dm:send',
+                            payload: {
+                                recipientId: userData.id,
+                                content: trimmed,
+                                signature,
+                            },
+                        }));
+                    } catch (err) {
+                        console.log(`  ${chalk.red(`✖ Failed to send: ${err.message}`)}`);
+                        promptForInput();
+                    }
+                }
+            }
+        });
+
+        // Graceful shutdown
+        process.on('SIGINT', () => {
+            console.log(chalk.dim('\n  Closing connection...'));
+            ws.close();
+            process.exit(0);
+        });
+
+    } catch (err) {
+        console.error(chalk.red(`Failed to start chat: ${err.message}`));
+        process.exit(1);
+    }
 }
 
 // ============================================================================
@@ -800,6 +1190,18 @@ async function main() {
 
         case 'search':
             await cmdSearch(args.slice(1));
+            break;
+
+        case 'edit-profile':
+            await cmdEditProfile(args.slice(1));
+            break;
+
+        case 'chat':
+            await cmdChat(args.slice(1));
+            break;
+
+        case 'admin':
+            await cmdAdmin(args.slice(1));
             break;
 
         case 'realtime':
