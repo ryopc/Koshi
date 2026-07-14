@@ -26,8 +26,8 @@ import ora from 'ora';
 const CONFIG_DIR = join(homedir(), '.config', 'koshi');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 const SNSRC_FILE = join(homedir(), '.snsrc');
-const API_BASE = process.env.KOSHI_API_URL || 'http://localhost:3000';
-const WS_URL = process.env.KOSHI_WS_URL || 'ws://localhost:3000';
+const API_BASE = process.env.KOSHI_API_URL || 'https://koshi-api.ryopc.f5.si';
+const WS_URL = process.env.KOSHI_WS_URL || 'wss://koshi-api.ryopc.f5.si';
 
 // ============================================================================
 // Helper: load configuration
@@ -638,8 +638,8 @@ function showHelp(command = null) {
     console.log(`    --help, -h    Show help for a command`);
     console.log(`    --version, -v Show version`);
     console.log(`\n  ${chalk.dim('Environment:')}`);
-    console.log(`    ${chalk.dim('KOSHI_API_URL   API base URL (default: http://localhost:3000)')}`);
-    console.log(`    ${chalk.dim('KOSHI_WS_URL    WebSocket URL (default: ws://localhost:3000)')}`);
+    console.log(`    ${chalk.dim('KOSHI_API_URL   API base URL (default: https://koshi-api.ryopc.f5.si)')}`);
+    console.log(`    ${chalk.dim('KOSHI_WS_URL    WebSocket URL (default: wss://koshi-api.ryopc.f5.si)')}`);
     console.log();
 }
 

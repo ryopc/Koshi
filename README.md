@@ -137,8 +137,8 @@ Environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `KOSHI_API_URL` | `http://localhost:3000` | API base URL |
-| `KOSHI_WS_URL` | `ws://localhost:3000` | WebSocket URL |
+| `KOSHI_API_URL` | `https://koshi-api.ryopc.f5.si` | API base URL |
+| `KOSHI_WS_URL` | `wss://koshi-api.ryopc.f5.si` | WebSocket URL |
 
 ---
 
@@ -192,7 +192,7 @@ npm start
 ### Base URL
 
 Development: `http://localhost:3000/api`
-Production: `https://koshi-api.onrender.com/api`
+Production: `https://koshi-api.ryopc.f5.si/api`
 
 ### Authentication
 
