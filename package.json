@@ -2,6 +2,7 @@
   "name": "@ryopc/koshi",
   "version": "1.1.0",
   "description": "Terminal-native decentralized SNS — koshi board",
+  "homepage": "https://koshi.js.org",
   "type": "module",
   "bin": {
     "kb": "bin/cli.js"
@@ -37,7 +38,7 @@
     "uuid": "^14.0.0"
   },
   "license": "MIT",
-  "author": "game_ryo",
+  "author": "ryopc",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ryopc/koshi.git"
