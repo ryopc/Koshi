@@ -3,10 +3,17 @@
 # GitHub Actions CI/CD Workflow
 # License: MIT
 # ============================================================================
-# Automatically tests, builds, and deploys to PandaStack on every push to main.
+# Automatically tests on every push, then triggers a deploy to Render.com
+# via Render Deploy Hook when pushing to main.
+#
+# Prerequisites:
+#   1. Connect your GitHub repo to Render.com
+#   2. Create a Deploy Hook in Render dashboard:
+#      https://dashboard.render.com → your service → Settings → Deploy Hook
+#   3. Add the Deploy Hook URL as a GitHub secret: RENDER_DEPLOY_HOOK_URL
 # ============================================================================
 
-name: Deploy to PandaStack
+name: CI/CD
 
 on:
   push:
@@ -47,29 +54,17 @@ jobs:
         continue-on-error: true  # Allow deployment while tests are being set up
 
   # ============================================================================
-  # Deploy job: only runs on push to main (not PRs)
+  # Deploy job: trigger Render.com deploy via Deploy Hook
+  # Only runs on push to main (not PRs)
   # ============================================================================
   deploy:
-    name: Deploy to PandaStack
+    name: Deploy to Render.com
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Deploy to PandaStack
-        run: npx @pandastack/cli deploy --prod
-        env:
-          PANDASTACK_TOKEN: ${{ secrets.PANDASTACK_TOKEN }}
-          # PandaStack will inject DATABASE_URL and JWT_SECRET automatically
+      - name: Trigger Render.com deploy
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+        shell: bash

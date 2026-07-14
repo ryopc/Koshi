@@ -20,7 +20,7 @@ const isDev = process.env.NODE_ENV !== 'production';
  * Pino logger instance.
  *
  * In development: human-readable output via pino-pretty
- * In production: JSON output (for log aggregation in PandaStack)
+ * In production: JSON output (for log aggregation)
  *
  * Log levels: debug, info, warn, error
  */

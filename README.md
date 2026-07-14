@@ -15,7 +15,8 @@
 - **📡 Real-time** — WebSocket-powered live updates
 - **💻 Terminal-native** — Beautiful CLI with chalk colors and spinners
 - **🐳 Docker-ready** — Containerized for easy deployment
-- **☁️ PandaStack** — One-click deploy to PandaStack
+- **☁️ Render.com** — One-click deploy to Render.com
+- **🗄️ Neon.tech** — Serverless PostgreSQL 15 database
 
 ---
 
@@ -74,7 +75,7 @@ npm link
 ### Dependencies
 
 - **Node.js** >= 18.0.0
-- **PostgreSQL** >= 15.0 (managed by PandaStack in production)
+- **PostgreSQL** >= 15.0 (hosted on [Neon.tech](https://neon.tech) in production)
 
 ---
 
@@ -191,7 +192,7 @@ npm start
 ### Base URL
 
 Development: `http://localhost:3000/api`
-Production: `https://koshi-api.pandastack.app/api`
+Production: `https://koshi-api.onrender.com/api`
 
 ### Authentication
 
@@ -255,12 +256,40 @@ Events: `message_sent`, `dm_received`, `user_online`, `user_offline`, `post_crea
 
 ## ☁️ Deployment
 
-### PandaStack (Recommended)
+### Render.com + Neon.tech (Recommended)
 
-1. Push to GitHub
-2. Connect your repo to PandaStack
-3. Set environment variables (`DATABASE_URL`, `JWT_SECRET`)
-4. PandaStack auto-deploys on every push to `main`
+#### 1. Set up Neon.tech Database
+
+1. Go to [Neon.tech](https://neon.tech) and create an account
+2. Create a new project (PostgreSQL 15)
+3. Get your connection string from **Connection Details** → `DATABASE_URL`
+4. For production, use the **pooled connection string** (with `?pgbouncer=true`)
+
+#### 2. Deploy on Render.com
+
+1. Push this repo to GitHub
+2. Go to [Render.com](https://render.com) and connect your GitHub repo
+3. Render will auto-detect [`render.yaml`](render.yaml) (Blueprint) and create the service
+4. In Render dashboard, add environment variables:
+   - `DATABASE_URL` — your Neon.tech connection string
+   - `JWT_SECRET` — generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+5. Render will auto-deploy on every push to `main`
+
+#### Alternative: Manual Setup on Render
+
+If you prefer not to use Blueprint:
+
+1. Create a new **Web Service** on Render
+2. Connect your GitHub repo
+3. Configure:
+   - **Name**: `koshi-api`
+   - **Environment**: `Node`
+   - **Build Command**: `npm ci`
+   - **Start Command**: `node bin/server.js`
+   - **Health Check Path**: `/api/health`
+   - **Pre-Deploy Command**: `node src/db/migrate.js`
+4. Add environment variables (see above)
+5. Deploy!
 
 ### Docker
 
@@ -365,7 +394,7 @@ koshi/
 │   └── index.js          # Express app setup + logger
 ├── package.json
 ├── Dockerfile
-├── pandastack.json
+├── render.yaml           # Render Blueprint (deployment config)
 ├── .env.example
 └── .github/workflows/deploy.yml
 ```
@@ -386,4 +415,5 @@ MIT — see [LICENSE](LICENSE).
 - [Chalk](https://github.com/chalk/chalk) — Terminal styling
 - [Express](https://expressjs.com/) — Web framework
 - [PostgreSQL](https://www.postgresql.org/) — Database
-- [PandaStack](https://pandastack.app) — Deployment platform
+- [Render](https://render.com) — Cloud hosting
+- [Neon](https://neon.tech) — Serverless PostgreSQL

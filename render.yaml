@@ -1,0 +1,62 @@
+# ============================================================================
+# koshi – Terminal-Native Decentralized SNS
+# Render Blueprint (Infrastructure as Code)
+# License: MIT
+# ============================================================================
+# This file defines the infrastructure for deploying koshi on Render.com.
+# Database is hosted externally on Neon.tech (PostgreSQL 15).
+#
+# How to use:
+#   1. Push this repo to GitHub
+#   2. Connect your GitHub repo to Render.com
+#   3. Render will auto-detect this render.yaml and create the service
+#   4. Add your Neon.tech DATABASE_URL and JWT_SECRET in Render dashboard
+#      under Environment Variables
+#
+# See: https://render.com/docs/blueprint-spec
+# ============================================================================
+
+services:
+  # ============================================================================
+  # Web Service: koshi-api
+  # ============================================================================
+  - type: web
+    name: koshi-api
+    env: node
+    # Region: Choose the region closest to your users
+    # Options: oregon, frankfurt, singapore, ohio, virginia, tokyo
+    # region: singapore
+
+    # Build & Start
+    buildCommand: npm ci
+    startCommand: node bin/server.js
+
+    # Health Check
+    healthCheckPath: /api/health
+    # Note: Neon.tech free tier has cold starts (~3-5s).
+    # If deploys fail due to health check timeouts, increase this:
+    # healthCheckTimeout: 30
+
+    # Auto-deploy from main branch
+    autoDeploy: true
+    branch: main
+
+    # Pre-deploy command: runs migrations before each deploy
+    preDeployCommand: node src/db/migrate.js
+
+    # Environment Variables
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: PORT
+        value: "3000"
+
+      # Database — set these in Render dashboard (never commit secrets)
+      # - key: DATABASE_URL
+      #   sync: false  # Set manually from Neon.tech connection string
+
+      # JWT Secret — Render can auto-generate this
+      # - key: JWT_SECRET
+      #   generateValue: true

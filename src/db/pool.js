@@ -4,8 +4,11 @@
 // License: MIT
 // ============================================================================
 // Provides a singleton PostgreSQL connection pool using the `pg` module.
-// Reads connection config from environment variables. In production (PandaStack),
-// the DATABASE_URL env var is set automatically by the platform.
+// Reads connection config from environment variables.
+//
+// Production (Render.com + Neon.tech):
+//   Set DATABASE_URL to your Neon.tech connection string.
+//   SSL is enforced automatically for remote connections.
 // ============================================================================
 
 import pkg from 'pg';
@@ -32,12 +35,28 @@ export function getPool() {
         );
     }
 
-    pool = new Pool({
+    const poolConfig = {
         connectionString,
         max: 20,                       // Max connections in pool
         idleTimeoutMillis: 30000,       // Close idle clients after 30s
-        connectionTimeoutMillis: 5000,  // Fail fast if DB is unreachable
-    });
+        connectionTimeoutMillis: 10000, // Allow extra time for Neon.tech cold starts
+    };
+
+    // Enforce SSL in production (required by Neon.tech).
+    // We check NODE_ENV + hostname to cover both production and any
+    // Docker/non-local staging setups that use remote databases.
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isLocalHost = connectionString.includes('localhost') ||
+                        connectionString.includes('127.0.0.1') ||
+                        connectionString.includes('0.0.0.0');
+
+    if (!isLocalHost || isProduction) {
+        poolConfig.ssl = {
+            rejectUnauthorized: true,  // Neon uses valid Let's Encrypt certs
+        };
+    }
+
+    pool = new Pool(poolConfig);
 
     // Log pool errors so they don't crash the process silently
     pool.on('error', (err) => {
