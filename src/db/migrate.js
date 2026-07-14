@@ -7,8 +7,12 @@
 // Reads and executes src/db/schema.sql against the PostgreSQL database.
 // Safe to run multiple times — all tables use IF NOT EXISTS.
 //
-// Usage:
+// Usage (CLI):
 //   node src/db/migrate.js
+//
+// Usage (programmatic):
+//   import { runMigration } from './src/db/migrate.js';
+//   await runMigration();
 //
 // Environment:
 //   DATABASE_URL - PostgreSQL connection string (required)
@@ -17,10 +21,59 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import pkg from 'pg';
+import { logger } from '../logger.js';
+
+const { Pool } = pkg;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-async function migrate() {
+// ============================================================================
+// runMigration() — programmatic entry point
+// ============================================================================
+// Runs the schema migration against the database.
+// Uses the project's logger if available, falls back to console.
+// Safe to call multiple times (all CREATE statements use IF NOT EXISTS).
+//
+// Returns: { success: boolean, message: string }
+// ============================================================================
+export async function runMigration() {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+        const msg = 'DATABASE_URL environment variable is not set. Skipping migration.';
+        logger.warn(msg);
+        return { success: false, message: msg };
+    }
+
+    const pool = new Pool({ connectionString, connectionTimeoutMillis: 10000 });
+
+    try {
+        // Test connection
+        await pool.query('SELECT NOW()');
+
+        // Read schema file
+        const schemaPath = join(__dirname, 'schema.sql');
+        const schema = readFileSync(schemaPath, 'utf-8');
+
+        // Execute schema (pg allows multi-statement queries)
+        await pool.query(schema);
+
+        const msg = 'Database migration completed. All tables and indexes are up to date.';
+        logger.info(msg);
+        return { success: true, message: msg };
+    } catch (err) {
+        const msg = `Database migration failed: ${err.message}`;
+        logger.error({ err }, msg);
+        return { success: false, message: msg };
+    } finally {
+        await pool.end();
+    }
+}
+
+// ============================================================================
+// CLI entry point (when run directly: node src/db/migrate.js)
+// ============================================================================
+async function main() {
     // Load .env file if present (development only)
     try {
         const dotenv = await import('dotenv');
@@ -39,44 +92,15 @@ async function migrate() {
 
     console.log('📦 Connecting to database...');
 
-    let pkg;
-    try {
-        pkg = await import('pg');
-    } catch {
-        console.error('❌ FATAL: "pg" module not found. Run "npm install" first.');
-        process.exit(1);
-    }
+    const result = await runMigration();
 
-    const { Pool } = pkg.default;
-    const pool = new Pool({ connectionString });
-
-    try {
-        // Test connection
-        await pool.query('SELECT NOW()');
-        console.log('✅ Connected to database successfully.');
-
-        // Read schema file
-        const schemaPath = join(__dirname, 'schema.sql');
-        const schema = readFileSync(schemaPath, 'utf-8');
-
-        console.log('📄 Running schema migration...');
-
-        // Execute schema (split by semicolons to handle potential multi-statement issues,
-        // but pg allows multi-statement queries so we can run it all at once)
-        await pool.query(schema);
-
-        console.log('✅ Migration completed successfully.');
+    if (result.success) {
         console.log('   Tables created: users, follows, kb_posts, dms');
         console.log('   Indexes created: username, public_key, follower/following, posts, dms');
-    } catch (err) {
-        console.error('❌ Migration failed:', err.message);
-        if (err.stack) {
-            console.error('   Stack:', err.stack);
-        }
+        process.exit(0);
+    } else {
         process.exit(1);
-    } finally {
-        await pool.end();
     }
 }
 
-migrate();
+main();

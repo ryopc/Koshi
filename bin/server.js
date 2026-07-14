@@ -23,6 +23,7 @@ import { app, logger } from '../src/index.js';
 import { initWebSocket, startHeartbeat } from '../src/ws/index.js';
 import { closePool } from '../src/db/pool.js';
 import { getOnlineCount } from '../src/ws/index.js';
+import { runMigration } from '../src/db/migrate.js';
 
 // Load .env file in development
 try {
@@ -50,6 +51,20 @@ if (missing.length > 0) {
     console.error(`\n   Create a .env file or export these variables.`);
     console.error(`   See .env.example for reference.\n`);
     process.exit(1);
+}
+
+// ============================================================================
+// Auto-migration: ensure database schema is up to date on startup
+// ============================================================================
+// This is especially important for Render free-tier instances that hibernate.
+// The preDeployCommand only runs on fresh deploys, not on wake-up, so we
+// run the migration here to guarantee tables exist on every start.
+// ============================================================================
+const migrationResult = await runMigration();
+if (!migrationResult.success) {
+    logger.warn({ message: migrationResult.message }, 'Auto-migration did not complete. Server will still start.');
+} else {
+    logger.info('Auto-migration complete');
 }
 
 // Create HTTP server

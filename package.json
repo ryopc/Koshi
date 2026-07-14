@@ -3,7 +3,6 @@
   "version": "0.2.0",
   "description": "Terminal-native decentralized SNS — koshi board",
   "type": "module",
-  "main": "src/index.js",
   "bin": {
     "kb": "bin/cli.js"
   },
@@ -14,38 +13,48 @@
     "test": "node --experimental-vm-modules node_modules/.bin/jest || true",
     "lint": "eslint . --ext .js || true",
     "migrate": "node src/db/migrate.js",
-    "postinstall": "echo 'koshi: Run npm run migrate to set up the database.'"
+    "postinstall": "echo '🍄 Thank you for installing koshi! Type kb --help to get started.'"
   },
   "dependencies": {
     "@noble/ed25519": "^2.0.0",
     "chalk": "^5.3.0",
+    "ora": "^7.0.1",
+    "tweetnacl": "^1.0.3",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "eslint": "^8.50.0",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.1",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
-    "ora": "^7.0.1",
+    "nodemon": "^3.0.1",
     "pg": "^8.11.3",
     "pino": "^8.14.1",
     "pino-pretty": "^10.2.0",
-    "tweetnacl": "^1.0.3",
-    "uuid": "^9.0.0",
-    "ws": "^8.14.2"
-  },
-  "devDependencies": {
-    "eslint": "^8.50.0",
-    "nodemon": "^3.0.1"
+    "uuid": "^9.0.0"
   },
   "license": "MIT",
   "author": "game_ryo",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ryopc/koshi"
+    "url": "git+https://github.com/ryopc/koshi.git"
   },
   "engines": {
     "node": ">=18.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "bin/",
+    "src/auth/",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": [
     "sns",
     "decentralized",
