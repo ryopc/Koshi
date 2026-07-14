@@ -38,8 +38,11 @@ export function generateKeypair() {
  */
 export async function signMessage(message, secretKey) {
     const skBytes = hexToBytes(secretKey);
+    // @noble/ed25519 v2.x expects a 32-byte private key (seed), not the full
+    // 64-byte tweetnacl-format key. If given 64 bytes, take only the seed.
+    const seedBytes = skBytes.length === 64 ? skBytes.slice(0, 32) : skBytes;
     const msgBytes = new TextEncoder().encode(message);
-    const signature = await ed.sign(msgBytes, skBytes);
+    const signature = await ed.signAsync(msgBytes, seedBytes);
     return bytesToHex(signature);
 }
 
@@ -56,7 +59,8 @@ export async function verifySignature(message, signature, publicKey) {
         const msgBytes = new TextEncoder().encode(message);
         const sigBytes = hexToBytes(signature);
         const pkBytes = hexToBytes(publicKey);
-        return await ed.verify(sigBytes, msgBytes, pkBytes);
+        // Use verifyAsync to avoid needing etc.sha512Sync
+        return await ed.verifyAsync(sigBytes, msgBytes, pkBytes);
     } catch (err) {
         // If any input is malformed (wrong length, invalid hex, etc.), return false
         return false;
