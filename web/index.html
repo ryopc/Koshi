@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🌊 koshi — 分散SNS</title>
+  <meta name="description" content="ターミナルネイティブな分散SNS" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>" />
+</head>
+<body>
+  <!-- ===== Loading Screen ===== -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-spinner">
+      <div class="spinner-ring"></div>
+      <div class="spinner-ring spinner-ring-2"></div>
+      <div class="spinner-ring spinner-ring-3"></div>
+    </div>
+    <p class="loading-text">🌊 koshi</p>
+    <p class="loading-subtext">読み込み中...</p>
+  </div>
+
+  <!-- ===== App Shell ===== -->
+  <div id="app" class="app-layout" style="display:none;">
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar">
+      <div class="sidebar-logo">
+        <a href="#/" data-nav>🌊 koshi</a>
+      </div>
+      <ul class="sidebar-nav" id="sidebar-nav">
+        <li><a href="#/" data-nav>🏠 タイムライン</a></li>
+        <li id="nav-profile" style="display:none;">
+          <a href="#/profile" data-nav>👤 プロフィール</a>
+        </li>
+      </ul>
+      <div class="sidebar-footer" id="sidebar-footer">
+        <div id="sidebar-user" style="display:none;">
+          <p class="sidebar-username" id="sidebar-username"></p>
+          <button id="btn-logout" class="btn-logout">ログアウト</button>
+        </div>
+        <div class="terminal-hint">
+          <p>💻 ターミナル版でもどうぞ</p>
+          <code>npm i -g @ryopc/koshi</code>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content" id="main-content">
+      <!-- Dynamic content rendered here -->
+    </main>
+  </div>
+
+  <!-- ===== Scripts ===== -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
