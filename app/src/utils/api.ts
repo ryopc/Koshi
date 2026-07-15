@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || ''
+// In dev mode (Vite proxy), API_URL is '' so requests go through the Vite proxy to localhost.
+// In production, default to the production API server.
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://koshi-api.ryopc.f5.si' : '')
 
 export async function apiCall(
   endpoint: string,

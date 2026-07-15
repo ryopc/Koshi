@@ -101,6 +101,102 @@
         .code-block .output { color: #34d399; }
         .code-block .comment { color: #64748b; font-style: italic; }
 
+        /* Mobile responsive enhancements */
+        @media (max-width: 640px) {
+            .hero-title {
+                font-size: 2.5rem !important;
+                line-height: 1.15 !important;
+            }
+            .hero-subtitle {
+                font-size: 1rem !important;
+            }
+            .hero-buttons {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .hero-buttons a {
+                justify-content: center;
+                text-align: center;
+            }
+            .terminal-window {
+                font-size: 0.75rem;
+            }
+            .terminal-window .p-5 {
+                padding: 0.75rem !important;
+            }
+            .section-padding {
+                padding-top: 3rem !important;
+                padding-bottom: 3rem !important;
+            }
+            .stat-number {
+                font-size: 1.75rem !important;
+            }
+            .feature-card {
+                padding: 1.25rem !important;
+            }
+            .feature-card .text-sm {
+                font-size: 0.8rem !important;
+            }
+            .code-block {
+                font-size: 0.7rem !important;
+                padding: 0.75rem 1rem !important;
+            }
+            .footer-grid {
+                grid-template-columns: 1fr !important;
+                gap: 2rem !important;
+                text-align: center;
+            }
+            .footer-grid > div:first-child {
+                justify-items: center;
+            }
+            .cmd-table {
+                font-size: 0.7rem;
+            }
+            .cmd-table th,
+            .cmd-table td {
+                padding: 0.4rem 0.5rem !important;
+            }
+            .cmd-table code {
+                font-size: 0.65rem !important;
+            }
+            .glow-emerald {
+                box-shadow: 0 0 20px rgba(52, 211, 153, 0.1);
+            }
+            .version-badge {
+                font-size: 0.6rem !important;
+            }
+            .arch-card {
+                padding: 1.25rem !important;
+            }
+        }
+
+        @media (min-width: 641px) and (max-width: 768px) {
+            .hero-title {
+                font-size: 3.5rem !important;
+            }
+            .section-padding {
+                padding-top: 4rem !important;
+                padding-bottom: 4rem !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero-title {
+                font-size: 2rem !important;
+            }
+            .hero-buttons a {
+                padding: 0.75rem 1.5rem !important;
+                font-size: 0.9rem !important;
+            }
+            .stat-number {
+                font-size: 1.5rem !important;
+            }
+            .terminal-window .font-mono {
+                font-size: 0.65rem !important;
+                line-height: 1.5 !important;
+            }
+        }
+
         /* Command table */
         .cmd-table { width: 100%; border-collapse: separate; border-spacing: 0; }
         .cmd-table th {
@@ -160,6 +256,27 @@
         .nav-link {
             position: relative;
             transition: color 0.3s;
+        }
+        .nav-link.web-app-link {
+            background: rgba(52, 211, 153, 0.1);
+            color: #34d399 !important;
+            padding: 0.375rem 0.875rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(52, 211, 153, 0.2);
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        .nav-link.web-app-link:hover {
+            background: rgba(52, 211, 153, 0.2);
+        }
+        .nav-link.web-app-link::after {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .nav-link.web-app-link-desktop {
+                display: none !important;
+            }
         }
         .nav-link::after {
             content: '';
@@ -244,13 +361,17 @@
                 <a href="/docs" class="nav-link" style="color: #94a3b8;">Docs</a>
                 <a href="/docs#api" class="nav-link" style="color: #94a3b8;">API</a>
                 <a href="/docs#cli" class="nav-link" style="color: #94a3b8;">CLI</a>
-                <a href="https://github.com/ryopc/koshi" class="nav-link" style="color: #94a3b8;" target="_blank">GitHub</a>
-                <a href="https://github.com/ryopc/koshi" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all" style="background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);" target="_blank">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                    Star on GitHub
-                </a>
-            </div>
-            <!-- Mobile hamburger -->
+                <a href="https://github.com/ryopc/koshi" class="nav-link" style="color: #94a3b8;" target="_blank">GitHub</a>                        <a href="https://koshi-app.pages.dev/" class="nav-link web-app-link web-app-link-desktop" target="_blank">🌐 Web App</a>
+                        <a href="https://github.com/ryopc/koshi" class="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all" style="background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);" target="_blank">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                            Star on GitHub
+                        </a>
+                        <!-- GitHub icon only on mobile -->
+                        <a href="https://github.com/ryopc/koshi" class="sm:hidden flex items-center justify-center w-10 h-10 rounded-lg" style="color: #94a3b8;" target="_blank">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                        </a>
+                    </div>
+                    <!-- Mobile hamburger -->
             <button class="md:hidden flex items-center justify-center w-10 h-10 rounded-lg" style="color: #94a3b8;" onclick="document.getElementById('mobileNav').classList.toggle('open')">
                 <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
@@ -265,6 +386,10 @@
             <a href="/docs#api" class="nav-link" style="color: #94a3b8;" onclick="document.getElementById('mobileNav').classList.remove('open')">API</a>
             <a href="/docs#cli" class="nav-link" style="color: #94a3b8;" onclick="document.getElementById('mobileNav').classList.remove('open')">CLI</a>
             <a href="https://github.com/ryopc/koshi" class="nav-link" style="color: #94a3b8;" target="_blank" onclick="document.getElementById('mobileNav').classList.remove('open')">GitHub</a>
+            <a href="https://koshi-app.pages.dev/" class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-base font-bold" style="background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);" target="_blank">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                Web App
+            </a>
             <a href="https://github.com/ryopc/koshi" class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-base font-bold" style="background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);" target="_blank">Star on GitHub</a>
         </div>
     </div>
@@ -280,24 +405,27 @@
 
         <div class="max-w-5xl mx-auto px-6 relative z-10">
             <div class="text-center mb-12">
-                <div class="mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider" style="background: rgba(251, 146, 60, 0.1); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.2);">
+                <div class="version-badge mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider" style="background: rgba(251, 146, 60, 0.1); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.2);">
                     <span class="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
                     Under Active Development — v1.2.0
                 </div>
-                <h1 class="text-6xl md:text-8xl font-black leading-[1.1] mb-6" style="color: #e2e8f0;">
+                <h1 class="hero-title text-6xl md:text-8xl font-black leading-[1.1] mb-6" style="color: #e2e8f0;">
                     The social network<br>
                     <span style="background: linear-gradient(135deg, #34d399, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">for your terminal.</span>
                 </h1>
-                <p class="text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10" style="color: #94a3b8;">
+                <p class="hero-subtitle text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10" style="color: #94a3b8;">
                     A decentralized, terminal-native SNS built on <strong style="color: #e2e8f0;">ed25519 elliptic curve cryptography</strong>. 
                     Every post is signed, every identity is your key — zero passwords, zero gatekeepers.
                 </p>
-                <div class="flex flex-wrap justify-center gap-4">
+                <div class="hero-buttons flex flex-wrap justify-center gap-4">
                     <a href="/docs#getting-started" class="inline-flex items-center gap-2 px-8 py-3.5 rounded-full text-base font-bold transition-all" style="background: linear-gradient(135deg, #059669, #10b981); color: white; box-shadow: 0 4px 20px rgba(52, 211, 153, 0.3);">
                         Get Started →
                     </a>
                     <a href="/docs" class="inline-flex items-center gap-2 px-8 py-3.5 rounded-full text-base font-semibold transition-all" style="background: rgba(148, 163, 184, 0.08); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.15);">
                         Read the Docs
+                    </a>
+                    <a href="https://koshi-app.pages.dev/" target="_blank" class="inline-flex items-center gap-2 px-8 py-3.5 rounded-full text-base font-semibold transition-all" style="background: rgba(52, 211, 153, 0.08); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">
+                        🌐 Web App
                     </a>
                 </div>
             </div>
@@ -327,23 +455,23 @@
     </section>
 
     <!-- Stats -->
-    <section class="py-16 relative" style="background: #0f172a;">
+    <section class="py-16 relative section-padding" style="background: #0f172a;">
         <div class="max-w-5xl mx-auto px-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
                 <div class="fade-up">
-                    <div class="text-3xl font-black font-mono" style="color: #34d399;">1.2.0</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">1.2.0</div>
                     <div class="text-sm mt-1" style="color: #64748b;">Version</div>
                 </div>
                 <div class="fade-up">
-                    <div class="text-3xl font-black font-mono" style="color: #34d399;">16</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">16</div>
                     <div class="text-sm mt-1" style="color: #64748b;">CLI Commands</div>
                 </div>
                 <div class="fade-up">
-                    <div class="text-3xl font-black font-mono" style="color: #34d399;">21</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">21</div>
                     <div class="text-sm mt-1" style="color: #64748b;">API Endpoints</div>
                 </div>
                 <div class="fade-up">
-                    <div class="text-3xl font-black font-mono" style="color: #34d399;">MIT</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">MIT</div>
                     <div class="text-sm mt-1" style="color: #64748b;">License</div>
                 </div>
             </div>
@@ -351,14 +479,14 @@
     </section>
 
     <!-- Features -->
-    <section class="py-24 relative" style="background: #0f172a;">
+    <section class="py-24 relative section-padding" style="background: #0f172a;">
         <div class="max-w-6xl mx-auto px-6">
-            <div class="text-center mb-16">
+            <div class="text-center mb-12 md:mb-16">
                 <span class="badge badge-green mb-4">Features</span>
-                <h2 class="text-4xl font-black" style="color: #e2e8f0;">Why Koshi?</h2>
+                <h2 class="text-3xl md:text-4xl font-black" style="color: #e2e8f0;">Why Koshi?</h2>
             </div>
 
-            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 <div class="feature-card p-8 rounded-2xl fade-up">
                     <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(52, 211, 153, 0.1);">💻</div>
                     <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Terminal-Native</h3>
@@ -417,11 +545,11 @@
     </section>
 
     <!-- Quick Start -->
-    <section class="py-24 relative" style="background: #1a2332;" id="quick-start">
+    <section class="py-24 relative section-padding" style="background: #1a2332;" id="quick-start">
         <div class="max-w-4xl mx-auto px-6">
-            <div class="text-center mb-16">
+            <div class="text-center mb-12 md:mb-16">
                 <span class="badge badge-orange mb-4">Quick Start</span>
-                <h2 class="text-4xl font-black" style="color: #e2e8f0;">Get started in seconds</h2>
+                <h2 class="text-3xl md:text-4xl font-black" style="color: #e2e8f0;">Get started in seconds</h2>
             </div>
 
             <div class="space-y-6">
@@ -465,16 +593,16 @@
     </section>
 
     <!-- Architecture -->
-    <section class="py-24 relative" style="background: #0f172a;" id="architecture">
+    <section class="py-24 relative section-padding" style="background: #0f172a;" id="architecture">
         <div class="max-w-5xl mx-auto px-6">
-            <div class="text-center mb-16">
+            <div class="text-center mb-12 md:mb-16">
                 <span class="badge badge-purple mb-4">Architecture</span>
-                <h2 class="text-4xl font-black" style="color: #e2e8f0;">How Koshi works</h2>
+                <h2 class="text-3xl md:text-4xl font-black" style="color: #e2e8f0;">How Koshi works</h2>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-8">
-                <div class="p-8 rounded-2xl" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(52, 211, 153, 0.1);">
-                    <div class="flex items-center gap-3 mb-6">
+            <div class="grid md:grid-cols-2 gap-6 md:gap-8">
+                <div class="arch-card p-6 md:p-8 rounded-2xl" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(52, 211, 153, 0.1);">
+                    <div class="flex items-center gap-3 mb-4 md:mb-6">
                         <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style="background: rgba(52, 211, 153, 0.1);">🔧</div>
                         <h3 class="font-bold" style="color: #e2e8f0;">Stack</h3>
                     </div>
@@ -506,8 +634,8 @@
                     </div>
                 </div>
 
-                <div class="p-8 rounded-2xl" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(52, 211, 153, 0.1);">
-                    <div class="flex items-center gap-3 mb-6">
+                <div class="arch-card p-6 md:p-8 rounded-2xl" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(52, 211, 153, 0.1);">
+                    <div class="flex items-center gap-3 mb-4 md:mb-6">
                         <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style="background: rgba(96, 165, 250, 0.1);">📁</div>
                         <h3 class="font-bold" style="color: #e2e8f0;">Project Structure</h3>
                     </div>
@@ -532,11 +660,11 @@
     </section>
 
     <!-- Commands Preview -->
-    <section class="py-24 relative" style="background: #1a2332;" id="commands">
+    <section class="py-24 relative section-padding" style="background: #1a2332;" id="commands">
         <div class="max-w-5xl mx-auto px-6">
-            <div class="text-center mb-16">
+            <div class="text-center mb-12 md:mb-16">
                 <span class="badge badge-amber mb-4">CLI</span>
-                <h2 class="text-4xl font-black" style="color: #e2e8f0;">All Commands</h2>
+                <h2 class="text-3xl md:text-4xl font-black" style="color: #e2e8f0;">All Commands</h2>
             </div>
 
             <div class="overflow-x-auto rounded-2xl" style="border: 1px solid rgba(52, 211, 153, 0.1);">
@@ -575,7 +703,7 @@
     <!-- Footer -->
     <footer class="py-16" style="background: #0c1325; border-top: 1px solid rgba(52, 211, 153, 0.05);">
         <div class="max-w-6xl mx-auto px-6">
-            <div class="grid md:grid-cols-4 gap-10 mb-12">
+            <div class="footer-grid grid md:grid-cols-4 gap-10 mb-12">
                 <div>
                     <div class="flex items-center gap-2 mb-4">
                         <img src="https://res.cloudinary.com/dt0zmgv8k/image/upload/v1782450296/KoShi_horboh.png" alt="Koshi" class="h-6 w-6 rounded">
@@ -603,6 +731,7 @@
                 <div>
                     <h4 class="text-xs font-semibold uppercase tracking-wider mb-4" style="color: #64748b;">Links</h4>
                     <div class="space-y-2 text-sm">
+                        <a href="https://koshi-app.pages.dev/" style="color: #34d399;" class="block hover:text-emerald-300 transition-colors font-semibold" target="_blank">🌐 Web App</a>
                         <a href="https://github.com/ryopc/koshi" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors" target="_blank">GitHub</a>
                         <a href="https://github.com/ryopc/koshi/issues" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors" target="_blank">Issues</a>
                         <a href="https://neon.tech" style="color: #94a3b8;" class="block hover:text-emerald-400 transition-colors" target="_blank">Neon.tech</a>
