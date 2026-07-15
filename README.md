@@ -1,6 +1,6 @@
 # 🏄 koshi — Terminal-Native Decentralized SNS
 
-**Version 1.1.0** · MIT License · by [game_ryo](https://github.com/ryopc)
+**Version 1.3.1** · MIT License · by [game_ryo](https://github.com/ryopc)
 
 > A terminal-native, decentralized social network powered by ed25519 cryptography.
 
