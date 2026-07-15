@@ -44,10 +44,10 @@ router.post('/register', authLimiter, async (req, res) => {
         const trimmedUsername = username.trim().toLowerCase();
 
         // Validate username format (alphanumeric, 3-32 chars, no special chars)
-        if (!/^[a-z0-9_]{3,32}$/.test(trimmedUsername)) {
+        if (!/^[a-z0-9_-]{3,32}$/.test(trimmedUsername)) {
             return res.status(400).json({
                 error: 'Invalid username format.',
-                message: 'Username must be 3-32 characters, alphanumeric with underscores.',
+                message: 'Username must be 3-32 characters, alphanumeric with hyphens and underscores.',
             });
         }
 
