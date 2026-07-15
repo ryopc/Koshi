@@ -429,6 +429,18 @@ code {
 }
 .empty-msg { text-align: center; padding: 2rem; color: var(--text3); font-size: 0.9rem; }
 
+/* ===== DM Styles ===== */
+.dm-sent { border-color: var(--accent); background: rgba(0,217,255,0.05); }
+.dm-received { border-color: var(--border); }
+.dm-conversation:hover { border-color: var(--accent); }
+
+/* ===== Search ===== */
+.search-result-card { transition: border-color 0.2s; }
+.search-result-card:hover { border-color: var(--accent); }
+
+/* ===== Settings ===== */
+.settings-page .auth-card { animation: fadeUp 0.3s ease-out; }
+
 /* ===== Messages / Alerts ===== */
 .error-msg {
   color: var(--error);
