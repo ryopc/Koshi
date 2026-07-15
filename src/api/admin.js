@@ -232,12 +232,11 @@ router.put('/users/:id/admin', async (req, res) => {
 
         const { clause, value } = resolveUserClause(targetId);
 
-        // We need to handle the self-revoke check differently now
-        // First, resolve the target user to get their ID
-        const targetResult = await query(
-            `SELECT id FROM users WHERE ${clause}`,
-            [value]
-        );
+const targetResult = await query(
+    `SELECT id FROM users u WHERE ${clause}`, // 👈 "users" の後ろに "u" を追加
+    [value]
+);
+
 
         if (targetResult.rows.length === 0) {
             return res.status(404).json({ error: 'User not found.' });
