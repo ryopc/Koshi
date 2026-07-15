@@ -11,8 +11,12 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { logger } from './logger.js';
 import { apiLimiter } from './middleware/rateLimit.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Re-export logger for convenience
 export { logger };
@@ -56,6 +60,16 @@ app.use((req, res, next) => {
 });
 
 // ============================================================================
+// Serve static web files (web version - limited features)
+// ============================================================================
+const webPath = join(__dirname, '..', 'web');
+app.use(express.static(webPath, {
+    index: 'index.html',
+    extensions: ['html'],
+    maxAge: '1h'
+}));
+
+// ============================================================================
 // Import and mount API routes
 // ============================================================================
 import authRouter from './api/auth.js';
@@ -81,7 +95,18 @@ app.get('/api/health', (req, res) => {
 });
 
 // ============================================================================
-// 404 handler
+// SPA Fallback - serve index.html for non-API routes
+// ============================================================================
+app.get('*', (req, res, next) => {
+    // Skip API routes - let them hit the 404 handler
+    if (req.path.startsWith('/api/') || req.path.startsWith('/ws')) {
+        return next();
+    }
+    res.sendFile(join(__dirname, '..', 'web', 'index.html'));
+});
+
+// ============================================================================
+// 404 handler (API routes only)
 // ============================================================================
 app.use((req, res) => {
     res.status(404).json({
