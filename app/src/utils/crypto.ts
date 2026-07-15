@@ -3,7 +3,13 @@ import * as ed from '@noble/ed25519'
 import { sha512 } from '@noble/hashes/sha512'
 
 // Required for @noble/ed25519 v2
-ed.etc.sha512Sync = (...m) => sha512(...m)
+// @noble/ed25519 v2 requires setting sha512Sync for sync operations
+ed.etc.sha512Sync = (...m: Uint8Array[]): Uint8Array => {
+  const merged = new Uint8Array(m.reduce((sum, a) => sum + a.length, 0))
+  let offset = 0
+  for (const a of m) { merged.set(a, offset); offset += a.length }
+  return sha512(merged)
+}
 
 export interface KeyPair {
   publicKey: string  // hex

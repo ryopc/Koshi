@@ -5,9 +5,9 @@ export async function apiCall(
   options?: RequestInit & { token?: string }
 ) {
   const { token, ...fetchOptions } = options || {}
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...fetchOptions.headers,
+    ...(fetchOptions.headers as Record<string, string> | undefined),
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
   const response = await fetch(`${API_URL}/api${endpoint}`, {
@@ -15,7 +15,7 @@ export async function apiCall(
     headers,
   })
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}))
+    const error: { message?: string } = await response.json().catch(() => ({}))
     throw new Error(error.message || `API Error: ${response.status}`)
   }
   return response.json()
