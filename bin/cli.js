@@ -8,6 +8,12 @@
 // for interacting with the koshi board: register, login, post, feed,
 // follow, dm, profile, search, and more.
 //
+// Features:
+//   - Multi-account support (switch between accounts easily)
+//   - Interactive login / account switching (no need to memorize usernames)
+//   - Interactive DM with user search from a list
+//   - Real-time chat
+//
 // Usage:
 //   kb <command> [options]
 //   kb --help
@@ -17,6 +23,9 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createInterface } from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
+import { cursorTo, clearScreenDown } from 'node:readline';
 import chalk from 'chalk';
 import ora from 'ora';
 
@@ -30,27 +39,160 @@ const API_BASE = process.env.KOSHI_API_URL || 'https://koshi-api.ryopc.f5.si';
 const WS_URL = process.env.KOSHI_WS_URL || 'wss://koshi-api.ryopc.f5.si';
 
 // ============================================================================
-// Helper: load configuration
+// Interactive prompt helpers (readline)
 // ============================================================================
-function loadConfig() {
+
+/**
+ * Ask a question and get text input from the user.
+ */
+async function askQuestion(query) {
+    const rl = createInterface({ input, output });
+    const answer = await rl.question(query);
+    rl.close();
+    return answer.trim();
+}
+
+/**
+ * Show a numbered list of items and let the user pick one.
+ * Returns the selected item or null if cancelled.
+ */
+async function selectFromList(items, displayFn, promptText) {
+    if (items.length === 0) return null;
+
+    console.log(`\n  ${chalk.bold.cyan(promptText)}`);
+    console.log(`  ${chalk.dim('─'.repeat(50))}`);
+
+    for (let i = 0; i < items.length; i++) {
+        const line = displayFn(items[i], i);
+        console.log(`  ${chalk.cyan(`${i + 1}.`)} ${line}`);
+    }
+    console.log(`  ${chalk.dim('  0.')} ${chalk.dim('キャンセル / Cancel')}`);
+    console.log();
+
+    const rl = createInterface({ input, output });
+    let selected = null;
+
+    while (selected === null) {
+        const answer = await rl.question(`  ${chalk.bold('番号を選択 (1-' + items.length + '):')} `);
+        const num = parseInt(answer.trim(), 10);
+
+        if (answer.trim() === '0') {
+            break;
+        }
+
+        if (isNaN(num) || num < 1 || num > items.length) {
+            console.log(`  ${chalk.red(`✖ 無効な番号です。1〜${items.length} の番号を入力してください。`)}`);
+            continue;
+        }
+
+        selected = items[num - 1];
+    }
+
+    rl.close();
+    return selected;
+}
+
+/**
+ * Confirm action with y/n prompt.
+ */
+async function confirmPrompt(message) {
+    const rl = createInterface({ input, output });
+    const answer = await rl.question(`  ${chalk.yellow(message)} ${chalk.dim('(y/N):')} `);
+    rl.close();
+    return answer.trim().toLowerCase() === 'y';
+}
+
+// ============================================================================
+// Multi-account configuration system
+// ============================================================================
+// Config format:
+// {
+//   "activeUsername": "user1",           // currently active account
+//   "accounts": {
+//     "user1": {
+//       "userId": "uuid",
+//       "username": "user1",
+//       "publicKey": "hex",
+//       "secretKey": "hex",
+//       "token": "jwt"
+//     },
+//     "user2": { ... }
+//   }
+// }
+// ============================================================================
+
+/**
+ * Load the full config file (multi-account format).
+ * Automatically migrates from legacy single-account format.
+ */
+function loadFullConfig() {
     try {
         if (existsSync(CONFIG_FILE)) {
-            return JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
+            const data = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
+
+            // Already in new format with accounts map
+            if (data.accounts && typeof data.accounts === 'object') {
+                return data;
+            }
+
+            // Legacy format: single account at root level
+            // data = { userId, username, publicKey, secretKey, token, ... }
+            if (data.username && data.secretKey) {
+                const migrated = {
+                    activeUsername: data.username,
+                    accounts: {
+                        [data.username]: {
+                            userId: data.userId,
+                            username: data.username,
+                            publicKey: data.publicKey,
+                            secretKey: data.secretKey,
+                            token: data.token,
+                        },
+                    },
+                };
+                // Save migrated config immediately
+                try {
+                    writeFileSync(CONFIG_FILE, JSON.stringify(migrated, null, 2), 'utf-8');
+                } catch {
+                    // Best effort
+                }
+                return migrated;
+            }
         }
+
         // Fallback to legacy .snsrc
         if (existsSync(SNSRC_FILE)) {
-            const data = readFileSync(SNSRC_FILE, 'utf-8').trim();
-            if (data) {
+            const snsrcData = readFileSync(SNSRC_FILE, 'utf-8').trim();
+            if (snsrcData) {
                 try {
-                    return JSON.parse(data);
-                } catch {
-                    // Plain text format: first line is secretKey, second line is username
-                    const lines = data.split('\n');
-                    if (lines.length >= 2) {
-                        return {
-                            secretKey: lines[0].trim(),
-                            username: lines[1].trim(),
+                    const parsed = JSON.parse(snsrcData);
+                    if (parsed.secretKey && parsed.username) {
+                        const migrated = {
+                            activeUsername: parsed.username,
+                            accounts: {
+                                [parsed.username]: {
+                                    username: parsed.username,
+                                    secretKey: parsed.secretKey,
+                                },
+                            },
                         };
+                        return migrated;
+                    }
+                } catch {
+                    // Plain text format
+                    const lines = snsrcData.split('\n');
+                    if (lines.length >= 2) {
+                        const u = lines[1].trim();
+                        const migrated = {
+                            activeUsername: u,
+                            accounts: {
+                                [u]: {
+                                    username: u,
+                                    secretKey: lines[0].trim(),
+                                },
+                            },
+                        };
+                        return migrated;
                     }
                 }
             }
@@ -58,19 +200,25 @@ function loadConfig() {
     } catch {
         // Config file doesn't exist or is corrupt
     }
-    return {};
+    // Default: empty config
+    return { activeUsername: null, accounts: {} };
 }
 
-// ============================================================================
-// Helper: save configuration
-// ============================================================================
-async function saveConfig(config) {
+/**
+ * Save the full multi-account config.
+ */
+async function saveFullConfig(config) {
     if (!existsSync(CONFIG_DIR)) {
         mkdirSync(CONFIG_DIR, { recursive: true });
     }
     writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
-    // Also save to .snsrc for legacy compatibility
-    writeFileSync(SNSRC_FILE, `${config.secretKey}\n${config.username}\n`, 'utf-8');
+
+    // Update legacy .snsrc with active account's secret key
+    const active = config.activeUsername ? config.accounts[config.activeUsername] : null;
+    if (active && active.secretKey) {
+        writeFileSync(SNSRC_FILE, `${active.secretKey}\n${active.username}\n`, 'utf-8');
+    }
+
     // Set restrictive permissions
     try {
         const { chmod } = await import('node:fs/promises');
@@ -79,6 +227,37 @@ async function saveConfig(config) {
     } catch {
         // chmod not critical
     }
+}
+
+/**
+ * Get the currently active account's config (backward-compatible).
+ * Returns {} if not logged in / no active account.
+ */
+function getActiveConfig() {
+    const full = loadFullConfig();
+    if (full.activeUsername && full.accounts[full.activeUsername]) {
+        return full.accounts[full.activeUsername];
+    }
+    return {};
+}
+
+/**
+ * List all stored account usernames.
+ */
+function listAccountNames() {
+    const full = loadFullConfig();
+    return Object.keys(full.accounts);
+}
+
+/**
+ * Get the full config and active config together.
+ */
+function getConfigBundle() {
+    const full = loadFullConfig();
+    const active = full.activeUsername && full.accounts[full.activeUsername]
+        ? full.accounts[full.activeUsername]
+        : {};
+    return { full, active, activeUsername: full.activeUsername };
 }
 
 // ============================================================================
@@ -118,16 +297,23 @@ async function resolveUsername(username, token) {
 // Command: register
 // ============================================================================
 async function cmdRegister(args) {
-    const username = args[0];
+    let username = args[0];
+
+    // Interactive username input if not provided
     if (!username) {
-        console.error(chalk.red('✖ Error: Username is required. Usage: kb register <username>'));
-        process.exit(1);
+        console.log(`\n  ${chalk.bold.cyan('📝 新規アカウント登録')}`);
+        console.log(`  ${chalk.dim('3〜32文字の英数字、ハイフン、アンダースコア')}\n`);
+        username = await askQuestion(`  ${chalk.bold('ユーザー名:')} `);
+        if (!username) {
+            console.error(chalk.red('✖ ユーザー名が入力されていません。'));
+            process.exit(1);
+        }
+        username = username.toLowerCase().trim();
     }
 
     const spinner = ora('Generating ed25519 keypair...').start();
 
     try {
-        // Dynamically import crypto modules
         const { generateKeypair, derivePublicKey } = await import('../src/auth/ed25519.js');
         const keypair = generateKeypair();
 
@@ -138,14 +324,17 @@ async function cmdRegister(args) {
             publicKey: keypair.publicKey,
         });
 
-        // Store credentials
-        await saveConfig({
+        // Store credentials in multi-account config
+        const { full } = getConfigBundle();
+        full.accounts[username] = {
             userId: result.userId,
             username,
             publicKey: keypair.publicKey,
             secretKey: keypair.secretKey,
             token: result.token,
-        });
+        };
+        full.activeUsername = username;
+        await saveFullConfig(full);
 
         spinner.succeed(chalk.green('Registration successful!'));
 
@@ -154,6 +343,7 @@ async function cmdRegister(args) {
         console.log(`  ${chalk.bold('Token:')}     ${chalk.dim(result.token.substring(0, 40))}...`);
         console.log(`\n  ${chalk.dim('Keys stored in:')} ${chalk.italic(CONFIG_FILE)}`);
         console.log(`  ${chalk.green('✓')} You are now logged in.`);
+        console.log(`  ${chalk.dim('💡 Register more accounts with:')} ${chalk.italic('kb register <username>')}`);
     } catch (err) {
         spinner.fail(chalk.red(`Registration failed: ${err.message}`));
         process.exit(1);
@@ -161,21 +351,68 @@ async function cmdRegister(args) {
 }
 
 // ============================================================================
-// Command: login
+// Command: login (interactive, multi-account aware)
 // ============================================================================
 async function cmdLogin(args) {
-    const username = args[0];
+    const { full } = getConfigBundle();
+    let username = args[0];
+
+    // If username not provided, show interactive selection of saved accounts
     if (!username) {
-        console.error(chalk.red('✖ Error: Username is required. Usage: kb login <username>'));
-        process.exit(1);
+        const savedAccounts = listAccountNames();
+
+        if (savedAccounts.length === 0) {
+            console.error(chalk.red('✖ 保存されたアカウントがありません。'));
+            console.error(chalk.dim('  kb register <username> で新規登録するか、'));
+            console.error(chalk.dim('  秘密鍵を ~/.config/koshi/config.json にインポートしてください。'));
+            process.exit(1);
+        }
+
+        console.log(`\n  ${chalk.bold.cyan('🔑 アカウントを選択')}`);
+        console.log(`  ${chalk.dim('ログインするアカウントを選んでください')}\n`);
+
+        for (let i = 0; i < savedAccounts.length; i++) {
+            const uname = savedAccounts[i];
+            const acct = full.accounts[uname];
+            const hasToken = acct && acct.token ? chalk.green('✓') : chalk.dim('○');
+            const isActive = full.activeUsername === uname ? chalk.cyan(' ← 現在') : '';
+            console.log(`  ${chalk.cyan(`${i + 1}.`)} ${chalk.bold(uname)} ${hasToken}${isActive}`);
+        }
+        console.log(`  ${chalk.dim('  0.')} ${chalk.dim('キャンセル')}`);
+        console.log();
+
+        const rl = createInterface({ input, output });
+        let selected = null;
+
+        while (selected === null) {
+            const answer = await rl.question(`  ${chalk.bold('番号を選択 (1-' + savedAccounts.length + '):')} `);
+            const num = parseInt(answer.trim(), 10);
+
+            if (answer.trim() === '0') {
+                rl.close();
+                console.log(chalk.yellow('\n  キャンセルしました。'));
+                return;
+            }
+
+            if (isNaN(num) || num < 1 || num > savedAccounts.length) {
+                console.log(`  ${chalk.red(`✖ 無効な番号です。1〜${savedAccounts.length} の番号を入力してください。`)}`);
+                continue;
+            }
+
+            selected = savedAccounts[num - 1];
+        }
+        rl.close();
+
+        username = selected;
+        console.log(`  → ${chalk.cyan(username)} を選択しました\n`);
     }
 
-    const config = loadConfig();
+    // Now authenticate with the selected/typed username
+    const acct = full.accounts[username];
 
-    if (!config.secretKey) {
-        console.error(chalk.red('✖ Error: No secret key found.'));
-        console.error(chalk.dim('  Use "kb register <username>" to create a new account,'));
-        console.error(chalk.dim('  or import an existing key to ~/.snsrc.'));
+    if (!acct || !acct.secretKey) {
+        console.error(chalk.red(`✖ ユーザー「${username}」の秘密鍵が見つかりません。`));
+        console.error(chalk.dim('  kb register で登録するか、config.json に鍵を追加してください。'));
         process.exit(1);
     }
 
@@ -184,7 +421,7 @@ async function cmdLogin(args) {
     try {
         const { signMessage } = await import('../src/auth/ed25519.js');
         const challenge = `koshi:login:${username}`;
-        const signature = await signMessage(challenge, config.secretKey);
+        const signature = await signMessage(challenge, acct.secretKey);
 
         spinner.text = 'Authenticating with server...';
 
@@ -193,16 +430,21 @@ async function cmdLogin(args) {
             signature,
         });
 
-        // Update stored config
-        config.username = username;
-        config.userId = result.userId;
-        config.token = result.token;
-        await saveConfig(config);
+        // Update the account's token and set as active
+        full.accounts[username] = {
+            ...acct,
+            userId: result.userId,
+            token: result.token,
+        };
+        full.activeUsername = username;
+        await saveFullConfig(full);
 
         spinner.succeed(chalk.green('Login successful!'));
 
         console.log(`\n  ${chalk.bold('Username:')}  ${chalk.cyan(username)}`);
         console.log(`  ${chalk.bold('Token:')}     ${chalk.dim(result.token.substring(0, 40))}...`);
+        console.log(`\n  ${chalk.dim('💡 他のアカウントに切り替える:')} ${chalk.italic('kb switch')}`);
+        console.log(`  ${chalk.dim('📋 アカウント一覧:')} ${chalk.italic('kb accounts')}`);
     } catch (err) {
         spinner.fail(chalk.red(`Login failed: ${err.message}`));
         process.exit(1);
@@ -213,17 +455,27 @@ async function cmdLogin(args) {
 // Command: whoami
 // ============================================================================
 async function cmdWhoami() {
-    const config = loadConfig();
+    const { full, activeUsername } = getConfigBundle();
 
-    if (!config.token || !config.username) {
-        console.error(chalk.red('✖ Not logged in. Use "kb login <username>" or "kb register <username>".'));
+    if (!activeUsername) {
+        console.error(chalk.red('✖ ログインしていません。'));
+        console.error(chalk.dim('  kb login  でアカウントを選択'));
+        console.error(chalk.dim('  kb register <username>  で新規登録'));
+        process.exit(1);
+    }
+
+    const config = full.accounts[activeUsername];
+
+    if (!config.token) {
+        console.error(chalk.red(`✖ @${activeUsername} のトークンがありません。再度ログインしてください。`));
+        console.error(chalk.dim(`  kb login ${activeUsername}`));
         process.exit(1);
     }
 
     const spinner = ora('Fetching profile...').start();
 
     try {
-        const data = await apiRequest('GET', `/api/users/${config.username}`, null, config.token);
+        const data = await apiRequest('GET', `/api/users/${activeUsername}`, null, config.token);
         spinner.stop();
 
         console.log(`\n  ${chalk.bold('Username:')}       ${chalk.cyan(data.username)}`);
@@ -232,6 +484,13 @@ async function cmdWhoami() {
         console.log(`  ${chalk.bold('Followers:')}       ${data.followersCount}`);
         console.log(`  ${chalk.bold('Following:')}       ${data.followingCount}`);
         console.log(`  ${chalk.bold('Joined:')}          ${new Date(data.createdAt).toLocaleDateString()}`);
+        
+        // Show multi-account context
+        const total = listAccountNames().length;
+        if (total > 1) {
+            console.log(`\n  ${chalk.dim(`📋 保存アカウント: ${total}件`)}`);
+            console.log(`  ${chalk.dim('💡 切り替え:')} ${chalk.italic('kb switch')}`);
+        }
     } catch (err) {
         spinner.fail(chalk.red(`Failed to fetch profile: ${err.message}`));
         process.exit(1);
@@ -242,10 +501,20 @@ async function cmdWhoami() {
 // Command: post
 // ============================================================================
 async function cmdPost(args) {
-    const content = args.join(' ');
+    let content = args.join(' ');
+
+    // Interactive input if no content provided
     if (!content) {
-        console.error(chalk.red('✖ Error: Content is required. Usage: kb post <message>'));
-        process.exit(1);
+        console.log(`\n  ${chalk.bold.cyan('📝 新規投稿')}`);
+        console.log(`  ${chalk.dim('Ctrl+D または空行でキャンセル')}\n`);
+        const rl = createInterface({ input, output });
+        content = (await rl.question(`  ${chalk.bold('本文:')} `)).trim();
+        rl.close();
+
+        if (!content) {
+            console.log(chalk.yellow('\n  キャンセルしました。'));
+            return;
+        }
     }
 
     if (content.length > 2000) {
@@ -253,10 +522,10 @@ async function cmdPost(args) {
         process.exit(1);
     }
 
-    const config = loadConfig();
+    const config = getActiveConfig();
 
     if (!config.token || !config.secretKey) {
-        console.error(chalk.red('✖ Not logged in. Use "kb login <username>" or "kb register <username>".'));
+        console.error(chalk.red('✖ Not logged in. Use "kb login" or "kb register".'));
         process.exit(1);
     }
 
@@ -287,9 +556,8 @@ async function cmdPost(args) {
 // Command: feed
 // ============================================================================
 async function cmdFeed(args) {
-    const config = loadConfig();
+    const config = getActiveConfig();
     const limit = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 20;
-    const flags = args.filter((a) => !a.startsWith('--'));
 
     const spinner = ora('Fetching feed...').start();
 
@@ -304,6 +572,9 @@ async function cmdFeed(args) {
         }
 
         console.log(`\n  ${chalk.bold.cyan('📋 Koshi Board Feed')} ${chalk.dim(`(${data.length} posts)`)}`);
+        if (config.username) {
+            console.log(`  ${chalk.dim(`👤 @${config.username}`)}`);
+        }
         console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
 
         for (const post of data) {
@@ -326,19 +597,55 @@ async function cmdFeed(args) {
 }
 
 // ============================================================================
-// Command: follow
+// Command: follow (interactive search mode)
 // ============================================================================
 async function cmdFollow(args) {
-    const username = args[0];
-    if (!username) {
-        console.error(chalk.red('✖ Error: Username is required. Usage: kb follow <username>'));
-        process.exit(1);
-    }
+    let username = args[0];
+    const config = getActiveConfig();
 
-    const config = loadConfig();
     if (!config.token) {
         console.error(chalk.red('✖ Not logged in.'));
         process.exit(1);
+    }
+
+    // Interactive mode: search and select user to follow
+    if (!username) {
+        console.log(`\n  ${chalk.bold.cyan('🔍 フォローするユーザーを検索')}`);
+        console.log(`  ${chalk.dim('ユーザー名の一部を入力して検索できます')}`);
+
+        const query = await askQuestion(`  ${chalk.bold('検索クエリ:')} `);
+        if (!query || query.length < 2) {
+            console.error(chalk.red('✖ 検索クエリは2文字以上必要です。'));
+            process.exit(1);
+        }
+
+        const spinner = ora(`Searching for "${query}"...`).start();
+        try {
+            const users = await apiRequest('GET', `/api/users/search/${encodeURIComponent(query)}`, null, config.token);
+            spinner.stop();
+
+            if (users.length === 0) {
+                console.log(chalk.dim(`\n  「${query}」に一致するユーザーが見つかりませんでした。`));
+                return;
+            }
+
+            const selected = await selectFromList(
+                users,
+                (u) => `${chalk.bold(u.username)} ${chalk.dim(u.displayName ? `— ${u.displayName}` : '')}`,
+                'フォローするユーザーを選択:'
+            );
+
+            if (!selected) {
+                console.log(chalk.yellow('\n  キャンセルしました。'));
+                return;
+            }
+
+            username = selected.username;
+            console.log(`  → ${chalk.cyan(username)} を選択\n`);
+        } catch (err) {
+            spinner.fail(chalk.red(`Search failed: ${err.message}`));
+            process.exit(1);
+        }
     }
 
     const spinner = ora(`Resolving @${username}...`).start();
@@ -360,16 +667,50 @@ async function cmdFollow(args) {
 // Command: unfollow
 // ============================================================================
 async function cmdUnfollow(args) {
-    const username = args[0];
-    if (!username) {
-        console.error(chalk.red('✖ Error: Username is required. Usage: kb unfollow <username>'));
-        process.exit(1);
-    }
+    let username = args[0];
+    const config = getActiveConfig();
 
-    const config = loadConfig();
     if (!config.token) {
         console.error(chalk.red('✖ Not logged in.'));
         process.exit(1);
+    }
+
+    // Interactive mode
+    if (!username) {
+        console.log(`\n  ${chalk.bold.cyan('🔍 アンフォローするユーザーを検索')}`);
+        const query = await askQuestion(`  ${chalk.bold('検索クエリ:')} `);
+        if (!query || query.length < 2) {
+            console.error(chalk.red('✖ 検索クエリは2文字以上必要です。'));
+            process.exit(1);
+        }
+
+        const spinner = ora(`Searching for "${query}"...`).start();
+        try {
+            const users = await apiRequest('GET', `/api/users/search/${encodeURIComponent(query)}`, null, config.token);
+            spinner.stop();
+
+            if (users.length === 0) {
+                console.log(chalk.dim(`\n  「${query}」に一致するユーザーが見つかりませんでした。`));
+                return;
+            }
+
+            const selected = await selectFromList(
+                users,
+                (u) => `${chalk.bold(u.username)} ${chalk.dim(u.displayName ? `— ${u.displayName}` : '')}`,
+                'アンフォローするユーザーを選択:'
+            );
+
+            if (!selected) {
+                console.log(chalk.yellow('\n  キャンセルしました。'));
+                return;
+            }
+
+            username = selected.username;
+            console.log(`  → ${chalk.cyan(username)} を選択\n`);
+        } catch (err) {
+            spinner.fail(chalk.red(`Search failed: ${err.message}`));
+            process.exit(1);
+        }
     }
 
     const spinner = ora(`Resolving @${username}...`).start();
@@ -388,21 +729,69 @@ async function cmdUnfollow(args) {
 }
 
 // ============================================================================
-// Command: dm
+// Command: dm (interactive with user search)
 // ============================================================================
 async function cmdDm(args) {
-    const username = args[0];
-    const message = args.slice(1).join(' ');
+    let username = args[0];
+    let message = args.slice(1).join(' ');
+    const config = getActiveConfig();
 
-    if (!username || !message) {
-        console.error(chalk.red('✖ Error: Usage: kb dm <username> <message>'));
-        process.exit(1);
-    }
-
-    const config = loadConfig();
     if (!config.token || !config.secretKey) {
         console.error(chalk.red('✖ Not logged in.'));
         process.exit(1);
+    }
+
+    // Interactive mode: search user first if no username provided
+    if (!username) {
+        console.log(`\n  ${chalk.bold.cyan('✉️ DMを送信')}`);
+        console.log(`  ${chalk.dim('送信先のユーザーを検索して選択します')}\n`);
+
+        const query = await askQuestion(`  ${chalk.bold('ユーザー検索:')} `);
+        if (!query || query.length < 2) {
+            console.error(chalk.red('✖ 検索クエリは2文字以上必要です。'));
+            process.exit(1);
+        }
+
+        const spinner = ora(`Searching for "${query}"...`).start();
+        try {
+            const users = await apiRequest('GET', `/api/users/search/${encodeURIComponent(query)}`, null, config.token);
+            spinner.stop();
+
+            if (users.length === 0) {
+                console.log(chalk.dim(`\n  「${query}」に一致するユーザーが見つかりませんでした。`));
+                return;
+            }
+
+            const selected = await selectFromList(
+                users,
+                (u) => `${chalk.bold(u.username)} ${chalk.dim(u.displayName ? `— ${u.displayName}` : '')}`,
+                'DMを送信する相手を選択:'
+            );
+
+            if (!selected) {
+                console.log(chalk.yellow('\n  キャンセルしました。'));
+                return;
+            }
+
+            username = selected.username;
+            console.log(`  → ${chalk.cyan(username)} を選択\n`);
+        } catch (err) {
+            spinner.fail(chalk.red(`Search failed: ${err.message}`));
+            process.exit(1);
+        }
+    }
+
+    // If message not provided, prompt interactively
+    if (!message) {
+        console.log(`  ${chalk.dim(`送信先: @${username}`)}`);
+        const rl = createInterface({ input, output });
+        message = (await rl.question(`  ${chalk.bold('メッセージ:')} `)).trim();
+        rl.close();
+
+        if (!message) {
+            console.log(chalk.yellow('\n  キャンセルしました。'));
+            return;
+        }
     }
 
     const spinner = ora(`Sending DM to @${username}...`).start();
@@ -424,6 +813,7 @@ async function cmdDm(args) {
 
         spinner.succeed(chalk.green(`DM sent to @${username}!`));
         console.log(`  ${chalk.dim('ID:')} ${chalk.dim(result.id)}`);
+        console.log(`  ${chalk.dim('💡 リアルタイムチャット:')} ${chalk.italic(`kb chat ${username}`)}`);
     } catch (err) {
         spinner.fail(chalk.red(`Failed to send DM: ${err.message}`));
         process.exit(1);
@@ -434,14 +824,14 @@ async function cmdDm(args) {
 // Command: dms
 // ============================================================================
 async function cmdDms(args) {
-    const config = loadConfig();
+    const config = getActiveConfig();
     if (!config.token) {
         console.error(chalk.red('✖ Not logged in.'));
         process.exit(1);
     }
 
     const unreadOnly = args.includes('--unread');
-    const limit = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 50;
+    const limit = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 100;
 
     const spinner = ora('Fetching DMs...').start();
 
@@ -457,47 +847,200 @@ async function cmdDms(args) {
         if (data.length === 0) {
             console.log(chalk.dim('\n  No messages in your inbox.'));
             if (!unreadOnly) {
-                console.log(chalk.dim('  To send a DM: kb dm <username> <message>'));
+                console.log(chalk.dim('  To send a DM: kb dm (interactive mode)'));
+                console.log(chalk.dim('  Or: kb dm <username> <message>'));
             }
             return;
         }
 
-        const title = unreadOnly ? '📨 Unread Messages' : '📨 Direct Messages';
-        console.log(`\n  ${chalk.bold.cyan(title)} ${chalk.dim(`(${data.length} messages)`)}`);
-        console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
+        // =========================================================================
+        // Group messages by conversation partner
+        // =========================================================================
+        const conversations = new Map(); // partnerId -> { partner, messages[], unreadCount }
 
         for (const dm of data) {
             const isFromMe = dm.from.id === config.userId;
-            const displayName = isFromMe ? dm.to.displayName || dm.to.username : dm.from.displayName || dm.from.username;
-            const handle = isFromMe ? `@${dm.to.username}` : `@${dm.from.username}`;
-            const time = new Date(dm.createdAt).toLocaleString();
-            const readStatus = dm.isRead ? '' : chalk.yellow(' ●');
+            const partner = isFromMe ? dm.to : dm.from;
+            const partnerId = partner.id;
 
-            if (isFromMe) {
-                console.log(`  ${chalk.dim('→ To:')}   ${chalk.bold(displayName)} ${chalk.dim(handle)}${readStatus}`);
-            } else {
-                console.log(`  ${chalk.dim('← From:')} ${chalk.bold(displayName)} ${chalk.dim(handle)}${readStatus}`);
+            if (!conversations.has(partnerId)) {
+                conversations.set(partnerId, {
+                    partner: {
+                        id: partner.id,
+                        username: partner.username,
+                        displayName: partner.displayName,
+                    },
+                    messages: [],
+                    unreadCount: 0,
+                });
             }
-            console.log(`  ${chalk.dim(time)}`);
-            console.log(`  ${dm.content}`);
-            console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
+
+            const conv = conversations.get(partnerId);
+            conv.messages.push(dm);
+            if (!isFromMe && !dm.isRead) {
+                conv.unreadCount++;
+            }
         }
+
+        // Sort conversations by latest message time (most recent first)
+        const sortedConvs = [...conversations.values()].sort((a, b) => {
+            const aTime = new Date(a.messages[0].createdAt).getTime();
+            const bTime = new Date(b.messages[0].createdAt).getTime();
+            return bTime - aTime;
+        });
+
+        // =========================================================================
+        // Render conversation list
+        // =========================================================================
+        const title = unreadOnly ? '📨 未読メッセージ' : '📨 受信箱';
+        const totalUnread = [...conversations.values()].reduce((sum, c) => sum + c.unreadCount, 0);
+        const unreadBadge = totalUnread > 0 ? chalk.yellow(` (${totalUnread}件未読)`) : '';
+
+        console.log();
+        console.log('  ' + chalk.bold.cyan(title) + chalk.dim(' ' + sortedConvs.length + '件の会話') + unreadBadge);
+        console.log('  ' + chalk.cyan(('').padEnd(68, '─')));
+        console.log();
+
+        for (let i = 0; i < sortedConvs.length; i++) {
+            const conv = sortedConvs[i];
+            const partner = conv.partner;
+            const latest = conv.messages[0];
+            const isLatestFromMe = latest.from.id === config.userId;
+            const previewWidth = Math.min(process.stdout.columns - 16 || 50, 50);
+
+            // Determine preview text (truncated)
+            let previewText = latest.content;
+            if (previewText.length > previewWidth) {
+                previewText = previewText.substring(0, previewWidth - 1) + '…';
+            }
+
+            // Timestamp of latest message
+            const latestTime = new Date(latest.createdAt);
+            const now = new Date();
+            const isToday = latestTime.toDateString() === now.toDateString();
+            const timeStr = isToday
+                ? latestTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : latestTime.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+
+            // Unread badge
+            const unreadBadgeStr = conv.unreadCount > 0
+                ? chalk.yellow(' ●' + (conv.unreadCount > 1 ? conv.unreadCount : ''))
+                : '';
+
+            // Bubble header: partner name
+            const headerName = chalk.bold(partner.displayName || partner.username);
+            const headerHandle = chalk.dim('@' + partner.username);
+            const numberLabel = chalk.cyan((i + 1).toString().padStart(2, ' ') + '.');
+
+            // Check if partner has display name
+            const nameLine = partner.displayName
+                ? headerName + ' ' + headerHandle
+                : headerName;
+
+            // ── Conversation Card ──
+            // Top border with number and name
+            const cardWidth = 66;
+            const topBorder = chalk.cyan('┌─ ') + nameLine + unreadBadgeStr + chalk.dim(' ' + timeStr);
+            const topPadding = cardWidth - topBorder.length + 10; // approximate
+            console.log('  ' + topBorder);
+
+            // Message preview (bubble style)
+            const prefix = isLatestFromMe ? chalk.dim('→ ') : '';
+            const previewBubble = chalk.white(prefix + previewText);
+            console.log('  ' + chalk.cyan('│  ') + previewBubble);
+
+            // "Last message" line
+            const msgCount = conv.messages.length;
+            const msgLabel = msgCount > 1 ? msgCount + ' messages' : '1 message';
+            console.log('  ' + chalk.cyan('│  ') + chalk.dim(msgLabel));
+
+            // Bottom border with quick action
+            const actionHint = chalk.cyan('├─ ') + chalk.dim('kb chat ' + partner.username + '  ') + chalk.cyan('│');
+            console.log('  ' + chalk.cyan('└' + ('').padEnd(cardWidth - 2, '─')) + chalk.cyan('┘'));
+
+            // Spacing between cards
+            console.log();
+        }
+
+        // ── Footer with legend ──
+        console.log('  ' + chalk.dim('─'.repeat(68)));
+        console.log('  ' + chalk.dim('番号を入力してチャット開始: ') + chalk.italic('kb chat <username>'));
+        console.log('  ' + chalk.dim('💡 ') + chalk.italic('kb dm <username> <message>') + chalk.dim(' で直接送信'));
+
+        // Interactive selection prompt
+        const rl = createInterface({ input, output });
+        console.log();
+        const answer = await rl.question('  ' + chalk.bold('チャットする相手の番号を選択 (Enter=戻る): ') + ' ');
+        rl.close();
+
+        const num = parseInt(answer.trim(), 10);
+        if (!isNaN(num) && num >= 1 && num <= sortedConvs.length) {
+            const selected = sortedConvs[num - 1];
+            console.log(chalk.dim('\n  ' + selected.partner.username + ' とのチャットを開始します...\n'));
+            // Launch chat with this user
+            await cmdChat([selected.partner.username]);
+        }
+
     } catch (err) {
-        spinner.fail(chalk.red(`Failed to fetch DMs: ${err.message}`));
+        spinner.fail(chalk.red('Failed to fetch DMs: ' + err.message));
         process.exit(1);
     }
 }
 
-// ============================================================================
-// Command: profile
-// ============================================================================
 async function cmdProfile(args) {
-    const config = loadConfig();
-    const targetUsername = args[0] || config.username;
+    const config = getActiveConfig();
+    let targetUsername = args[0];
 
+    // Interactive mode: search user if not specified
     if (!targetUsername) {
-        console.error(chalk.red('✖ Error: No username specified and not logged in.'));
-        process.exit(1);
+        if (!config.username) {
+            console.error(chalk.red('✖ Error: No username specified and not logged in.'));
+            process.exit(1);
+        }
+
+        console.log(`\n  ${chalk.bold.cyan('👤 ユーザーを検索')}`);
+        console.log(`  ${chalk.dim('Enter を押すと自分のプロフィールを表示')}\n`);
+
+        const query = await askQuestion(`  ${chalk.bold('ユーザー名の一部を入力:')} `);
+
+        if (!query) {
+            // Show own profile
+            targetUsername = config.username;
+        } else {
+            const spinner = ora(`Searching for "${query}"...`).start();
+            try {
+                const users = await apiRequest('GET', `/api/users/search/${encodeURIComponent(query)}`, null, config.token || null);
+                spinner.stop();
+
+                if (users.length === 0) {
+                    console.log(chalk.dim(`\n  「${query}」に一致するユーザーが見つかりませんでした。`));
+                    return;
+                }
+
+                // If only one result, use it directly
+                if (users.length === 1) {
+                    targetUsername = users[0].username;
+                    console.log(`  → ${chalk.cyan(targetUsername)}`);
+                } else {
+                    const selected = await selectFromList(
+                        users,
+                        (u) => `${chalk.bold(u.username)} ${chalk.dim(u.displayName ? `— ${u.displayName}` : '')}`,
+                        'プロフィールを表示するユーザーを選択:'
+                    );
+
+                    if (!selected) {
+                        console.log(chalk.yellow('\n  キャンセルしました。'));
+                        return;
+                    }
+
+                    targetUsername = selected.username;
+                    console.log(`  → ${chalk.cyan(targetUsername)} を選択\n`);
+                }
+            } catch (err) {
+                spinner.fail(chalk.red(`Search failed: ${err.message}`));
+                process.exit(1);
+            }
+        }
     }
 
     const spinner = ora(`Fetching profile @${targetUsername}...`).start();
@@ -522,40 +1065,69 @@ async function cmdProfile(args) {
 }
 
 // ============================================================================
-// Command: edit-profile
+// Command: edit-profile (interactive mode)
 // ============================================================================
 async function cmdEditProfile(args) {
-    const config = loadConfig();
+    const config = getActiveConfig();
     if (!config.token) {
         console.error(chalk.red('✖ Not logged in.'));
         process.exit(1);
     }
 
-    // Parse flags
+    // Parse flags or use interactive mode
     let displayName, bio, avatarUrl;
-    for (const arg of args) {
-        if (arg.startsWith('--display-name=')) {
-            displayName = arg.slice('--display-name='.length);
-        } else if (arg.startsWith('--bio=')) {
-            bio = arg.slice('--bio='.length);
-        } else if (arg.startsWith('--avatar-url=')) {
-            avatarUrl = arg.slice('--avatar-url='.length);
-        }
-    }
+    let hasFlags = false;
+    let isInteractive = false;
 
-    if (!displayName && !bio && !avatarUrl) {
-        console.error(chalk.red('✖ Error: Provide at least one field to update.'));
-        console.error(chalk.dim('  Usage: kb edit-profile --display-name="My Name" --bio="Hello!" --avatar-url="https://..."'));
-        process.exit(1);
+    if (args.length === 0) {
+        // No flags: enter interactive editing mode
+        isInteractive = true;
+        console.log(`\n  ${chalk.bold.cyan('✏️ プロフィール編集')}`);
+        console.log(`  ${chalk.dim('現在の値をそのまま使う場合は空Enter')}\n`);
+
+        displayName = await askQuestion(`  ${chalk.bold('表示名')} ${chalk.dim('(displayName):')} `);
+        bio = await askQuestion(`  ${chalk.bold('自己紹介')} ${chalk.dim('(bio):')} `);
+        avatarUrl = await askQuestion(`  ${chalk.bold('アバターURL')} ${chalk.dim('(avatarUrl):')} `);
+
+        if (!displayName && !bio && !avatarUrl) {
+            console.log(chalk.yellow('\n  変更はありません。'));
+            return;
+        }
+
+        console.log();
+        const confirmed = await confirmPrompt('プロフィールを更新しますか？');
+        if (!confirmed) {
+            console.log(chalk.yellow('\n  キャンセルしました。'));
+            return;
+        }
+    } else {
+        for (const arg of args) {
+            if (arg.startsWith('--display-name=')) {
+                displayName = arg.slice('--display-name='.length);
+                hasFlags = true;
+            } else if (arg.startsWith('--bio=')) {
+                bio = arg.slice('--bio='.length);
+                hasFlags = true;
+            } else if (arg.startsWith('--avatar-url=')) {
+                avatarUrl = arg.slice('--avatar-url='.length);
+                hasFlags = true;
+            }
+        }
+
+        if (!hasFlags) {
+            console.error(chalk.red('✖ Error: Provide at least one field to update.'));
+            console.error(chalk.dim('  Usage: kb edit-profile --display-name="My Name" --bio="Hello!" --avatar-url="https://..."'));
+            process.exit(1);
+        }
     }
 
     const spinner = ora('Updating profile...').start();
 
     try {
         const body = {};
-        if (displayName !== undefined) body.displayName = displayName.trim();
-        if (bio !== undefined) body.bio = bio.trim();
-        if (avatarUrl !== undefined) body.avatarUrl = avatarUrl;
+        if (displayName) body.displayName = displayName.trim();
+        if (bio) body.bio = bio.trim();
+        if (avatarUrl) body.avatarUrl = avatarUrl;
 
         const data = await apiRequest('PUT', '/api/users/me', body, config.token);
 
@@ -572,16 +1144,24 @@ async function cmdEditProfile(args) {
 }
 
 // ============================================================================
-// Command: search
+// Command: search (interactive mode)
 // ============================================================================
 async function cmdSearch(args) {
-    const query = args.join(' ');
+    let query = args.join(' ');
+    const config = getActiveConfig();
+
+    // Interactive mode
     if (!query || query.length < 2) {
-        console.error(chalk.red('✖ Error: Search query must be at least 2 characters. Usage: kb search <query>'));
-        process.exit(1);
+        console.log(`\n  ${chalk.bold.cyan('🔍 ユーザー検索')}`);
+        console.log(`  ${chalk.dim('ユーザー名または表示名の一部を入力')}\n`);
+        query = await askQuestion(`  ${chalk.bold('検索クエリ:')} `);
+
+        if (!query || query.length < 2) {
+            console.error(chalk.red('✖ 検索クエリは2文字以上必要です。'));
+            process.exit(1);
+        }
     }
 
-    const config = loadConfig();
     const spinner = ora(`Searching for "${query}"...`).start();
 
     try {
@@ -601,9 +1181,243 @@ async function cmdSearch(args) {
             console.log(`  ${chalk.bold(user.username)} ${chalk.dim(`— ${displayName}`)}`);
         }
         console.log();
+
+        // Offer quick actions
+        console.log(`  ${chalk.dim('💡 プロフィール:')} ${chalk.italic(`kb profile <username>`)}`);
+        console.log(`  ${chalk.dim('✉️ DM送信:')} ${chalk.italic(`kb dm <username>`)}`);
+        console.log(`  ${chalk.dim('👤 フォロー:')} ${chalk.italic(`kb follow <username>`)}`);
     } catch (err) {
         spinner.fail(chalk.red(`Search failed: ${err.message}`));
         process.exit(1);
+    }
+}
+
+// ============================================================================
+// Command: accounts (list all saved accounts)
+// ============================================================================
+async function cmdAccounts() {
+    const { full, activeUsername } = getConfigBundle();
+    const names = listAccountNames();
+
+    if (names.length === 0) {
+        console.log(`\n  ${chalk.dim('保存されたアカウントはありません。')}`);
+        console.log(`  ${chalk.dim('kb register <username>  で新規登録')}`);
+        return;
+    }
+
+    console.log(`\n  ${chalk.bold.cyan('📋 アカウント一覧')} ${chalk.dim(`(${names.length}件)`)}`);
+    console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
+
+    for (let i = 0; i < names.length; i++) {
+        const uname = names[i];
+        const acct = full.accounts[uname];
+        const isActive = uname === activeUsername;
+        const hasToken = acct && acct.token ? chalk.green('✓ ログイン済') : chalk.dim('未ログイン');
+        const activeMark = isActive ? chalk.cyan(' ← 現在のアカウント') : '';
+
+        console.log(`  ${chalk.cyan(`${i + 1}.`)} ${chalk.bold(isActive ? uname : chalk.dim(uname))}`);
+        console.log(`     ${chalk.dim('鍵:')} ${hasToken}${activeMark}`);
+        console.log();
+    }
+
+    console.log(`  ${chalk.dim('💡 切り替え:')} ${chalk.italic('kb switch <username>')}`);
+    console.log(`  ${chalk.dim('💡 削除:')} ${chalk.italic('kb account remove <username>')}`);
+}
+
+// ============================================================================
+// Command: switch (switch active account)
+// ============================================================================
+async function cmdSwitch(args) {
+    const { full, activeUsername } = getConfigBundle();
+    const names = listAccountNames();
+
+    if (names.length === 0) {
+        console.error(chalk.red('✖ 保存されたアカウントがありません。'));
+        console.error(chalk.dim('  kb register <username>  でアカウントを作成してください。'));
+        process.exit(1);
+    }
+
+    let target = args[0];
+
+    // Interactive mode: select from list
+    if (!target) {
+        console.log(`\n  ${chalk.bold.cyan('🔄 アカウント切り替え')}`);
+        console.log(`  ${chalk.dim('使用するアカウントを選択してください')}\n`);
+
+        for (let i = 0; i < names.length; i++) {
+            const uname = names[i];
+            const isActive = uname === activeUsername;
+            const hasToken = full.accounts[uname]?.token ? chalk.green('✓') : chalk.dim('○');
+            const activeMark = isActive ? chalk.cyan(' ← 現在') : '';
+            console.log(`  ${chalk.cyan(`${i + 1}.`)} ${chalk.bold(isActive ? uname : uname)} ${hasToken}${activeMark}`);
+        }
+        console.log(`  ${chalk.dim('  0.')} ${chalk.dim('キャンセル')}`);
+        console.log();
+
+        const rl = createInterface({ input, output });
+        let selected = null;
+
+        while (selected === null) {
+            const answer = await rl.question(`  ${chalk.bold('番号を選択 (1-' + names.length + '):')} `);
+            const num = parseInt(answer.trim(), 10);
+
+            if (answer.trim() === '0') {
+                rl.close();
+                console.log(chalk.yellow('\n  キャンセルしました。'));
+                return;
+            }
+
+            if (isNaN(num) || num < 1 || num > names.length) {
+                console.log(`  ${chalk.red(`✖ 無効な番号です。1〜${names.length} の番号を入力してください。`)}`);
+                continue;
+            }
+
+            selected = names[num - 1];
+        }
+        rl.close();
+
+        target = selected;
+    }
+
+    // Check if the target account exists
+    if (!full.accounts[target]) {
+        console.error(chalk.red(`✖ アカウント「${target}」が見つかりません。`));
+        console.error(chalk.dim('  kb accounts  で保存済みアカウントを確認できます。'));
+        process.exit(1);
+    }
+
+    if (target === activeUsername) {
+        console.log(`\n  ${chalk.dim(`すでに @${target} がアクティブです。`)}`);
+        return;
+    }
+
+    // Switch
+    full.activeUsername = target;
+    await saveFullConfig(full);
+
+    const acct = full.accounts[target];
+    const hasToken = acct && acct.token;
+
+    console.log(`\n  ${chalk.green('✓')} ${chalk.bold.cyan(`@${target}`)} ${chalk.dim('に切り替えました。')}`);
+
+    if (!hasToken) {
+        console.log(`  ${chalk.yellow('⚠️  このアカウントはまだログインしていません。')}`);
+        console.log(`  ${chalk.dim('  kb login     でログイン')}`);
+    }
+    console.log(`  ${chalk.dim('  kb whoami    で現在のアカウント確認')}`);
+    console.log(`  ${chalk.dim('  kb accounts  でアカウント一覧')}`);
+}
+
+// ============================================================================
+// Command: account (subcommands: remove)
+// ============================================================================
+async function cmdAccount(args) {
+    const sub = args[0];
+
+    if (!sub || sub === 'help') {
+        console.log(`\n  ${chalk.bold.cyan('👤 アカウント管理')}`);
+        console.log(`  ${chalk.dim('─'.repeat(40))}`);
+        console.log(`  ${chalk.cyan('kb account remove <username>')}   アカウントを削除`);
+        console.log(`  ${chalk.cyan('kb account list')}                アカウント一覧 (kb accounts)`);
+        console.log();
+        return;
+    }
+
+    switch (sub) {
+        case 'remove':
+        case 'rm':
+        case 'delete':
+            await cmdAccountRemove(args.slice(1));
+            break;
+        case 'list':
+        case 'ls':
+            await cmdAccounts();
+            break;
+        default:
+            console.error(chalk.red(`✖ 不明なサブコマンド: "${sub}"`));
+            process.exit(1);
+    }
+}
+
+// ============================================================================
+// Command: account remove (delete a saved account from config)
+// ============================================================================
+async function cmdAccountRemove(args) {
+    const { full, activeUsername } = getConfigBundle();
+    const names = listAccountNames();
+
+    if (names.length === 0) {
+        console.error(chalk.red('✖ 保存されたアカウントがありません。'));
+        process.exit(1);
+    }
+
+    let target = args[0];
+
+    // Interactive mode
+    if (!target) {
+        console.log(`\n  ${chalk.bold.cyan('🗑️ 削除するアカウントを選択')}`);
+        console.log(`  ${chalk.red('⚠️  ローカル設定からのみ削除され、サーバーのデータは残ります。')}\n`);
+
+        for (let i = 0; i < names.length; i++) {
+            const uname = names[i];
+            const isActive = uname === activeUsername;
+            const activeMark = isActive ? chalk.cyan(' ← 現在') : '';
+            console.log(`  ${chalk.cyan(`${i + 1}.`)} ${uname}${activeMark}`);
+        }
+        console.log(`  ${chalk.dim('  0.')} ${chalk.dim('キャンセル')}`);
+        console.log();
+
+        const rl = createInterface({ input, output });
+        let selected = null;
+
+        while (selected === null) {
+            const answer = await rl.question(`  ${chalk.bold('番号を選択 (1-' + names.length + '):')} `);
+            const num = parseInt(answer.trim(), 10);
+
+            if (answer.trim() === '0') {
+                rl.close();
+                console.log(chalk.yellow('\n  キャンセルしました。'));
+                return;
+            }
+
+            if (isNaN(num) || num < 1 || num > names.length) {
+                console.log(`  ${chalk.red(`✖ 無効な番号です。1〜${names.length} の番号を入力してください。`)}`);
+                continue;
+            }
+
+            selected = names[num - 1];
+        }
+        rl.close();
+
+        target = selected;
+    }
+
+    if (!full.accounts[target]) {
+        console.error(chalk.red(`✖ アカウント「${target}」が見つかりません。`));
+        process.exit(1);
+    }
+
+    // Confirm
+    const confirmed = await confirmPrompt(`@${target} をローカル設定から削除してもよろしいですか？`);
+    if (!confirmed) {
+        console.log(chalk.yellow('\n  キャンセルしました。'));
+        return;
+    }
+
+    delete full.accounts[target];
+
+    // If we removed the active account, switch to another
+    if (activeUsername === target) {
+        const remaining = Object.keys(full.accounts);
+        full.activeUsername = remaining.length > 0 ? remaining[0] : null;
+    }
+
+    await saveFullConfig(full);
+
+    console.log(`\n  ${chalk.green('✓')} @${target} ${chalk.dim('をローカル設定から削除しました。')}`);
+
+    if (full.activeUsername && full.activeUsername !== target) {
+        console.log(`  ${chalk.dim(`現在のアカウント: @${full.activeUsername}`)}`);
     }
 }
 
@@ -612,69 +1426,86 @@ async function cmdSearch(args) {
 // ============================================================================
 function showHelp(command = null) {
     const commands = {
+        // Account management
         register: {
-            usage: 'kb register <username>',
-            desc: 'Create a new account with ed25519 keypair',
+            usage: 'kb register [username]',
+            desc: '新規アカウント登録（引数なしで対話式）',
         },
         login: {
-            usage: 'kb login <username>',
-            desc: 'Authenticate using existing keypair',
+            usage: 'kb login [username]',
+            desc: 'ログイン（引数なしでアカウント一覧から選択）',
+        },
+        switch: {
+            usage: 'kb switch [username]',
+            desc: '保存済みアカウントを切り替え（対話式）',
+        },
+        accounts: {
+            usage: 'kb accounts',
+            desc: '保存済みアカウント一覧',
+        },
+        'account': {
+            usage: 'kb account remove <username>',
+            desc: 'アカウントをローカル設定から削除',
         },
         whoami: {
             usage: 'kb whoami',
-            desc: 'Show your profile information',
+            desc: '現在のアカウント情報を表示',
         },
+        // Posts & Feed
         post: {
-            usage: 'kb post <message>',
-            desc: 'Create a new post on the koshi board',
+            usage: 'kb post [message]',
+            desc: '投稿する（引数なしで対話式入力）',
         },
         feed: {
             usage: 'kb feed [--limit=20]',
-            desc: 'Display your post feed',
+            desc: 'フィードを表示',
         },
+        // Social
         follow: {
-            usage: 'kb follow <username>',
-            desc: 'Follow a user',
+            usage: 'kb follow [username]',
+            desc: 'フォロー（引数なしで検索→選択）',
         },
         unfollow: {
-            usage: 'kb unfollow <username>',
-            desc: 'Unfollow a user',
-        },
-        dm: {
-            usage: 'kb dm <username> <message>',
-            desc: 'Send a direct message',
-        },
-        dms: {
-            usage: 'kb dms [--unread] [--limit=50]',
-            desc: 'View your direct messages',
+            usage: 'kb unfollow [username]',
+            desc: 'アンフォロー（引数なしで検索→選択）',
         },
         profile: {
             usage: 'kb profile [username]',
-            desc: 'View a user profile',
+            desc: 'プロフィール表示（引数なしで検索→選択）',
         },
         'edit-profile': {
-            usage: 'kb edit-profile --display-name=... --bio=... --avatar-url=...',
-            desc: 'Update your own profile',
+            usage: 'kb edit-profile [--display-name=...]',
+            desc: 'プロフィール編集（引数なしで対話式）',
         },
         search: {
-            usage: 'kb search <query>',
-            desc: 'Search users by username or display name',
+            usage: 'kb search [query]',
+            desc: 'ユーザー検索（引数なしで対話式）',
+        },
+        // Direct Messages
+        dm: {
+            usage: 'kb dm [username] [message]',
+            desc: 'DM送信（引数なしで検索→対話式入力）',
+        },
+        dms: {
+            usage: 'kb dms [--unread] [--limit=50]',
+            desc: 'DM受信箱を表示',
         },
         chat: {
-            usage: 'kb chat <username>',
-            desc: 'Real-time interactive DM chat',
+            usage: 'kb chat [username]',
+            desc: 'リアルタイムDMチャット（引数なしで検索）',
         },
+        // Other
         realtime: {
             usage: 'kb realtime',
-            desc: 'Stream live posts and events',
+            desc: 'リアルタイムフィードをストリーム表示',
         },
         admin: {
             usage: 'kb admin <command>',
-            desc: 'Admin: users, delete-user, grant, revoke',
+            desc: '管理者コマンド',
         },
         help: {
             usage: 'kb help [command]',
-            desc: 'Show this help message',
+            desc: 'ヘルプを表示',
         },
     };
 
@@ -688,22 +1519,58 @@ function showHelp(command = null) {
         return;
     }
 
+    // Show active account info in help
+    const { activeUsername } = getConfigBundle();
+    const activeInfo = activeUsername
+        ? `  ${chalk.green('●')} ${chalk.bold.cyan(`@${activeUsername}`)} ${chalk.dim('(アクティブ)')}`
+        : `  ${chalk.red('○')} ${chalk.dim('ログインしていません')}`;
+
     console.log(`\n  ${chalk.bold.cyan('🏄 koshi — Terminal-Native Decentralized SNS')}`);
-    console.log(`  ${chalk.dim('Version 1.2.0')}`);
+    console.log(`  ${chalk.dim('Version 1.3.0 — 複数アカウント対応')}`);
+    console.log(`\n  ${activeInfo}`);
     console.log(`\n  ${chalk.bold('Usage:')} kb <command> [options]\n`);
-    console.log(`  ${chalk.bold('Commands:')}\n`);
+
+    // Group commands by category
+    const groups = [
+        {
+            title: '👤 アカウント管理',
+            keys: ['register', 'login', 'switch', 'accounts', 'account', 'whoami'],
+        },
+        {
+            title: '📝 投稿',
+            keys: ['post', 'feed'],
+        },
+        {
+            title: '👥 ソーシャル',
+            keys: ['follow', 'unfollow', 'profile', 'edit-profile', 'search'],
+        },
+        {
+            title: '✉️ DM',
+            keys: ['dm', 'dms', 'chat'],
+        },
+        {
+            title: '⚙️ その他',
+            keys: ['realtime', 'admin', 'help'],
+        },
+    ];
 
     const maxLen = Math.max(...Object.values(commands).map((c) => c.usage.length));
 
-    for (const [name, cmd] of Object.entries(commands)) {
-        const padding = ' '.repeat(maxLen - cmd.usage.length + 2);
-        console.log(`    ${chalk.cyan(cmd.usage)}${padding}${cmd.desc}`);
+    for (const group of groups) {
+        console.log(`  ${chalk.bold(group.title)}`);
+        for (const key of group.keys) {
+            const cmd = commands[key];
+            if (!cmd) continue;
+            const padding = ' '.repeat(maxLen - cmd.usage.length + 2);
+            console.log(`    ${chalk.cyan(cmd.usage)}${padding}${chalk.dim(cmd.desc)}`);
+        }
+        console.log();
     }
 
-    console.log(`\n  ${chalk.bold('Options:')}`);
+    console.log(`  ${chalk.bold('Options:')}`);
     console.log(`    --help, -h    Show help for a command`);
     console.log(`    --version, -v Show version`);
-    console.log(`\n  ${chalk.dim('Environment:')}`);
+    console.log(`\n  ${chalk.dim('環境変数:')}`);
     console.log(`    ${chalk.dim('KOSHI_API_URL   API base URL (default: https://koshi-api.ryopc.f5.si)')}`);
     console.log(`    ${chalk.dim('KOSHI_WS_URL    WebSocket URL (default: wss://koshi-api.ryopc.f5.si)')}`);
     console.log();
@@ -713,8 +1580,8 @@ function showHelp(command = null) {
 // Command: version
 // ============================================================================
 function showVersion() {
-    console.log('koshi v1.2.0');
-    console.log('Terminal-native decentralized SNS');
+    console.log('koshi v1.3.0');
+    console.log('Terminal-native decentralized SNS — 複数アカウント対応');
     console.log('License: MIT');
     console.log('Author: game_ryo');
 }
@@ -723,7 +1590,7 @@ function showVersion() {
 // Command: admin
 // ============================================================================
 async function cmdAdmin(args) {
-    const config = loadConfig();
+    const config = getActiveConfig();
     if (!config.token) {
         console.error(chalk.red('✖ Not logged in. Admin commands require authentication.'));
         process.exit(1);
@@ -892,36 +1759,185 @@ async function cmdAdminSetAdmin(config, args, makeAdmin) {
 }
 
 // ============================================================================
-// Command: chat (interactive real-time DM mode)
+// ============================================================================
+// Chat bubble TUI helpers
+// ============================================================================
+
+/**
+ * Wrap text to fit within a given character width.
+ */
+function wordWrap(text, maxWidth) {
+    if (!text || text.length <= maxWidth) return [text || ''];
+    const words = text.split(' ');
+    const lines = [];
+    let current = '';
+    for (const word of words) {
+        if ((current + ' ' + word).trim().length > maxWidth) {
+            if (current) lines.push(current.trim());
+            current = word;
+        } else {
+            current += (current ? ' ' : '') + word;
+        }
+    }
+    if (current) lines.push(current.trim());
+    return lines;
+}
+
+/**
+ * Render a chat bubble (LINE-style) to the console.
+ * Own messages: right-aligned, cyan bubble
+ * Received messages: left-aligned, green bubble
+ * Timestamps shown next to each bubble group.
+ */
+function renderChatBubble(isOwn, content, isoTime, showTime) {
+    const time = new Date(isoTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const cols = process.stdout.columns || 80;
+    const maxBubbleWidth = Math.min(cols - 12, 56);
+    const lines = wordWrap(content, maxBubbleWidth);
+    const timestamp = chalk.dim(time);
+
+    if (isOwn) {
+        // Right-aligned cyan bubble (like LINE's own messages)
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const padLeft = Math.max(0, cols - line.length - 16);
+            const bTop = chalk.cyan('┌') + chalk.cyan('─'.repeat(line.length + 2)) + chalk.cyan('┐');
+            const bMid = chalk.cyan('│') + ' ' + chalk.white(line) + ' ' + chalk.cyan('│');
+            const bBot = chalk.cyan('└') + chalk.cyan('─'.repeat(line.length + 2)) + chalk.cyan('┘');
+            if (i === 0 && showTime) {
+                console.log(' '.repeat(padLeft) + bTop + '  ' + timestamp);
+            } else {
+                console.log(' '.repeat(padLeft) + bTop);
+            }
+            console.log(' '.repeat(padLeft) + bMid);
+            console.log(' '.repeat(padLeft) + bBot);
+        }
+    } else {
+        // Left-aligned green bubble (like LINE's received messages)
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const bTop = chalk.green('┌') + chalk.green('─'.repeat(line.length + 2)) + chalk.green('┐');
+            const bMid = chalk.green('│') + ' ' + chalk.white(line) + ' ' + chalk.green('│');
+            const bBot = chalk.green('└') + chalk.green('─'.repeat(line.length + 2)) + chalk.green('┘');
+            if (i === 0 && showTime) {
+                console.log('  ' + timestamp);
+            }
+            console.log('  ' + bTop);
+            console.log('  ' + bMid);
+            console.log('  ' + bBot);
+        }
+    }
+}
+
+/**
+ * Clear the chat area below the header and redraw all messages.
+ */
+function redrawChat(messages, headerLines) {
+    cursorTo(process.stdout, 0, headerLines);
+    clearScreenDown(process.stdout);
+
+    for (const msg of messages) {
+        renderChatBubble(msg.isOwn, msg.content, msg.timestamp, msg.showTime);
+    }
+    // Show input prompt
+    process.stdout.write(chalk.cyan('  > '));
+}
+
+// ============================================================================
+// Command: chat (interactive real-time DM mode, with bubble TUI)
 // ============================================================================
 async function cmdChat(args) {
-    const config = loadConfig();
+    const config = getActiveConfig();
     if (!config.token || !config.secretKey) {
         console.error(chalk.red('✖ Not logged in. Use "kb login" or "kb register" first.'));
         process.exit(1);
     }
 
-    const targetUsername = args[0];
+    let targetUsername = args[0];
+
+    // Interactive mode: search user if not provided
     if (!targetUsername) {
-        console.error(chalk.red('✖ Error: Usage: kb chat <username>'));
-        process.exit(1);
+        console.log('');
+        console.log('  ' + chalk.bold.cyan('💬 チャット相手を検索'));
+        console.log('  ' + chalk.dim('リアルタイムDMで会話する相手を検索して選択'));
+        console.log('');
+
+        const query = await askQuestion('  ' + chalk.bold('ユーザー検索:') + ' ');
+        if (!query || query.length < 2) {
+            console.error(chalk.red('✖ 検索クエリは2文字以上必要です。'));
+            process.exit(1);
+        }
+
+        const spinner = ora('Searching for "' + query + '"...').start();
+        try {
+            const users = await apiRequest('GET', '/api/users/search/' + encodeURIComponent(query), null, config.token);
+            spinner.stop();
+
+            if (users.length === 0) {
+                console.log(chalk.dim(''));
+                console.log(chalk.dim('  "' + query + '" に一致するユーザーが見つかりませんでした。'));
+                return;
+            }
+
+            const selected = await selectFromList(
+                users,
+                (u) => chalk.bold(u.username) + ' ' + chalk.dim(u.displayName ? '— ' + u.displayName : ''),
+                'チャットする相手を選択:'
+            );
+
+            if (!selected) {
+                console.log(chalk.yellow(''));
+                console.log(chalk.yellow('  キャンセルしました。'));
+                return;
+            }
+
+            targetUsername = selected.username;
+        } catch (err) {
+            spinner.fail(chalk.red('Search failed: ' + err.message));
+            process.exit(1);
+        }
     }
 
-    console.log(`\n  ${chalk.bold.cyan('💬 Live Chat with')} ${chalk.bold(targetUsername)}`);
-    console.log(`  ${chalk.dim('Connect to real-time DMs. Type your message and press Enter.')}`);
-    console.log(`  ${chalk.dim('Type /exit or press Ctrl+C to quit.')}\n`);
-
+    // =========================================================================
+    // Chat session — bubble TUI
+    // =========================================================================
     try {
         // Resolve target user
-        const userData = await apiRequest('GET', `/api/users/${targetUsername}`, null, config.token);
+        const userData = await apiRequest('GET', '/api/users/' + targetUsername, null, config.token);
         const { default: WebSocket } = await import('ws');
 
+        // Clear terminal for chat mode
+        console.clear();
+
+        // ── Draw header ──
+        const headerLines = [
+            '  ' + chalk.bold.cyan('💬') + ' ' + chalk.bold(targetUsername) + chalk.dim(' とのチャット'),
+            '  ' + chalk.cyan('─'.repeat(72)),
+            '  ' + chalk.dim('/exit または Ctrl+C で終了'),
+            '  ' + chalk.cyan('─'.repeat(72)),
+        ];
+        for (const line of headerLines) {
+            console.log(line);
+        }
+        const HEADER_LINE_COUNT = headerLines.length + 1; // +1 for blank line
+
+        // ── System status area ──
+        console.log('  ' + chalk.dim('🔄 接続中...'));
+        const SYSTEM_LINES = 1;
+
+        // ── Message history ──
+        const chatMessages = [];
+
         // Connect to WebSocket
-        const ws = new WebSocket(`${WS_URL}/ws?token=${config.token}`);
+        const ws = new WebSocket(WS_URL + '/ws?token=' + config.token);
 
         ws.on('open', () => {
-            console.log(chalk.green('  ✓ Connected!\n'));
-            promptForInput();
+            // Update status to connected
+            cursorTo(process.stdout, 0, HEADER_LINE_COUNT);
+            process.stdout.write('  ' + chalk.green('🟢') + ' ' + chalk.dim('接続しました') + '  ');
+            clearScreenDown(process.stdout);
+            // Show prompt
+            process.stdout.write(chalk.cyan('  > '));
         });
 
         // Handle incoming messages
@@ -931,35 +1947,55 @@ async function cmdChat(args) {
 
                 switch (msg.type) {
                     case 'connected':
-                        // Initial connection confirmation
                         break;
 
                     case 'dm_received':
                         if (msg.payload.from.username === targetUsername) {
-                            console.log(`\n  ${chalk.bold.green(`${targetUsername}:`)} ${msg.payload.content}`);
-                            promptForInput();
+                            chatMessages.push({
+                                isOwn: false,
+                                content: msg.payload.content,
+                                timestamp: msg.payload.timestamp || new Date().toISOString(),
+                                showTime: true,
+                            });
+                            redrawChat(chatMessages, HEADER_LINE_COUNT + SYSTEM_LINES);
                         }
                         break;
 
                     case 'dm:sent':
-                        console.log(`\n  ${chalk.bold.cyan(`You:`)} ${msg.payload.content}`);
-                        promptForInput();
+                        // Avoid duplicates (we also add on local send)
+                        {
+                            const last = chatMessages[chatMessages.length - 1];
+                            if (!last || last.content !== msg.payload.content || last.isOwn !== true) {
+                                chatMessages.push({
+                                    isOwn: true,
+                                    content: msg.payload.content,
+                                    timestamp: msg.payload.timestamp || new Date().toISOString(),
+                                    showTime: true,
+                                });
+                                redrawChat(chatMessages, HEADER_LINE_COUNT + SYSTEM_LINES);
+                            }
+                        }
                         break;
 
                     case 'error':
-                        console.log(`\n  ${chalk.red(`✖ Error: ${msg.payload.message}`)}`);
-                        promptForInput();
+                        redrawChat(chatMessages, HEADER_LINE_COUNT + SYSTEM_LINES);
+                        process.stdout.write(chalk.red('  ✖ ' + msg.payload.message + '\\n'));
+                        process.stdout.write(chalk.cyan('  > '));
                         break;
 
                     case 'user_online':
                         if (msg.payload.username === targetUsername) {
-                            console.log(`\n  ${chalk.green('🟢')} ${chalk.bold(targetUsername)} ${chalk.dim('is now online')}`);
+                            cursorTo(process.stdout, 0, HEADER_LINE_COUNT);
+                            process.stdout.write('  ' + chalk.green('🟢') + ' ' + chalk.dim('オンライン') + '  ');
+                            redrawChat(chatMessages, HEADER_LINE_COUNT + SYSTEM_LINES);
                         }
                         break;
 
                     case 'user_offline':
                         if (msg.payload.userId === userData.id) {
-                            console.log(`\n  ${chalk.red('🔴')} ${chalk.bold(targetUsername)} ${chalk.dim('went offline')}`);
+                            cursorTo(process.stdout, 0, HEADER_LINE_COUNT);
+                            process.stdout.write('  ' + chalk.red('🔴') + ' ' + chalk.dim('オフライン') + '  ');
+                            redrawChat(chatMessages, HEADER_LINE_COUNT + SYSTEM_LINES);
                         }
                         break;
 
@@ -972,34 +2008,33 @@ async function cmdChat(args) {
         });
 
         ws.on('close', () => {
-            console.log(chalk.yellow('\n  Disconnected.'));
+            console.log();
+            console.log('  ' + chalk.yellow('⚠️ 切断されました。'));
             process.exit(0);
         });
 
         ws.on('error', (err) => {
-            console.error(chalk.red(`\n  WebSocket error: ${err.message}`));
+            console.log();
+            console.log('  ' + chalk.red('✖ WebSocket error: ' + err.message));
             process.exit(1);
         });
 
-        // Handle user input
+        // ── Handle user input ──
         let inputBuffer = '';
-        function promptForInput() {
-            process.stdout.write(chalk.cyan('  > '));
-        }
 
         process.stdin.setEncoding('utf-8');
         process.stdin.on('data', async (chunk) => {
             inputBuffer += chunk;
 
-            if (inputBuffer.includes('\n')) {
-                const lines = inputBuffer.split('\n');
+            if (inputBuffer.includes('\\n')) {
+                const lines = inputBuffer.split('\\n');
                 inputBuffer = lines.pop(); // Keep incomplete line
 
                 for (const line of lines) {
                     const trimmed = line.trim();
 
                     if (!trimmed) {
-                        promptForInput();
+                        process.stdout.write(chalk.cyan('  > '));
                         continue;
                     }
 
@@ -1022,9 +2057,19 @@ async function cmdChat(args) {
                                 signature,
                             },
                         }));
+
+                        // Add to local message history immediately (optimistic update)
+                        chatMessages.push({
+                            isOwn: true,
+                            content: trimmed,
+                            timestamp: new Date().toISOString(),
+                            showTime: true,
+                        });
+                        redrawChat(chatMessages, HEADER_LINE_COUNT + SYSTEM_LINES);
                     } catch (err) {
-                        console.log(`  ${chalk.red(`✖ Failed to send: ${err.message}`)}`);
-                        promptForInput();
+                        redrawChat(chatMessages, HEADER_LINE_COUNT + SYSTEM_LINES);
+                        process.stdout.write('  ' + chalk.red('✖ ' + err.message) + '\\n');
+                        process.stdout.write(chalk.cyan('  > '));
                     }
                 }
             }
@@ -1032,22 +2077,20 @@ async function cmdChat(args) {
 
         // Graceful shutdown
         process.on('SIGINT', () => {
-            console.log(chalk.dim('\n  Closing connection...'));
+            console.log();
+            console.log(chalk.dim('  Closing...'));
             ws.close();
             process.exit(0);
         });
 
     } catch (err) {
-        console.error(chalk.red(`Failed to start chat: ${err.message}`));
+        console.error(chalk.red('Failed to start chat: ' + err.message));
         process.exit(1);
     }
 }
 
-// ============================================================================
-// Command: realtime feed (stream mode)
-// ============================================================================
 async function cmdRealtime() {
-    const config = loadConfig();
+    const config = getActiveConfig();
     if (!config.token) {
         console.error(chalk.red('✖ Not logged in. Use "kb login" or "kb register" first.'));
         process.exit(1);
@@ -1135,7 +2178,7 @@ async function main() {
     const args = process.argv.slice(2);
     const command = args[0];
 
-    // No args
+    // No args — show help with active account context
     if (!command || command === '--help' || command === '-h') {
         showHelp(args[1]);
         return;
@@ -1158,6 +2201,20 @@ async function main() {
 
         case 'whoami':
             await cmdWhoami();
+            break;
+
+        case 'accounts':
+        case 'account':
+            // 'account remove <username>' or 'accounts' (list)
+            if (command === 'account') {
+                await cmdAccount(args.slice(1));
+            } else {
+                await cmdAccounts();
+            }
+            break;
+
+        case 'switch':
+            await cmdSwitch(args.slice(1));
             break;
 
         case 'post':
