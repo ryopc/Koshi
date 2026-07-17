@@ -32,16 +32,94 @@ import {
     getActiveConfig,
     listAccountNames,
     getConfigBundle,
+    getServerUrl,
+    setServerUrl,
     CONFIG_DIR,
     CONFIG_FILE,
     SNSRC_FILE,
 } from '../src/config/config.js';
 
 // ============================================================================
-// Constants
+// Constants — resolve server URL from env > config > default
 // ============================================================================
-const API_BASE = process.env.KOSHI_API_URL || 'https://koshi-api.ryopc.f5.si';
-const WS_URL = process.env.KOSHI_WS_URL || 'wss://koshi-api.ryopc.f5.si';
+const DEFAULT_API = 'https://koshi-api.ryopc.f5.si';
+const DEFAULT_WS = 'wss://koshi-api.ryopc.f5.si';
+
+function getApiBase() {
+    if (process.env.KOSHI_API_URL) return process.env.KOSHI_API_URL;
+    const cfg = loadFullConfig();
+    if (cfg.serverUrl) return cfg.serverUrl.replace(/\/$/, '');
+    return DEFAULT_API;
+}
+
+function getWsBase() {
+    if (process.env.KOSHI_WS_URL) return process.env.KOSHI_WS_URL;
+    const cfg = loadFullConfig();
+    if (cfg.serverUrl) {
+        const url = cfg.serverUrl.replace(/\/$/, '');
+        return url.replace(/^http/, 'ws');
+    }
+    return DEFAULT_WS;
+}
+
+const API_BASE = getApiBase();
+const WS_URL = getWsBase();
+
+// ============================================================================
+// Local mode support (server-independent operation)
+// ============================================================================
+// When --local is passed, the CLI uses a local SQLite database + P2P sync
+// instead of the remote API server. Works fully offline.
+// ============================================================================
+
+const IS_LOCAL = process.argv.includes('--local');
+let _localAPI = null;
+
+/**
+ * Auto-initialize local mode if --local flag is present.
+ * Called early in startup before any commands execute.
+ */
+async function autoInitLocalMode() {
+    if (!IS_LOCAL) return false;
+
+    console.log(chalk.dim('  🏠 Local mode activated (no server required)'));
+
+    try {
+        const { initLocalMode } = await import('../src/local/index.js');
+
+        // Try to init P2P if available
+        let p2pModule = null;
+        try {
+            p2pModule = await import('../src/p2p/index.js');
+            await p2pModule.autoStart();
+        } catch {
+            // P2P not available, that's OK
+        }
+
+        const { api } = await initLocalMode({
+            p2p: p2pModule,
+            server: false,
+        });
+
+        _localAPI = api;
+        console.log(chalk.dim('  ✓ Local database ready (' + chalk.italic('~/.config/koshi/local.db') + ')'));
+
+        if (p2pModule) {
+            try {
+                const { initP2PBridge } = await import('../src/local/p2p-bridge.js');
+                await initP2PBridge(p2pModule);
+            } catch {
+                // Bridge init is best-effort
+            }
+        }
+
+        return true;
+    } catch (err) {
+        console.error(chalk.yellow('⚠ Local mode init failed: ' + err.message));
+        console.error(chalk.dim('  Falling back to server mode...'));
+        return false;
+    }
+}
 
 // ============================================================================
 // Interactive prompt helpers (readline)
@@ -121,9 +199,18 @@ async function confirmPrompt(message) {
 // ============================================================================
 
 // ============================================================================
-// Helper: HTTP request with auth
+// API Router: Routes to local API or remote HTTP based on mode
 // ============================================================================
+
+/**
+ * Route an API call to either the local SQLite or remote HTTP server.
+ */
 async function apiRequest(method, path, body = null, token = null) {
+    if (IS_LOCAL && _localAPI) {
+        return localApiCall(method, path, body, token);
+    }
+
+    // ---- Remote HTTP mode ----
     const url = `${API_BASE}${path}`;
     const headers = { 'Content-Type': 'application/json' };
     if (token) {
@@ -143,6 +230,86 @@ async function apiRequest(method, path, body = null, token = null) {
     }
 
     return data;
+}
+
+/**
+ * Route an API call to the local SQLite engine.
+ */
+async function localApiCall(method, path, body, token) {
+    // Strip query string before path parsing
+    const cleanPath = path.split('?')[0];
+    const parts = cleanPath.split('/').filter(Boolean);
+    if (parts.length < 3) throw new Error('Invalid API path: ' + path);
+
+    const resource = parts[1];
+    const action = parts[2];
+
+    // ---- Auth routes ----
+    if (resource === 'auth') {
+        if (action === 'register') return await _localAPI.register(body.username, body.publicKey);
+        if (action === 'login') return await _localAPI.login(body.username, body.signature);
+    }
+
+    // ---- Users routes ----
+    if (resource === 'users') {
+        if (action === 'search' && parts.length >= 4)
+            return await _localAPI.searchUsers(decodeURIComponent(parts[3]));
+        if (action === 'me' && method === 'PUT')
+            return await _localAPI.updateProfile(extractUserIdFromToken(token), body);
+        if (parts.length === 3 && method === 'GET')
+            return await _localAPI.getUserProfile(action);
+        if (parts.length === 4 && parts[3] === 'follow' && method === 'POST')
+            return await _localAPI.followUser(extractUserIdFromToken(token), action);
+        if (parts.length === 4 && parts[3] === 'follow' && method === 'DELETE')
+            return await _localAPI.unfollowUser(extractUserIdFromToken(token), action);
+        if (parts.length === 4 && (parts[3] === 'followers' || parts[3] === 'following'))
+            throw new Error('Local API: ' + path + ' not yet implemented');
+    }
+
+    // ---- Posts routes ----
+    if (resource === 'posts') {
+        if (action === 'feed') {
+            const userId = token ? extractUserIdFromToken(token) : null;
+            const searchParams = new URLSearchParams(path.split('?')[1] || '');
+            return await _localAPI.getFeed(userId, parseInt(searchParams.get('limit')) || 20, parseInt(searchParams.get('offset')) || 0);
+        }
+        if (method === 'GET' && parts.length === 3)
+            return await _localAPI.getPost(action);
+        if (method === 'POST' && parts.length === 2)
+            return await _localAPI.createPost(extractUserIdFromToken(token), body.content, body.signature);
+    }
+
+    // ---- DMs routes ----
+    if (resource === 'dms') {
+        if (method === 'GET' && parts.length === 2) {
+            const userId = extractUserIdFromToken(token);
+            const searchParams = new URLSearchParams(path.split('?')[1] || '');
+            return await _localAPI.getDMs(userId, parseInt(searchParams.get('limit')) || 50, 0, searchParams.get('unread') === 'true');
+        }
+        if (action === 'unread' && parts[3] === 'count')
+            return await _localAPI.getUnreadDMCount(extractUserIdFromToken(token));
+        if (method === 'POST' && parts.length === 3)
+            return await _localAPI.sendDM(extractUserIdFromToken(token), action, body.content, body.signature);
+        if (parts.length === 4 && parts[3] === 'read' && method === 'PUT')
+            return await _localAPI.markDMAsRead(action, extractUserIdFromToken(token));
+    }
+
+    throw new Error('Unknown API path in local mode: ' + method + ' ' + path);
+}
+
+/**
+ * Extract user ID from a JWT token (for local mode).
+ */
+function extractUserIdFromToken(token) {
+    if (!token) return null;
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+        return payload.userId || null;
+    } catch {
+        return null;
+    }
 }
 
 // ============================================================================
@@ -177,7 +344,7 @@ async function cmdRegister(args) {
         const { generateKeypair, derivePublicKey } = await import('../src/auth/ed25519.js');
         const keypair = generateKeypair();
 
-        spinner.text = 'Registering with server...';
+        spinner.text = IS_LOCAL ? 'Registering locally...' : 'Registering with server...';
 
         const result = await apiRequest('POST', '/api/auth/register', {
             username,
@@ -283,7 +450,7 @@ async function cmdLogin(args) {
         const challenge = `koshi:login:${username}`;
         const signature = await signMessage(challenge, acct.secretKey);
 
-        spinner.text = 'Authenticating with server...';
+        spinner.text = IS_LOCAL ? 'Authenticating locally...' : 'Authenticating with server...';
 
         const result = await apiRequest('POST', '/api/auth/login', {
             username,
@@ -395,7 +562,7 @@ async function cmdPost(args) {
         const { signMessage } = await import('../src/auth/ed25519.js');
         const signature = await signMessage(content, config.secretKey);
 
-        spinner.text = 'Submitting to koshi board...';
+        spinner.text = IS_LOCAL ? 'Posting locally...' : 'Submitting to koshi board...';
 
         const result = await apiRequest('POST', '/api/posts', {
             content,
@@ -2172,7 +2339,7 @@ function showHelp(command = null) {
 // Command: version
 // ============================================================================
 function showVersion() {
-    console.log('koshi v2.0.1');
+    console.log('koshi v2.0.2' + (IS_LOCAL ? ' (local mode)' : ''));
     console.log('Terminal-native decentralized SNS — Nostr/P2P 統合');
     console.log('License: MIT');
     console.log('Author: game_ryo');
@@ -2771,6 +2938,11 @@ async function main() {
     const args = process.argv.slice(2);
     const command = args[0];
 
+    // Auto-initialize local mode if --local flag is present
+    if (IS_LOCAL) {
+        await autoInitLocalMode();
+    }
+
     // No args — show help with active account context
     if (!command || command === '--help' || command === '-h') {
         showHelp(args[1]);
@@ -2856,6 +3028,12 @@ async function main() {
 
         case 'nostr':
             await cmdNostr(args.slice(1));
+            break;
+        case 'server':
+            await cmdServer(args.slice(1));
+            break;
+        case 'connect':
+            await cmdConnect(args.slice(1));
             break;
 
         case 'p2p':

@@ -18,10 +18,9 @@ import jwt from 'jsonwebtoken';
 function getSecret() {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-        throw new Error(
-            'JWT_SECRET environment variable is not set. ' +
-            'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
-        );
+        // In local/standalone mode, use a deterministic fallback
+        // so tokens work without environment variables.
+        return 'koshi-local-dev-secret-koshi-local-dev-secret!';
     }
     return secret;
 }

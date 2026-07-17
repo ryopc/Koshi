@@ -1,5 +1,5 @@
 // ============================================================================
-// koshi – Terminal-Native Decentralized SNS v2.0.1
+// koshi – Terminal-Native Decentralized SNS v2.0.2
 // Configuration Management (Multi-Account + Nostr + P2P)
 // License: MIT
 // ============================================================================
@@ -7,11 +7,11 @@
 //   - Multi-account (existing)
 //   - Nostr keys & relays (new in v2.0.0)
 //   - P2P / corestore settings (new in v2.0.0)
-//   - Bug fixes & stability improvements (v2.0.1)
+//   - Bug fixes & stability improvements (v2.0.2)
 //
 // Config file format:
 //   {
-//     "version": "2.0.1",
+//     "version": "2.0.2",
 //     "activeUsername": "alice",
 //     "p2p": {
 //       "corestorePath": "/home/user/.config/koshi/corestore",
@@ -48,7 +48,7 @@ const CONFIG_DIR = join(homedir(), '.config', 'koshi');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 const SNSRC_FILE = join(homedir(), '.snsrc');
 const DEFAULT_CORESTORE_DIR = join(CONFIG_DIR, 'corestore');
-const KOSHI_VERSION = '2.0.1';
+const KOSHI_VERSION = '2.0.2';
 
 // ============================================================================
 // Default config
@@ -57,6 +57,7 @@ function defaultConfig() {
     return {
         version: KOSHI_VERSION,
         activeUsername: null,
+        serverUrl: null, // null = use built-in default server
         p2p: {
             corestorePath: DEFAULT_CORESTORE_DIR,
             autoSync: false,
@@ -240,6 +241,21 @@ export function listAccounts(config) {
 /**
  * Get the P2P settings.
  */
+/**
+ * Get the configured server URL (or null for default).
+ */
+export function getServerUrl(config) {
+    return config.serverUrl || null;
+}
+
+/**
+ * Set the server URL.
+ */
+export function setServerUrl(config, url) {
+    config.serverUrl = url || null;
+    saveConfig(config);
+}
+
 export function getP2PConfig(config) {
     return config.p2p || defaultConfig().p2p;
 }
@@ -301,6 +317,8 @@ export default {
     getNostrConfig,
     setNostrConfig,
     listAccounts,
+    getServerUrl,
+    setServerUrl,
     getP2PConfig,
     setP2PConfig,
     getActiveBundle,

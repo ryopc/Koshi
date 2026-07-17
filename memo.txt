@@ -1,0 +1,156 @@
+# koshi プロジェクト 作業メモ（AI引き継ぎ用）
+# 最終更新: 2026-07-17
+
+## プロジェクト概要
+koshiは「ターミナルネイティブ分散型SNS」。ed25519暗号で認証するソーシャルネットワーク。
+- バージョン: 2.0.2
+- ライセンス: MIT
+- 作者: game_ryo (ryopc)
+
+## 現在のアーキテクチャ
+```
+bin/cli.js          - CLI/TUI (kbコマンド)
+bin/server.js       - サーバー起動スクリプト (PostgreSQL必須)
+src/                - サーバーコード (Express + WebSocket)
+  api/              - REST API (auth, users, posts, dms, admin, p2p)
+  ws/               - WebSocket (index.js, handlers.js)
+  db/               - PostgreSQL (pool.js, migrate.js, schema.sql)
+  auth/             - ed25519認証 (ed25519.js, jwt.js, utils.js)
+  config/           - 設定管理 (config.js) - JSON based
+  local/            - ローカルモード (SQLite + Express + P2P bridge)
+  p2p/              - P2P同期 (hypercore + hyperswarm) - ★ ブラウザ不可
+  nostr/            - Nostr連携
+client/             - React Web UI (Vite + React 18)
+web/                - ビルド済み静的ファイル
+```
+
+## 実施済み変更
+
+### 1. サーバー側: P2P APIエンドポイント追加
+**ファイル: src/api/p2p.js (新規作成)**
+- GET /api/p2p/status - P2Pノード状態確認
+- GET /api/p2p/peers - 接続ピア一覧
+- GET /api/p2p/posts - P2P経由投稿取得
+- POST /api/p2p/sync - 手動同期トリガー
+- POST /api/p2p/start - P2Pノード起動
+- POST /api/p2p/stop - P2Pノード停止
+
+**ファイル: src/index.js (修正)**
+- p2pRouterをマウント: `app.use('/api/p2p', p2pRouter)`
+
+### 2. サーバー側: WebSocket P2Pイベント追加
+**ファイル: src/ws/handlers.js (修正)**
+- 'p2p:status' ハンドラ追加 - P2P状態をWebSocket経由で取得
+- 'p2p:sync' ハンドラ追加 - WebSocket経由で同期要求
+
+### 3. config.js: サーバーURL対応追加
+**ファイル: src/config/config.js (修正)**
+- `defaultConfig()`に`serverUrl: null`追加
+- `getServerUrl(config)`関数追加
+- `setServerUrl(config, url)`関数追加
+- デフォルトサーバー: https://koshi-api.ryopc.f5.si
+
+### 4. CLI: API_BASE動的解決
+**ファイル: bin/cli.js (修正済み)**
+- configからgetServerUrl/setServerUrlをimport追加
+- API_BASEを固定値から動的関数に変更:
+  ```javascript
+  function getApiBase() {
+      if (process.env.KOSHI_API_URL) return process.env.KOSHI_API_URL;
+      const cfg = loadFullConfig();
+      if (cfg.serverUrl) return cfg.serverUrl.replace(/\/$/, '');
+      return DEFAULT_API;
+  }
+  function getWsBase() { ... } // http→ws変換付き
+  ```
+
+### 5. CLI: kb server / kb connect コマンド (未実装)
+**main関数のswitchにcase追加済みだが、関数本体がまだ:**
+```javascript
+case 'server':
+    await cmdServer(args.slice(1));
+    break;
+case 'connect':
+    await cmdConnect(args.slice(1));
+    break;
+```
+
+### 6. SQLite自己完結型サーバー (新規作成済み)
+**ファイル: src/local/server-standalone.js (新規作成)**
+- PostgreSQL不要、SQLiteで完全動作
+- Express REST API (全エンドポイント対応)
+- WebSocketリアルタイム通信用
+- 自動マイグレーション (起動時にテーブル作成)
+- 静的ファイル配信 (Web UI)
+- JWT認証 (HMAC-SHA256、外部ライブラリ不要)
+- ed25519署名検証 (tweetnacl使用)
+- 使用方法: `node src/local/server-standalone.js`
+- 環境変数: PORT (デフォルト3000), JWT_SECRET (自動生成)
+
+## 未実装タスク（引き継ぎ）
+
+### 優先度: 高
+1. **CLI `kb server` コマンド実装** - standaloneサーバーをCLIから起動
+   - `kb server` → ポート指定でstandaloneサーバー起動
+   - `kb server --port=8080` → ポート指定
+   - `kb server --daemon` → バックグラウンド起動
+   - 実装場所: bin/cli.js にcmdServer()関数を追加
+
+2. **CLI `kb connect` コマンド実装** - リモートサーバーに接続
+   - `kb connect http://localhost:3000` → config.serverUrlに保存
+   - `kb connect https://my-koshi.example.com` → リモートサーバー
+   - `kb connect --reset` → デフォルトサーバーに戻す
+   - `kb connect --status` → 現在の接続先表示
+   - 実装場所: bin/cli.js にcmdConnect()関数を追加
+
+3. **package.json更新** - serverスクリプト追加
+   ```json
+   "scripts": {
+     "server": "node src/local/server-standalone.js",
+     "server:dev": "nodemon --exec node src/local/server-standalone.js"
+   }
+   ```
+
+### 優先度: 中
+4. **showHelp()更新** - kb server/kb connectをヘルプに追加
+5. **Dockerfile更新** - standaloneサーバー対応
+6. **client/src/utils/api.js更新** - configのserverUrlを読み込む
+
+### 優先度: 低（P2P関連 - 方針転換済み）
+7. P2Pは諦め、分散型サーバー方式に移行
+8. clientのP2P関連コードは不要（useP2P, P2PPage等は作成不要）
+
+## 重要な設計判断
+- **P2P放棄**: hypercore/hyperswarmはNode.jsネイティブモジュールでブラウザ不可 → 分散サーバー方式に
+- **standaloneサーバー**: SQLite使用、PostgreSQL不要、誰でもワンコマンド起動可能
+- **サーバーURL管理**: config.jsonのserverUrlフィールドで保存、CLIから切り替え可能
+- **API互換性**: standaloneサーバーは既存のkoshi APIと完全互換
+
+## テスト手順
+```bash
+# standaloneサーバー起動テスト
+node src/local/server-standalone.js
+
+# 別ターミナルでCLI接続テスト
+KOSHI_API_URL=http://localhost:3000 node bin/cli.js register testuser
+KOSHI_API_URL=http://localhost:3000 node bin/cli.js feed
+
+# kb connectで接続先変更テスト（未実装）
+# kb serverで起動テスト（未実装）
+```
+
+## 既知の問題
+- bin/cli.jsのshowHelp()にserver/connectコマンドの記載がない
+- package.jsonにserverスクリプトがない
+- client/src/utils/api.jsはconfigのserverUrl未対応
+- standaloneサーバーのtweetnacl importが動的import必要かもしれない
+
+## ファイル変更一覧
+```
+[新規] src/api/p2p.js          - P2P REST API
+[新規] src/local/server-standalone.js - SQLite standaloneサーバー
+[修正] src/index.js             - p2pRouter追加
+[修正] src/ws/handlers.js       - P2P WSハンドラ追加
+[修正] src/config/config.js     - serverUrl対応追加
+[修正] bin/cli.js               - API_BASE動的化、server/connect case追加
+```

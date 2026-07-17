@@ -1,5 +1,5 @@
 // ============================================================================
-// koshi – Terminal-Native Decentralized SNS v2.0.1
+// koshi – Terminal-Native Decentralized SNS v2.0.2
 // Nostr Protocol Integration
 // License: MIT
 // ============================================================================

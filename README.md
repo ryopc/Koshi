@@ -1,6 +1,6 @@
 # 🏄 koshi — Terminal-Native Decentralized SNS
 
-**Version 2.0.1** · MIT License · by [game_ryo](https://github.com/ryopc)
+**Version 2.0.2** · MIT License · by [game_ryo](https://github.com/ryopc)
 
 > A terminal-native, decentralized social network powered by ed25519 cryptography.
 
@@ -8,7 +8,7 @@
 
 ## ✨ Features
 
-### v2.0.1 — Nostr + P2P 統合 🎉
+### v2.0.2 — バグ修正・安定性向上 🎉
 
 - **🔐 Decentralized Auth** — ed25519 keypair authentication (Nostr-inspired)
 - **📝 Posts** — Create and view posts on the koshi board

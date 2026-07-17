@@ -11,6 +11,19 @@ import { query } from '../db/pool.js';
 import { broadcast } from './index.js';
 import { logger } from '../logger.js';
 
+// Dynamic P2P import (only if P2P module is available)
+let _p2pModule = null;
+async function getP2P() {
+    if (!_p2pModule) {
+        try {
+            _p2pModule = await import('../p2p/index.js');
+        } catch {
+            _p2pModule = { isReady: () => false, appendPost: async () => false, appendDM: async () => false };
+        }
+    }
+    return _p2pModule;
+}
+
 /**
  * Handle an incoming WebSocket message.
  *
@@ -49,6 +62,14 @@ export async function handleMessage(ws, message, user) {
 
             case 'unfollow':
                 await handleUnfollow(ws, payload, user);
+                break;
+
+            case 'p2p:status':
+                await handleP2PStatus(ws, user);
+                break;
+
+            case 'p2p:sync':
+                await handleP2PSync(ws, user);
                 break;
 
             default:
@@ -146,6 +167,22 @@ async function handlePostCreate(ws, payload, user) {
 
     // Broadcast to all other clients
     broadcast('post_created', postEvent);
+
+    // Append to P2P store (best-effort)
+    try {
+        const p2p = await getP2P();
+        if (p2p.isReady()) {
+            await p2p.appendPost({
+                id: postEvent.id,
+                content: postEvent.content,
+                author: postEvent.author,
+                signature: postEvent.signature,
+                createdAt: postEvent.timestamp,
+            });
+        }
+    } catch {
+        // P2P append is best-effort
+    }
 }
 
 /**
@@ -233,6 +270,22 @@ async function handleDmSend(ws, payload, user) {
 
     // Deliver to recipient via WebSocket
     broadcast('dm_received', dmEvent, recipientId);
+
+    // Append to P2P store (best-effort)
+    try {
+        const p2p = await getP2P();
+        if (p2p.isReady()) {
+            await p2p.appendDM({
+                id: dmEvent.id,
+                content: dmEvent.content,
+                fromUsername: user.username,
+                signature: dmEvent.signature,
+                createdAt: dmEvent.timestamp,
+            });
+        }
+    } catch {
+        // P2P append is best-effort
+    }
 }
 
 /**
@@ -319,4 +372,71 @@ async function handleUnfollow(ws, payload, user) {
         type: 'unfollow:done',
         payload: { success: true, followingId: targetUserId },
     }));
+}
+
+/**
+ * Handle P2P status request via WebSocket.
+ */
+async function handleP2PStatus(ws, user) {
+    try {
+        const p2p = await getP2P();
+        if (!p2p) {
+            ws.send(JSON.stringify({
+                type: 'p2p:status',
+                payload: { available: false, ready: false, status: 'not_available' },
+            }));
+            return;
+        }
+
+        const status = p2p.getP2PStatus();
+        ws.send(JSON.stringify({
+            type: 'p2p:status',
+            payload: { available: true, ...status },
+        }));
+    } catch (err) {
+        logger.warn({ err }, 'Failed to get P2P status via WS');
+        ws.send(JSON.stringify({
+            type: 'p2p:status',
+            payload: { available: false, ready: false, status: 'error' },
+        }));
+    }
+}
+
+/**
+ * Handle P2P manual sync request via WebSocket.
+ */
+async function handleP2PSync(ws, user) {
+    try {
+        const p2p = await getP2P();
+        if (!p2p) {
+            ws.send(JSON.stringify({
+                type: 'p2p:sync',
+                payload: { success: false, message: 'P2P not available' },
+            }));
+            return;
+        }
+
+        if (!p2p.isReady()) {
+            const started = await p2p.initP2PNode();
+            if (!started) {
+                ws.send(JSON.stringify({
+                    type: 'p2p:sync',
+                    payload: { success: false, message: 'Failed to start P2P node' },
+                }));
+                return;
+            }
+        }
+
+        const status = p2p.getP2PStatus();
+        ws.send(JSON.stringify({
+            type: 'p2p:sync',
+            payload: { success: true, status },
+        }));
+    } catch (err) {
+        logger.warn({ err }, 'Failed to sync P2P via WS');
+        ws.send(JSON.stringify({
+            type: 'p2p:sync',
+            payload: { success: false, message: err.message },
+        }));
+    }
 }
