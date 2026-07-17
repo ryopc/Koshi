@@ -19,22 +19,27 @@
 //   kb --help
 // ============================================================================
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { cursorTo, clearScreenDown } from 'node:readline';
 import chalk from 'chalk';
 import ora from 'ora';
 
+// Config management (v2.0.1)
+import {
+    loadFullConfig,
+    saveFullConfig,
+    getActiveConfig,
+    listAccountNames,
+    getConfigBundle,
+    CONFIG_DIR,
+    CONFIG_FILE,
+    SNSRC_FILE,
+} from '../src/config/config.js';
+
 // ============================================================================
 // Constants
 // ============================================================================
-const CONFIG_DIR = join(homedir(), '.config', 'koshi');
-const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
-const SNSRC_FILE = join(homedir(), '.snsrc');
 const API_BASE = process.env.KOSHI_API_URL || 'https://koshi-api.ryopc.f5.si';
 const WS_URL = process.env.KOSHI_WS_URL || 'wss://koshi-api.ryopc.f5.si';
 
@@ -105,160 +110,15 @@ async function confirmPrompt(message) {
 // ============================================================================
 // Multi-account configuration system
 // ============================================================================
-// Config format:
-// {
-//   "activeUsername": "user1",           // currently active account
-//   "accounts": {
-//     "user1": {
-//       "userId": "uuid",
-//       "username": "user1",
-//       "publicKey": "hex",
-//       "secretKey": "hex",
-//       "token": "jwt"
-//     },
-//     "user2": { ... }
-//   }
-// }
+// Configuration management is now in src/config/config.js
+// Functions are imported at the top of this file.
 // ============================================================================
-
-/**
- * Load the full config file (multi-account format).
- * Automatically migrates from legacy single-account format.
- */
-function loadFullConfig() {
-    try {
-        if (existsSync(CONFIG_FILE)) {
-            const data = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
-
-            // Already in new format with accounts map
-            if (data.accounts && typeof data.accounts === 'object') {
-                return data;
-            }
-
-            // Legacy format: single account at root level
-            // data = { userId, username, publicKey, secretKey, token, ... }
-            if (data.username && data.secretKey) {
-                const migrated = {
-                    activeUsername: data.username,
-                    accounts: {
-                        [data.username]: {
-                            userId: data.userId,
-                            username: data.username,
-                            publicKey: data.publicKey,
-                            secretKey: data.secretKey,
-                            token: data.token,
-                        },
-                    },
-                };
-                // Save migrated config immediately
-                try {
-                    writeFileSync(CONFIG_FILE, JSON.stringify(migrated, null, 2), 'utf-8');
-                } catch {
-                    // Best effort
-                }
-                return migrated;
-            }
-        }
-
-        // Fallback to legacy .snsrc
-        if (existsSync(SNSRC_FILE)) {
-            const snsrcData = readFileSync(SNSRC_FILE, 'utf-8').trim();
-            if (snsrcData) {
-                try {
-                    const parsed = JSON.parse(snsrcData);
-                    if (parsed.secretKey && parsed.username) {
-                        const migrated = {
-                            activeUsername: parsed.username,
-                            accounts: {
-                                [parsed.username]: {
-                                    username: parsed.username,
-                                    secretKey: parsed.secretKey,
-                                },
-                            },
-                        };
-                        return migrated;
-                    }
-                } catch {
-                    // Plain text format
-                    const lines = snsrcData.split('\n');
-                    if (lines.length >= 2) {
-                        const u = lines[1].trim();
-                        const migrated = {
-                            activeUsername: u,
-                            accounts: {
-                                [u]: {
-                                    username: u,
-                                    secretKey: lines[0].trim(),
-                                },
-                            },
-                        };
-                        return migrated;
-                    }
-                }
-            }
-        }
-    } catch {
-        // Config file doesn't exist or is corrupt
-    }
-    // Default: empty config
-    return { activeUsername: null, accounts: {} };
-}
-
-/**
- * Save the full multi-account config.
- */
-async function saveFullConfig(config) {
-    if (!existsSync(CONFIG_DIR)) {
-        mkdirSync(CONFIG_DIR, { recursive: true });
-    }
-    writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
-
-    // Update legacy .snsrc with active account's secret key
-    const active = config.activeUsername ? config.accounts[config.activeUsername] : null;
-    if (active && active.secretKey) {
-        writeFileSync(SNSRC_FILE, `${active.secretKey}\n${active.username}\n`, 'utf-8');
-    }
-
-    // Set restrictive permissions
-    try {
-        const { chmod } = await import('node:fs/promises');
-        await chmod(CONFIG_FILE, 0o600);
-        await chmod(SNSRC_FILE, 0o600);
-    } catch {
-        // chmod not critical
-    }
-}
-
-/**
- * Get the currently active account's config (backward-compatible).
- * Returns {} if not logged in / no active account.
- */
-function getActiveConfig() {
-    const full = loadFullConfig();
-    if (full.activeUsername && full.accounts[full.activeUsername]) {
-        return full.accounts[full.activeUsername];
-    }
-    return {};
-}
-
-/**
- * List all stored account usernames.
- */
-function listAccountNames() {
-    const full = loadFullConfig();
-    return Object.keys(full.accounts);
-}
-
-/**
- * Get the full config and active config together.
- */
-function getConfigBundle() {
-    const full = loadFullConfig();
-    const active = full.activeUsername && full.accounts[full.activeUsername]
-        ? full.accounts[full.activeUsername]
-        : {};
-    return { full, active, activeUsername: full.activeUsername };
-}
+// The config supports:
+//   - Multi-account (existing)
+//   - Nostr keys & relays (v2.0.0)
+//   - P2P / corestore settings (v2.0.0)
+//   - Bug fixes & stability improvements (v2.0.1)
+// ============================================================================
 
 // ============================================================================
 // Helper: HTTP request with auth
@@ -1422,6 +1282,720 @@ async function cmdAccountRemove(args) {
 }
 
 // ============================================================================
+// Nostr command system
+// ============================================================================
+
+async function cmdNostr(args) {
+    const sub = args[0];
+
+    if (!sub || sub === 'help' || sub === '--help') {
+        showNostrHelp();
+        return;
+    }
+
+    switch (sub) {
+        case 'key':
+        case 'keys':
+            await cmdNostrKey(args.slice(1));
+            break;
+        case 'relay':
+        case 'relays':
+            await cmdNostrRelay(args.slice(1));
+            break;
+        case 'push':
+            await cmdNostrPush(args.slice(1));
+            break;
+        case 'pull':
+            await cmdNostrPull(args.slice(1));
+            break;
+        case 'pubkey':
+        case 'npub':
+            cmdNostrPubkey();
+            break;
+        case 'test':
+            await cmdNostrTestRelay(args.slice(1));
+            break;
+        case 'status':
+            cmdNostrStatus();
+            break;
+        default:
+            console.error(chalk.red(`✖ 不明な Nostr サブコマンド: "${sub}"`));
+            console.log(chalk.dim('  kb nostr help  で使い方を表示'));
+            process.exit(1);
+    }
+}
+
+function showNostrHelp() {
+    console.log(`\n  ${chalk.bold.cyan('🔑 Nostr 統合 (v2.0.1)')}`);
+    console.log(`  ${chalk.dim('koshi を Nostr プロトコルと連携')}`);
+    console.log(`  ${chalk.dim('─'.repeat(50))}`);
+    console.log();
+    console.log(`  ${chalk.bold('🔐 鍵管理')}`);
+    console.log(`    ${chalk.cyan('kb nostr key generate')}     新規 Nostr 鍵ペアを生成`);
+    console.log(`    ${chalk.cyan('kb nostr key show')}          現在の Nostr 公開鍵を表示`);
+    console.log(`    ${chalk.cyan('kb nostr key import <nsec>')} 既存の nsec 秘密鍵をインポート`);
+    console.log();
+    console.log(`  ${chalk.bold('🌐 リレー管理')}`);
+    console.log(`    ${chalk.cyan('kb nostr relay list')}        リレー一覧`);
+    console.log(`    ${chalk.cyan('kb nostr relay add <url>')}   リレーを追加`);
+    console.log(`    ${chalk.cyan('kb nostr relay remove <url>')} リレーを削除`);
+    console.log(`    ${chalk.cyan('kb nostr relay test <url>')}  リレーの接続をテスト`);
+    console.log();
+    console.log(`  ${chalk.bold('📡 同期')}`);
+    console.log(`    ${chalk.cyan('kb nostr push [--limit=20]')} 投稿を Nostr に公開`);
+    console.log(`    ${chalk.cyan('kb nostr pull [--limit=50]')} Nostr から投稿を取得`);
+    console.log();
+    console.log(`  ${chalk.bold('ℹ️  情報')}`);
+    console.log(`    ${chalk.cyan('kb nostr status')}           Nostr 設定状況を表示`);
+    console.log(`    ${chalk.cyan('kb nostr npub')}             公開鍵 (npub) を表示`);
+    console.log();
+}
+
+// ---------------------------------------------------------------------------
+// kb nostr key generate | show | import
+// ---------------------------------------------------------------------------
+
+async function cmdNostrKey(args) {
+    const sub = args[0];
+
+    if (!sub || sub === 'help') {
+        console.log(`\n  ${chalk.bold.cyan('🔐 Nostr 鍵管理')}`);
+        console.log(`  ${chalk.dim('─'.repeat(40))}`);
+        console.log(`  ${chalk.cyan('kb nostr key generate')}     新規鍵ペアを生成`);
+        console.log(`  ${chalk.cyan('kb nostr key show')}          現在の鍵を表示`);
+        console.log(`  ${chalk.cyan('kb nostr key import <nsec>')} 既存鍵をインポート`);
+        console.log();
+        return;
+    }
+
+    switch (sub) {
+        case 'generate':
+        case 'gen':
+        case 'new':
+            await cmdNostrKeyGenerate();
+            break;
+        case 'show':
+        case 'info':
+            await cmdNostrKeyShow();
+            break;
+        case 'import':
+        case 'restore':
+            await cmdNostrKeyImport(args.slice(1));
+            break;
+        default:
+            console.error(chalk.red(`✖ 不明な鍵サブコマンド: "${sub}"`));
+            process.exit(1);
+    }
+}
+
+async function cmdNostrKeyGenerate() {
+    const config = getActiveConfig();
+    if (!config.username) {
+        console.error(chalk.red('✖ ログインしていません。先に kb register または kb login してください。'));
+        process.exit(1);
+    }
+
+    const spinner = ora('Generating Nostr keypair...').start();
+
+    try {
+        const { generateNostrKeypair } = await import('../src/nostr/index.js');
+        const kp = generateNostrKeypair();
+
+        spinner.text = 'Saving to config...';
+
+        const { full } = getConfigBundle();
+        const acct = full.accounts[config.username];
+        if (!acct) {
+            spinner.fail(chalk.red('Account not found in config.'));
+            process.exit(1);
+        }
+
+        acct.nostr = {
+            nsec: kp.nsec,
+            npub: kp.npub,
+            relays: ['wss://relay.damus.io', 'wss://relay.nostr.band', 'wss://nos.lol', 'wss://relay.snort.social'],
+            lastPushAt: null,
+            lastPullAt: null,
+        };
+        await saveFullConfig(full);
+
+        spinner.succeed(chalk.green('Nostr keypair generated and saved!'));
+
+        console.log(`\n  ${chalk.bold('🔑 Nostr Keys')}`);
+        console.log(`  ${chalk.dim('─'.repeat(50))}`);
+        console.log(`  ${chalk.bold('npub:')}  ${chalk.cyan(kp.npub)}`);
+        console.log(`  ${chalk.bold('nsec:')}  ${chalk.yellow(kp.nsec)}`);
+        console.log(`  ${chalk.dim('  ⚠️  nsec（秘密鍵）は他人と共有しないでください！')}`);
+        console.log(`\n  ${chalk.dim('💡 Nostr に投稿を公開:')} ${chalk.italic('kb nostr push')}`);
+        console.log(`  ${chalk.dim('💡 Nostr から投稿を取得:')} ${chalk.italic('kb nostr pull')}`);
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdNostrKeyShow() {
+    const config = getActiveConfig();
+    if (!config.username || !config.nostr?.nsec) {
+        console.error(chalk.red('✖ Nostr 鍵が設定されていません。'));
+        console.error(chalk.dim('  kb nostr key generate  で新規生成'));
+        console.error(chalk.dim('  kb nostr key import <nsec>  でインポート'));
+        process.exit(1);
+    }
+
+    const nc = config.nostr;
+    const relayCount = nc.relays?.length || 0;
+
+    console.log(`\n  ${chalk.bold.cyan('🔑 Nostr Keys')}`);
+    console.log(`  ${chalk.dim('─'.repeat(50))}`);
+    console.log(`  ${chalk.bold('npub:')}  ${chalk.cyan(nc.npub || 'N/A')}`);
+    console.log(`  ${chalk.bold('nsec:')}  ${chalk.dim(nc.nsec ? nc.nsec.slice(0, 12) + '...' : 'N/A')}`);
+    console.log(`  ${chalk.bold('Relays:')} ${chalk.dim(relayCount + ' 件設定')}`);
+
+    if (nc.relays?.length > 0) {
+        console.log();
+        for (const relay of nc.relays) {
+            console.log(`    ${chalk.dim('•')} ${chalk.dim(relay)}`);
+        }
+    }
+
+    console.log(`\n  ${chalk.bold('Sync Status:')}`);
+    console.log(`    ${chalk.dim('Last Push:')} ${nc.lastPushAt ? new Date(nc.lastPushAt).toLocaleString() : chalk.dim('まだ')}`);
+    console.log(`    ${chalk.dim('Last Pull:')} ${nc.lastPullAt ? new Date(nc.lastPullAt).toLocaleString() : chalk.dim('まだ')}`);
+}
+
+async function cmdNostrKeyImport(args) {
+    const nsec = args[0];
+    if (!nsec) {
+        console.error(chalk.red('✖ nsec を指定してください。'));
+        console.error(chalk.dim('  kb nostr key import nsec1...'));
+        process.exit(1);
+    }
+
+    const config = getActiveConfig();
+    if (!config.username) {
+        console.error(chalk.red('✖ ログインしていません。'));
+        process.exit(1);
+    }
+
+    const spinner = ora('Importing Nostr key...').start();
+
+    try {
+        const { importNostrKey } = await import('../src/nostr/index.js');
+        const kp = importNostrKey(nsec);
+
+        spinner.text = 'Saving to config...';
+
+        const { full } = getConfigBundle();
+        const acct = full.accounts[config.username];
+        if (!acct) {
+            spinner.fail(chalk.red('Account not found.'));
+            process.exit(1);
+        }
+
+        acct.nostr = {
+            nsec: kp.nsec,
+            npub: kp.npub,
+            relays: acct.nostr?.relays || ['wss://relay.damus.io', 'wss://relay.nostr.band', 'wss://nos.lol'],
+            lastPushAt: acct.nostr?.lastPushAt || null,
+            lastPullAt: acct.nostr?.lastPullAt || null,
+        };
+        await saveFullConfig(full);
+
+        spinner.succeed(chalk.green('Nostr key imported!'));
+        console.log(`\n  ${chalk.bold('npub:')}  ${chalk.cyan(kp.npub)}`);
+    } catch (err) {
+        spinner.fail(chalk.red(`Import failed: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+function cmdNostrPubkey() {
+    const config = getActiveConfig();
+    if (!config.nostr?.npub) {
+        console.error(chalk.red('✖ Nostr 公開鍵が設定されていません。'));
+        process.exit(1);
+    }
+    console.log(`\n  ${chalk.cyan(config.nostr.npub)}`);
+}
+
+// ---------------------------------------------------------------------------
+// kb nostr relay
+// ---------------------------------------------------------------------------
+
+async function cmdNostrRelay(args) {
+    const sub = args[0];
+
+    if (!sub || sub === 'help' || sub === 'list') {
+        await cmdNostrRelayList();
+        return;
+    }
+
+    switch (sub) {
+        case 'add':
+            await cmdNostrRelayAdd(args.slice(1));
+            break;
+        case 'remove':
+        case 'rm':
+        case 'delete':
+            await cmdNostrRelayRemove(args.slice(1));
+            break;
+        case 'test':
+            await cmdNostrTestRelay(args.slice(1));
+            break;
+        default:
+            console.error(chalk.red(`✖ 不明なリレーサブコマンド: "${sub}"`));
+            process.exit(1);
+    }
+}
+
+async function cmdNostrRelayList() {
+    const config = getActiveConfig();
+    const relays = config.nostr?.relays || [];
+
+    if (relays.length === 0) {
+        console.log(`\n  ${chalk.dim('リレーが設定されていません。')}`);
+        console.log(`  ${chalk.dim('kb nostr relay add wss://relay.damus.io  で追加')}`);
+        return;
+    }
+
+    console.log(`\n  ${chalk.bold.cyan('🌐 Nostr Relays')} ${chalk.dim(`(${relays.length}件)`)}`);
+    console.log(`  ${chalk.dim('─'.repeat(50))}`);
+
+    for (let i = 0; i < relays.length; i++) {
+        console.log(`  ${chalk.cyan(`${i + 1}.`)} ${chalk.dim(relays[i])}`);
+    }
+
+    console.log(`\n  ${chalk.dim('💡 追加:')} ${chalk.italic('kb nostr relay add <url>')}`);
+    console.log(`  ${chalk.dim('💡 削除:')} ${chalk.italic('kb nostr relay remove <url>')}`);
+    console.log(`  ${chalk.dim('💡 テスト:')} ${chalk.italic('kb nostr relay test <url>')}`);
+}
+
+async function cmdNostrRelayAdd(args) {
+    const url = args[0];
+    if (!url) {
+        console.error(chalk.red('✖ リレーURLを指定してください。'));
+        console.error(chalk.dim('  kb nostr relay add wss://relay.example.com'));
+        process.exit(1);
+    }
+
+    try {
+        const { addRelay } = await import('../src/nostr/index.js');
+        await addRelay(url);
+        console.log(`\n  ${chalk.green('✓')} リレーを追加しました: ${chalk.cyan(url)}`);
+    } catch (err) {
+        console.error(chalk.red(`✖ 追加失敗: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdNostrRelayRemove(args) {
+    const url = args[0];
+    if (!url) {
+        console.error(chalk.red('✖ リレーURLを指定してください。'));
+        console.error(chalk.dim('  kb nostr relay remove wss://relay.example.com'));
+        process.exit(1);
+    }
+
+    try {
+        const { removeRelay } = await import('../src/nostr/index.js');
+        await removeRelay(url);
+        console.log(`\n  ${chalk.green('✓')} リレーを削除しました: ${chalk.cyan(url)}`);
+    } catch (err) {
+        console.error(chalk.red(`✖ 削除失敗: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdNostrTestRelay(args) {
+    let url = args[0];
+
+    if (!url) {
+        // Interactive: pick from configured relays
+        const config = getActiveConfig();
+        const relays = config.nostr?.relays || [];
+
+        if (relays.length === 0) {
+            console.error(chalk.red('✖ リレーが設定されていません。'));
+            process.exit(1);
+        }
+
+        const selected = await selectFromList(
+            relays.map((r) => ({ url: r })),
+            (r) => r.url,
+            'テストするリレーを選択:'
+        );
+
+        if (!selected) {
+            console.log(chalk.yellow('\n  キャンセルしました。'));
+            return;
+        }
+
+        url = selected.url;
+    }
+
+    const spinner = ora(`Testing relay ${url}...`).start();
+
+    try {
+        const { testRelay } = await import('../src/nostr/index.js');
+        const result = await testRelay(url);
+
+        if (result.ok) {
+            spinner.succeed(chalk.green(`✓ ${url}`));
+            console.log(`  ${chalk.dim('Latency:')} ${chalk.cyan(result.latencyMs + 'ms')}`);
+        } else {
+            spinner.fail(chalk.red(`✗ ${url}`));
+            console.log(`  ${chalk.dim('Error:')} ${chalk.red(result.error)}`);
+        }
+    } catch (err) {
+        spinner.fail(chalk.red(`✗ ${url}`));
+        console.log(`  ${chalk.dim('Error:')} ${chalk.red(err.message)}`);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// kb nostr push
+// ---------------------------------------------------------------------------
+
+async function cmdNostrPush(args) {
+    const config = getActiveConfig();
+    if (!config.token) {
+        console.error(chalk.red('✖ ログインしていません。'));
+        process.exit(1);
+    }
+
+    if (!config.nostr?.nsec) {
+        console.error(chalk.red('✖ Nostr 鍵が設定されていません。'));
+        console.error(chalk.dim('  kb nostr key generate  で鍵を生成してください。'));
+        process.exit(1);
+    }
+
+    const limit = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 20;
+
+    const spinner = ora(`Fetching ${limit} recent posts...`).start();
+
+    try {
+        // Fetch recent posts
+        const posts = await apiRequest('GET', `/api/posts/feed?limit=${limit}`, null, config.token);
+        spinner.text = `Publishing ${posts.length} posts to Nostr...`;
+
+        const { pushPostsToNostr, decodeNsec } = await import('../src/nostr/index.js');
+        const secretKey = decodeNsec(config.nostr.nsec);
+        const result = await pushPostsToNostr(posts, secretKey, config.nostr.relays);
+
+        if (result.published > 0) {
+            spinner.succeed(chalk.green(`${result.published}/${posts.length} posts published to Nostr!`));
+        } else {
+            spinner.fail(chalk.yellow('No posts could be published. Check relay connectivity.'));
+        }
+
+        // Show per-relay results
+        const relayResults = new Map();
+        for (const r of result.results) {
+            for (const pr of r.pubResults) {
+                if (!relayResults.has(pr.url)) {
+                    relayResults.set(pr.url, { ok: 0, fail: 0 });
+                }
+                const stats = relayResults.get(pr.url);
+                if (pr.ok) stats.ok++;
+                else stats.fail++;
+            }
+        }
+
+        console.log(`\n  ${chalk.bold('📡 Relay Results')}:`);
+        for (const [url, stats] of relayResults) {
+            const status = stats.fail === 0
+                ? chalk.green(`✓ ${stats.ok} published`)
+                : chalk.yellow(`⚠ ${stats.ok} ok, ${stats.fail} failed`);
+            console.log(`    ${chalk.dim('•')} ${url} ${status}`);
+        }
+
+        console.log(`\n  ${chalk.dim('💡 Nostr から取得:')} ${chalk.italic('kb nostr pull')}`);
+    } catch (err) {
+        spinner.fail(chalk.red(`Push failed: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// kb nostr pull
+// ---------------------------------------------------------------------------
+
+async function cmdNostrPull(args) {
+    const config = getActiveConfig();
+    if (!config.token) {
+        console.error(chalk.red('✖ ログインしていません。'));
+        process.exit(1);
+    }
+
+    if (!config.nostr?.relays || config.nostr.relays.length === 0) {
+        console.error(chalk.red('✖ リレーが設定されていません。'));
+        process.exit(1);
+    }
+
+    const limit = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 50;
+
+    const spinner = ora(`Pulling from ${config.nostr.relays.length} Nostr relays...`).start();
+
+    try {
+        const { pullPostsFromNostr } = await import('../src/nostr/index.js');
+
+        let secretKey;
+        if (config.nostr?.nsec) {
+            const { decodeNsec } = await import('../src/nostr/index.js');
+            secretKey = decodeNsec(config.nostr.nsec);
+        }
+
+        const result = await pullPostsFromNostr(limit, secretKey, config.nostr.relays);
+
+        if (result.total === 0) {
+            spinner.info(chalk.dim('No Nostr events found for your key.'));
+            return;
+        }
+
+        spinner.succeed(chalk.green(`Found ${result.total} Nostr events!`));
+
+        console.log(`\n  ${chalk.bold.cyan('📡 Nostr Events')} ${chalk.dim(`(${result.total}件)`)}`);
+        console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
+
+        for (const post of result.posts.slice(0, 20)) {
+            const time = new Date(post.createdAt).toLocaleString();
+            console.log(`  ${chalk.bold(post.author.username)} ${chalk.dim(time)}`);
+            console.log(`  ${post.content.slice(0, 200)}`);
+            console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
+        }
+
+        if (result.posts.length > 20) {
+            console.log(`  ${chalk.dim('...and')} ${result.posts.length - 20} ${chalk.dim('more events.')}`);
+            console.log(`  ${chalk.dim('💡 Use --limit=100 to get more.')}`);
+        }
+    } catch (err) {
+        spinner.fail(chalk.red(`Pull failed: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// kb nostr status
+// ---------------------------------------------------------------------------
+
+function cmdNostrStatus() {
+    const config = getActiveConfig();
+
+    console.log(`\n  ${chalk.bold.cyan('🔑 Nostr Status')}`);
+    console.log(`  ${chalk.dim('─'.repeat(50))}`);
+
+    if (config.nostr?.nsec) {
+        console.log(`  ${chalk.bold('Keys:')}      ${chalk.green('✓ Configured')}`);
+        console.log(`  ${chalk.bold('npub:')}     ${chalk.cyan(config.nostr.npub || 'N/A')}`);
+    } else {
+        console.log(`  ${chalk.bold('Keys:')}      ${chalk.red('✖ Not configured')}`);
+        console.log(`  ${chalk.dim('  Run: kb nostr key generate')}`);
+    }
+
+    const relays = config.nostr?.relays || [];
+    if (relays.length > 0) {
+        console.log(`  ${chalk.bold('Relays:')}    ${chalk.green('✓')} ${relays.length} configured`);
+        for (const r of relays) {
+            console.log(`                ${chalk.dim(r)}`);
+        }
+    } else {
+        console.log(`  ${chalk.bold('Relays:')}    ${chalk.yellow('○ None configured')}`);
+    }
+
+    if (config.nostr?.lastPushAt) {
+        console.log(`  ${chalk.bold('Last Push:')} ${chalk.dim(new Date(config.nostr.lastPushAt).toLocaleString())}`);
+    }
+    if (config.nostr?.lastPullAt) {
+        console.log(`  ${chalk.bold('Last Pull:')} ${chalk.dim(new Date(config.nostr.lastPullAt).toLocaleString())}`);
+    }
+
+    console.log();
+}
+
+// ============================================================================
+// P2P command system
+// ============================================================================
+
+async function cmdP2P(args) {
+    const sub = args[0];
+
+    if (!sub || sub === 'help' || sub === '--help') {
+        showP2PHelp();
+        return;
+    }
+
+    switch (sub) {
+        case 'start':
+            await cmdP2PStart(args.slice(1));
+            break;
+        case 'stop':
+            await cmdP2PStop();
+            break;
+        case 'status':
+            await cmdP2PStatus();
+            break;
+        case 'sync':
+        case 'posts':
+            await cmdP2PSync(args.slice(1));
+            break;
+        case 'dms':
+            await cmdP2PDMs(args.slice(1));
+            break;
+        default:
+            console.error(chalk.red(`✖ 不明な P2P サブコマンド: "${sub}"`));
+            console.log(chalk.dim('  kb p2p help  で使い方を表示'));
+            process.exit(1);
+    }
+}
+
+function showP2PHelp() {
+    console.log(`\n  ${chalk.bold.cyan('🖧 P2P 同期 (hypercore + hyperswarm)')}`);
+    console.log(`  ${chalk.dim('koshi の P2P ノード管理')}`);
+    console.log(`  ${chalk.dim('─'.repeat(50))}`);
+    console.log();
+    console.log(`  ${chalk.bold('🔄 ノード管理')}`);
+    console.log(`    ${chalk.cyan('kb p2p start')}            P2P ノードを起動`);
+    console.log(`    ${chalk.cyan('kb p2p stop')}             P2P ノードを停止`);
+    console.log(`    ${chalk.cyan('kb p2p status')}           P2P ノードの状態を表示`);
+    console.log();
+    console.log(`  ${chalk.bold('📦 データ')}`);
+    console.log(`    ${chalk.cyan('kb p2p sync')}             同期済み投稿を表示`);
+    console.log(`    ${chalk.cyan('kb p2p dms')}              同期済みDMを表示`);
+    console.log();
+    console.log(`  ${chalk.dim('設定ファイル: ~/.config/koshi/config.json')}`);
+    console.log(`  ${chalk.dim('  "p2p": { "autoSync": true } で自動起動')}`);
+    console.log();
+}
+
+async function cmdP2PStart(args) {
+    const config = getActiveConfig();
+    if (!config.userId || !config.publicKey) {
+        console.error(chalk.red('✖ ログインしていません。先に kb register または kb login してください。'));
+        process.exit(1);
+    }
+
+    const spinner = ora('Starting P2P node...').start();
+
+    try {
+        const { initP2PNode, getP2PStatus } = await import('../src/p2p/index.js');
+        const ok = await initP2PNode();
+
+        if (ok) {
+            const status = getP2PStatus();
+            spinner.succeed(chalk.green('P2P node started!'));
+            console.log(`\n  ${chalk.bold('Status:')}     ${chalk.green('Running')}`);
+            console.log(`  ${chalk.bold('Posts:')}      ${chalk.cyan(status.posts)}`);
+            console.log(`  ${chalk.bold('DMs:')}         ${chalk.cyan(status.dms)}`);
+            console.log(`  ${chalk.bold('Peers:')}       ${chalk.cyan(status.peers)}`);
+            console.log(`\n  ${chalk.dim('KB p2p status  で状態確認')}`);
+            console.log(`  ${chalk.dim('kb p2p stop    で停止')}`);
+        } else {
+            spinner.fail(chalk.red('Failed to start P2P node. Is the database connected?'));
+        }
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdP2PStop() {
+    const spinner = ora('Stopping P2P node...').start();
+
+    try {
+        const { closeP2PNode } = await import('../src/p2p/index.js');
+        await closeP2PNode();
+        spinner.succeed(chalk.yellow('P2P node stopped.'));
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdP2PStatus() {
+    const { getP2PStatus } = await import('../src/p2p/index.js');
+    const status = getP2PStatus();
+
+    if (!status.ready) {
+        console.log(`\n  ${chalk.dim('P2P ノードは停止しています。')}`);
+        console.log(`  ${chalk.dim('kb p2p start  で起動')}`);
+        return;
+    }
+
+    console.log(`\n  ${chalk.bold.cyan('🖧 P2P Node Status')}`);
+    console.log(`  ${chalk.dim('─'.repeat(50))}`);
+    console.log(`  ${chalk.bold('Status:')}     ${chalk.green('Running')}`);
+    console.log(`  ${chalk.bold('Posts:')}      ${chalk.cyan(status.posts)} 件`);
+    console.log(`  ${chalk.bold('DMs:')}         ${chalk.cyan(status.dms)} 件`);
+    console.log(`  ${chalk.bold('Connected:')}   ${chalk.cyan(status.peers)} peers`);
+
+    if (status.info) {
+        console.log(`  ${chalk.bold('Username:')}   ${chalk.dim(status.info.username)}`);
+        console.log(`  ${chalk.bold('Discovery:')}  ${chalk.dim(status.info.discoveryKey)}`);
+        console.log(`  ${chalk.bold('Storage:')}    ${chalk.dim(status.info.corestorePath)}`);
+    }
+
+    console.log();
+}
+
+async function cmdP2PSync(args) {
+    const { getP2PStatus, getPosts } = await import('../src/p2p/index.js');
+    const status = getP2PStatus();
+
+    if (!status.ready) {
+        console.error(chalk.red('✖ P2P ノードが起動していません。'));
+        console.error(chalk.dim('  kb p2p start'));
+        process.exit(1);
+    }
+
+    const limit = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 20;
+    const posts = await getPosts();
+
+    if (posts.length === 0) {
+        console.log(`\n  ${chalk.dim('同期済みの投稿はありません。')}`);
+        return;
+    }
+
+    console.log(`\n  ${chalk.bold.cyan('📡 P2P Synced Posts')} ${chalk.dim(`(${Math.min(posts.length, limit)} 件)`)}`);
+    console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
+
+    for (const post of posts.slice(0, limit)) {
+        const time = post.createdAt ? new Date(post.createdAt).toLocaleString() : '?';
+        console.log(`  ${chalk.bold(post.username || 'unknown')} ${chalk.dim(time)}`);
+        console.log(`  ${(post.content || '').slice(0, 200)}`);
+        console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
+    }
+}
+
+async function cmdP2PDMs(args) {
+    const { getP2PStatus, getDMs } = await import('../src/p2p/index.js');
+    const status = getP2PStatus();
+
+    if (!status.ready) {
+        console.error(chalk.red('✖ P2P ノードが起動していません。'));
+        process.exit(1);
+    }
+
+    const limit = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 20;
+    const dms = await getDMs();
+
+    if (dms.length === 0) {
+        console.log(`\n  ${chalk.dim('同期済みのDMはありません。')}`);
+        return;
+    }
+
+    console.log(`\n  ${chalk.bold.cyan('✉️ P2P Synced DMs')} ${chalk.dim(`(${Math.min(dms.length, limit)} 件)`)}`);
+    console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
+
+    for (const dm of dms.slice(0, limit)) {
+        const time = dm.createdAt ? new Date(dm.createdAt).toLocaleString() : '?';
+        console.log(`  ${chalk.bold(dm.fromUsername || '?')} → ${chalk.bold(dm.toUsername || '?')} ${chalk.dim(time)}`);
+        console.log(`  ${(dm.content || '').slice(0, 200)}`);
+        console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
+    }
+}
+
+// ============================================================================
 // Command: help
 // ============================================================================
 function showHelp(command = null) {
@@ -1494,6 +2068,16 @@ function showHelp(command = null) {
             usage: 'kb chat [username]',
             desc: 'リアルタイムDMチャット（引数なしで検索）',
         },
+        // Nostr
+        nostr: {
+            usage: 'kb nostr <command>',
+            desc: 'Nostr 統合（鍵・リレー・同期）',
+        },
+        // P2P
+        p2p: {
+            usage: 'kb p2p <command>',
+            desc: 'P2P 同期（hypercore + hyperswarm）',
+        },
         // Other
         realtime: {
             usage: 'kb realtime',
@@ -1526,7 +2110,7 @@ function showHelp(command = null) {
         : `  ${chalk.red('○')} ${chalk.dim('ログインしていません')}`;
 
     console.log(`\n  ${chalk.bold.cyan('🏄 koshi — Terminal-Native Decentralized SNS')}`);
-    console.log(`  ${chalk.dim('Version 1.3.0 — 複数アカウント対応')}`);
+    console.log(`  ${chalk.dim('Version 2.0.1 — Nostr/P2P 統合')}`);
     console.log(`\n  ${activeInfo}`);
     console.log(`\n  ${chalk.bold('Usage:')} kb <command> [options]\n`);
 
@@ -1547,6 +2131,14 @@ function showHelp(command = null) {
         {
             title: '✉️ DM',
             keys: ['dm', 'dms', 'chat'],
+        },
+        {
+            title: '🔑 Nostr',
+            keys: ['nostr'],
+        },
+        {
+            title: '🖧 P2P',
+            keys: ['p2p'],
         },
         {
             title: '⚙️ その他',
@@ -1580,10 +2172,11 @@ function showHelp(command = null) {
 // Command: version
 // ============================================================================
 function showVersion() {
-    console.log('koshi v1.3.0');
-    console.log('Terminal-native decentralized SNS — 複数アカウント対応');
+    console.log('koshi v2.0.1');
+    console.log('Terminal-native decentralized SNS — Nostr/P2P 統合');
     console.log('License: MIT');
     console.log('Author: game_ryo');
+    console.log('Website: https://koshi.js.org');
 }
 
 // ============================================================================
@@ -2259,6 +2852,14 @@ async function main() {
 
         case 'admin':
             await cmdAdmin(args.slice(1));
+            break;
+
+        case 'nostr':
+            await cmdNostr(args.slice(1));
+            break;
+
+        case 'p2p':
+            await cmdP2P(args.slice(1));
             break;
 
         case 'realtime':

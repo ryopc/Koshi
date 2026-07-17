@@ -1,12 +1,14 @@
 # 🏄 koshi — Terminal-Native Decentralized SNS
 
-**Version 1.3.1** · MIT License · by [game_ryo](https://github.com/ryopc)
+**Version 2.0.1** · MIT License · by [game_ryo](https://github.com/ryopc)
 
 > A terminal-native, decentralized social network powered by ed25519 cryptography.
 
 ---
 
 ## ✨ Features
+
+### v2.0.1 — Nostr + P2P 統合 🎉
 
 - **🔐 Decentralized Auth** — ed25519 keypair authentication (Nostr-inspired)
 - **📝 Posts** — Create and view posts on the koshi board
@@ -17,9 +19,13 @@
 - **✏️ Profile Editing** — Update your display name, bio, and avatar
 - **🛠️ Admin Controls** — User management, account deletion, admin grants
 - **💻 Terminal-native** — Beautiful CLI with chalk colors and spinners
-- **🐳 Docker-ready** — Containerized for easy deployment
-- **☁️ Render.com** — One-click deploy to Render.com
-- **🗄️ Neon.tech** — Serverless PostgreSQL 15 database
+
+### 🆕 New in v2.0
+
+- **🔑 Nostr Protocol Integration** — Generate/manage Nostr keys (nsec/npub), push koshi posts to Nostr relays, pull events from the Nostr network, manage relay connections
+- **🖧 P2P Sync (hypercore)** — Peer-to-peer data synchronization using hypercore + corestore + hyperswarm. Posts and DMs replicated across connected peers
+- **👥 Multi-Account Support** — Manage multiple koshi identities from a single CLI. Switch between accounts with `kb switch`, interactive login, account removal
+- **⚙️ Enhanced Config** — All credentials stored in `~/.config/koshi/config.json` with support for per-account Nostr keys and P2P settings
 
 ---
 

@@ -405,9 +405,9 @@
 
         <div class="max-w-5xl mx-auto px-6 relative z-10">
             <div class="text-center mb-12">
-                <div class="version-badge mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider" style="background: rgba(251, 146, 60, 0.1); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.2);">
-                    <span class="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
-                    Under Active Development — v1.3.1
+                <div class="version-badge mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider" style="background: rgba(52, 211, 153, 0.12); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.25);">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    🎉 v2.0.1 — Nostr + P2P 統合リリース
                 </div>
                 <h1 class="hero-title text-6xl md:text-8xl font-black leading-[1.1] mb-6" style="color: #e2e8f0;">
                     The social network<br>
@@ -459,20 +459,20 @@
         <div class="max-w-5xl mx-auto px-6">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
                 <div class="fade-up">
-                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">1.2.0</div>
-                    <div class="text-sm mt-1" style="color: #64748b;">Version</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">2.0.1</div>
+                    <div class="text-sm mt-1" style="color: #64748b;">Latest Version</div>
                 </div>
                 <div class="fade-up">
-                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">16</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">22</div>
                     <div class="text-sm mt-1" style="color: #64748b;">CLI Commands</div>
                 </div>
                 <div class="fade-up">
-                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">21</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">28</div>
                     <div class="text-sm mt-1" style="color: #64748b;">API Endpoints</div>
                 </div>
                 <div class="fade-up">
-                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">MIT</div>
-                    <div class="text-sm mt-1" style="color: #64748b;">License</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">3</div>
+                    <div class="text-sm mt-1" style="color: #64748b;">Protocols (REST + WS + P2P)</div>
                 </div>
             </div>
         </div>
@@ -536,9 +536,21 @@
                 </div>
 
                 <div class="feature-card p-8 rounded-2xl fade-up">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(251, 191, 36, 0.1);">☁️</div>
-                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Edge Deployed</h3>
-                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Runs on Render.com + Neon.tech with Docker support. One-click deploy with automatic migrations on startup.</p>
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(192, 132, 252, 0.1);">🔑</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Nostr Protocol</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Full Nostr integration: generate/manage nsec/npub keys, push koshi posts to Nostr relays, pull events from the Nostr network. Cross-post seamlessly between koshi and Nostr.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(251, 146, 60, 0.1);">🖧</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">P2P Sync</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Hypercore-powered peer-to-peer synchronization. Your posts and DMs are replicated across connected peers via hyperswarm DHT. No central server needed for data distribution.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(244, 114, 182, 0.1);">👥</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Multi-Account</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Manage multiple identities from a single CLI. Switch between accounts with <code>kb switch</code>, register or import Nostr keys per account. All credentials stored securely in ~/.config/koshi/config.json.</p>
                 </div>
             </div>
         </div>

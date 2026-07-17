@@ -320,44 +320,61 @@
             <a href="#getting-started" class="sidebar-link active">Installation</a>
             <a href="#quick-start" class="sidebar-link">Quick Start</a>
             <a href="#configuration" class="sidebar-link">Configuration</a>
-        </div>
-        <div class="sidebar-group">
-            <div class="sidebar-group-title">CLI Reference</div>
-            <a href="#cli" class="sidebar-link">Overview</a>
-            <a href="#cli-auth" class="sidebar-link">Auth (register / login)</a>
-            <a href="#cli-posts" class="sidebar-link">Posts (post / feed)</a>
-            <a href="#cli-social" class="sidebar-link">Social (follow / profile)</a>
-            <a href="#cli-dms" class="sidebar-link">Messages (dm / dms)</a>
-            <a href="#cli-realtime" class="sidebar-link">Realtime</a>
-            <a href="#cli-chat" class="sidebar-link">Chat (Interactive DM)</a>
-            <a href="#cli-edit-profile" class="sidebar-link">Profile Editing</a>
-            <a href="#cli-admin" class="sidebar-link">Admin Commands</a>
-            <a href="#cli-env" class="sidebar-link">Environment Variables</a>
-        </div>
-        <div class="sidebar-group">
-            <div class="sidebar-group-title">API Reference</div>
-            <a href="#api" class="sidebar-link">Overview</a>
-            <a href="#api-auth" class="sidebar-link">Auth Endpoints</a>
-            <a href="#api-users" class="sidebar-link">User Endpoints</a>
-            <a href="#api-posts" class="sidebar-link">Post Endpoints</a>
-            <a href="#api-dms" class="sidebar-link">DM Endpoints</a>
-            <a href="#api-admin" class="sidebar-link">Admin Endpoints</a>
-            <a href="#api-health" class="sidebar-link">Health Check</a>
-        </div>
-        <div class="sidebar-group">
-            <div class="sidebar-group-title">Cryptography</div>
-            <a href="#crypto" class="sidebar-link">ed25519 Overview</a>
-            <a href="#crypto-keys" class="sidebar-link">Key Generation</a>
-            <a href="#crypto-signing" class="sidebar-link">Signing & Verification</a>
-            <a href="#crypto-auth" class="sidebar-link">Auth Flow</a>
-            <a href="#crypto-jwt" class="sidebar-link">JWT Tokens</a>
-        </div>
-        <div class="sidebar-group">
-            <div class="sidebar-group-title">WebSocket</div>
-            <a href="#ws" class="sidebar-link">Connection</a>
-            <a href="#ws-events" class="sidebar-link">Events</a>
-            <a href="#ws-actions" class="sidebar-link">Actions</a>
-        </div>
+        </div>            <div class="sidebar-group">
+                <div class="sidebar-group-title">CLI Reference</div>
+                <a href="#cli" class="sidebar-link">Overview</a>
+                <a href="#cli-auth" class="sidebar-link">Auth (register / login)</a>
+                <a href="#cli-posts" class="sidebar-link">Posts (post / feed)</a>
+                <a href="#cli-social" class="sidebar-link">Social (follow / profile)</a>
+                <a href="#cli-dms" class="sidebar-link">Messages (dm / dms)</a>
+                <a href="#cli-accounts" class="sidebar-link">Multi-Account 🆕</a>
+                <a href="#cli-realtime" class="sidebar-link">Realtime</a>
+                <a href="#cli-chat" class="sidebar-link">Chat (Interactive DM)</a>
+                <a href="#cli-edit-profile" class="sidebar-link">Profile Editing</a>
+                <a href="#cli-nostr" class="sidebar-link">Nostr 🆕</a>
+                <a href="#cli-p2p" class="sidebar-link">P2P Sync 🆕</a>
+                <a href="#cli-admin" class="sidebar-link">Admin Commands</a>
+                <a href="#cli-env" class="sidebar-link">Environment Variables</a>
+            </div>
+            <div class="sidebar-group">
+                <div class="sidebar-group-title">API Reference</div>
+                <a href="#api" class="sidebar-link">Overview</a>
+                <a href="#api-auth" class="sidebar-link">Auth Endpoints</a>
+                <a href="#api-users" class="sidebar-link">User Endpoints</a>
+                <a href="#api-posts" class="sidebar-link">Post Endpoints</a>
+                <a href="#api-dms" class="sidebar-link">DM Endpoints</a>
+                <a href="#api-admin" class="sidebar-link">Admin Endpoints</a>
+                <a href="#api-health" class="sidebar-link">Health Check</a>
+            </div>
+            <div class="sidebar-group">
+                <div class="sidebar-group-title">Cryptography</div>
+                <a href="#crypto" class="sidebar-link">ed25519 Overview</a>
+                <a href="#crypto-keys" class="sidebar-link">Key Generation</a>
+                <a href="#crypto-signing" class="sidebar-link">Signing & Verification</a>
+                <a href="#crypto-auth" class="sidebar-link">Auth Flow</a>
+                <a href="#crypto-jwt" class="sidebar-link">JWT Tokens</a>
+            </div>
+            <div class="sidebar-group">
+                <div class="sidebar-group-title">Nostr Integration</div>
+                <a href="#nostr" class="sidebar-link">Overview</a>
+                <a href="#nostr-keys" class="sidebar-link">Key Management</a>
+                <a href="#nostr-push" class="sidebar-link">Pushing Posts</a>
+                <a href="#nostr-pull" class="sidebar-link">Pulling Events</a>
+                <a href="#nostr-relays" class="sidebar-link">Relay Management</a>
+            </div>
+            <div class="sidebar-group">
+                <div class="sidebar-group-title">P2P Sync</div>
+                <a href="#p2p" class="sidebar-link">Overview</a>
+                <a href="#p2p-start" class="sidebar-link">Starting a Node</a>
+                <a href="#p2p-data" class="sidebar-link">Data Sync</a>
+                <a href="#p2p-config" class="sidebar-link">Configuration</a>
+            </div>
+            <div class="sidebar-group">
+                <div class="sidebar-group-title">WebSocket</div>
+                <a href="#ws" class="sidebar-link">Connection</a>
+                <a href="#ws-events" class="sidebar-link">Events</a>
+                <a href="#ws-actions" class="sidebar-link">Actions</a>
+            </div>
         <div class="sidebar-group">
             <div class="sidebar-group-title">Database</div>
             <a href="#db" class="sidebar-link">Schema</a>
@@ -396,7 +413,7 @@
         <p>Welcome to the Koshi documentation. This guide covers everything from installation to the full API reference. Koshi is a terminal-native, decentralized social network powered by ed25519 cryptography.</p>
 
         <div class="info-box info">
-            <p><strong>📦 Version:</strong> 1.2.0 · <strong>License:</strong> MIT · <strong>Author:</strong> game_ryo</p>
+            <p><strong>📦 Version:</strong> 2.0.1 · <strong>License:</strong> MIT · <strong>Author:</strong> game_ryo</p>
         </div>
 
         <h2 id="getting-started">Installation</h2>
@@ -579,6 +596,62 @@ NODE_ENV=development</code></pre>
 <span class="cmd-out">  Following:       12</span>
 <span class="cmd-out">  Joined:          7/14/2026</span></code></pre>
 
+        <h3 id="cli-accounts">Multi-Account Management 🆕</h3>
+        <p>Koshi v2.0 supports managing <strong>multiple accounts</strong> from a single CLI configuration. Each account has its own ed25519 keypair, Nostr keys (optional), and JWT token.</p>
+
+        <h4>kb register &lt;username&gt;</h4>
+        <p>Create a new account. The new account is automatically added to the multi-account config and set as active.</p>
+
+        <h4>kb login [username]</h4>
+        <p>Without arguments, shows an interactive list of saved accounts to choose from. With a username, logs in to that specific account.</p>
+
+        <pre><code><span class="prompt">$</span> kb login
+
+<span class="cmd-out">  🔑 アカウントを選択</span>
+<span class="cmd-out">  1. alice ✓ ← 現在</span>
+<span class="cmd-out">  2. bob   ○</span>
+<span class="cmd-out">  0. キャンセル</span>
+
+<span class="cmd-out">  番号を選択 (1-2): 2</span>
+<span class="cmd-out">  → bob を選択しました</span></code></pre>
+
+        <h4>kb switch [username]</h4>
+        <p>Switch between saved accounts without re-authenticating. Interactive selection if no username is given.</p>
+
+        <h4>kb accounts</h4>
+        <p>List all saved accounts and their login status.</p>
+
+        <pre><code><span class="prompt">$</span> kb accounts
+
+<span class="cmd-out">  📋 アカウント一覧 (2件)</span>
+<span class="cmd-out">  1. alice  ✓ ログイン済  ← 現在のアカウント</span>
+<span class="cmd-out">  2. bob    未ログイン</span></code></pre>
+
+        <h4>kb account remove &lt;username&gt;</h4>
+        <p>Remove a saved account from the local configuration. Shows confirmation prompt before deleting.</p>
+
+        <pre><code><span class="prompt">$</span> kb account remove bob
+<span class="cmd-out">  🗑️ @bob をローカル設定から削除してもよろしいですか？ (y/N): y</span>
+<span class="cmd-out">✔ @bob をローカル設定から削除しました。</span></code></pre>
+
+        <p>Account credentials are stored in <code>~/.config/koshi/config.json</code> in the following format:</p>
+
+        <pre><code>{
+  "version": "2.0.1",
+  "activeUsername": "alice",
+  "accounts": {
+    "alice": {
+      "userId": "uuid",
+      "username": "alice",
+      "publicKey": "hex...",
+      "secretKey": "hex...",
+      "token": "jwt...",
+      "nostr": { ... }
+    },
+    "bob": { ... }
+  }
+}</code></pre>
+
         <h4 id="cli-edit-profile">kb edit-profile --display-name=... --bio=... --avatar-url=...</h4>
         <p>Update your own profile fields. Only include the flags you want to change.</p>
         <pre><code><span class="prompt">$</span> kb edit-profile --display-name="Alice" --bio="Building the terminal future"
@@ -699,6 +772,123 @@ NODE_ENV=development</code></pre>
                 </tbody>
             </table>
         </div>
+
+        <!-- ============================================================ -->
+        <!-- NOSTR INTEGRATION -->
+        <!-- ============================================================ -->
+        <h2 id="nostr">Nostr Integration 🆕</h2>
+        <p>Koshi v2.0 integrates with the <strong>Nostr protocol</strong>, allowing you to bridge your koshi identity with the broader Nostr network. You can generate Nostr keys, push posts to relays, and pull events from the Nostr ecosystem.</p>
+
+        <div class="info-box success">
+            <p><strong>✨ New in v2.0:</strong> Nostr integration enables cross-posting between koshi board and Nostr relays, making your content discoverable beyond the koshi ecosystem.</p>
+        </div>
+
+        <h3 id="nostr-keys">Key Management</h3>
+        <p>Generate or import Nostr keys (nsec/npub) directly from the CLI:</p>
+
+        <pre><code><span class="comment"># Generate a new Nostr keypair</span>
+<span class="prompt">$</span> kb nostr key generate
+<span class="cmd-out">✔ Nostr keypair generated and saved!</span>
+
+<span class="cmd-out">  npub: npub1...</span>
+<span class="cmd-out">  nsec: nsec1...</span>
+
+<span class="comment"># Import an existing nsec key</span>
+<span class="prompt">$</span> kb nostr key import nsec1...
+
+<span class="comment"># Show current keys</span>
+<span class="prompt">$</span> kb nostr key show
+
+<span class="comment"># Display public key (npub)</span>
+<span class="prompt">$</span> kb nostr npub</code></pre>
+
+        <h3 id="nostr-push">Pushing Posts to Nostr</h3>
+        <p>Publish your koshi board posts to Nostr relays as kind 1 (short text note) events:</p>
+
+        <pre><code><span class="prompt">$</span> kb nostr push --limit=20
+<span class="cmd-out">✔ 5/20 posts published to Nostr!</span>
+
+<span class="cmd-out">  📡 Relay Results:</span>
+<span class="cmd-out">    • wss://relay.damus.io ✓ 5 published</span>
+<span class="cmd-out">    • wss://relay.nostr.band ✓ 5 published</span></code></pre>
+
+        <h3 id="nostr-pull">Pulling Events from Nostr</h3>
+        <p>Fetch Nostr events and display them in koshi format:</p>
+
+        <pre><code><span class="prompt">$</span> kb nostr pull --limit=50
+<span class="cmd-out">✔ Found 12 Nostr events!</span>
+
+<span class="cmd-out">  📡 Nostr Events (12件)</span>
+<span class="cmd-out">  ────────────────────────────────────────────</span>
+<span class="cmd-out">  nostr:a1b2c3d4 ...</span>
+<span class="cmd-out">  Hello from Nostr!</span></code></pre>
+
+        <h3 id="nostr-relays">Relay Management</h3>
+        <p>Add, remove, list, and test Nostr relay connections:</p>
+
+        <pre><code><span class="prompt">$</span> kb nostr relay list
+<span class="cmd-out">  🌐 Nostr Relays (4件)</span>
+<span class="cmd-out">    • wss://relay.damus.io</span>
+<span class="cmd-out">    • wss://relay.nostr.band</span>
+
+<span class="prompt">$</span> kb nostr relay add wss://relay.example.com
+<span class="cmd-out">✓ リレーを追加しました: wss://relay.example.com</span>
+
+<span class="prompt">$</span> kb nostr relay test wss://relay.damus.io
+<span class="cmd-out">✓ wss://relay.damus.io  Latency: 120ms</span></code></pre>
+
+        <!-- ============================================================ -->
+        <!-- P2P SYNC -->
+        <!-- ============================================================ -->
+        <h2 id="p2p">P2P Sync 🆕</h2>
+        <p>Koshi v2.0 introduces <strong>peer-to-peer synchronization</strong> powered by the Hypercore protocol stack. Your posts and DMs are replicated across connected peers using hyperswarm DHT for discovery, enabling offline-first and decentralized data distribution.</p>
+
+        <div class="info-box success">
+            <p><strong>✨ New in v2.0:</strong> P2P sync uses hypercore (append-only logs with Merkle tree verification), corestore (hypercore factory), and hyperswarm (DHT-based peer discovery with NAT traversal).</p>
+        </div>
+
+        <h3 id="p2p-start">Starting a P2P Node</h3>
+        <p>Launch a P2P node to start syncing with peers:</p>
+
+        <pre><code><span class="prompt">$</span> kb p2p start
+<span class="cmd-out">✔ P2P node started!</span>
+
+<span class="cmd-out">  Status:     Running</span>
+<span class="cmd-out">  Posts:      42</span>
+<span class="cmd-out">  DMs:        12</span>
+<span class="cmd-out">  Peers:      3</span>
+
+<span class="prompt">$</span> kb p2p status
+<span class="cmd-out">  Status:     Running</span>
+<span class="cmd-out">  Posts:      42</span>
+<span class="cmd-out">  DMs:        12</span>
+<span class="cmd-out">  Peers:      3</span></code></pre>
+
+        <h3 id="p2p-data">Data Sync</h3>
+        <p>View synced data and manage replication:</p>
+
+        <pre><code><span class="comment"># View synced posts</span>
+<span class="prompt">$</span> kb p2p sync
+
+<span class="comment"># View synced DMs</span>
+<span class="prompt">$</span> kb p2p dms
+
+<span class="comment"># Stop the P2P node</span>
+<span class="prompt">$</span> kb p2p stop
+<span class="cmd-out">✔ P2P node stopped.</span></code></pre>
+
+        <h3 id="p2p-config">Configuration</h3>
+        <p>P2P settings are stored in <code>~/.config/koshi/config.json</code> under the <code>p2p</code> key:</p>
+
+        <pre><code>{
+  "p2p": {
+    "corestorePath": "/home/user/.config/koshi/corestore",
+    "autoSync": false,
+    "port": 0
+  }
+}</code></pre>
+
+        <p>Enable automatic P2P startup by setting <code>"autoSync": true</code> in the config.</p>
 
         <!-- ============================================================ -->
         <!-- API REFERENCE -->

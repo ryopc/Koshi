@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
@@ -33,12 +33,12 @@
     <header class="header">
       <div class="header-left">
         <a href="#/" class="logo" data-nav>🌊 koshi</a>
-        <span class="version">web v1.1</span>
+        <span class="version">web v2.0.1</span>
       </div>
       <div class="header-right">
         <span class="status" id="status-text">●</span>
         <span id="auth-area">
-          <a href="#/login" class="btn-link" data-nav id="btn-login">[ログイン]</a>
+          <a href="#/login" class="btn-link" data-nav id="btn-login">[login]</a>
         </span>
       </div>
     </header>
@@ -49,8 +49,8 @@
  ╔═══════════════════════════════════════════════════╗
  ║  🌊 koshi board — Terminal-Native Decentralized SNS  ║
  ╠═══════════════════════════════════════════════════╣
- ║  Web版は投稿・DM・プロフィール閲覧に対応              ║
- ║  検索・フォロー・設定はCLIを使用してください           ║
+ ║  Web version supports posts, DMs & profiles              ║
+ ║  Use the CLI for search, follow, and settings            ║
  ║  $ npm install -g @ryopc/koshi                     ║
  ╚═══════════════════════════════════════════════════╝
       </pre>
@@ -65,7 +65,7 @@
     <footer class="footer desktop-only">
       <div class="footer-line"></div>
       <div class="footer-content">
-        <span>koshi board v1.3.1</span>
+        <span>koshi board v2.0.1</span>
         <span>|</span>
         <span>CLI: <code>npm install -g @ryopc/koshi</code></span>
       </div>
@@ -75,7 +75,7 @@
     <nav class="bottom-nav mobile-only" id="bottom-nav">
       <a href="#/" class="bottom-nav-item active" data-nav data-page="feed">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        <span>フィード</span>
+        <span>Feed</span>
       </a>
       <a href="#/dm" class="bottom-nav-item" data-nav data-page="dm">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -84,7 +84,11 @@
       </a>
       <a href="#/profile" class="bottom-nav-item" data-nav data-page="profile">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        <span>プロフィール</span>
+        <span>Profile</span>
+      </a>
+      <a href="#/nostr" class="bottom-nav-item" data-nav data-page="nostr">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <span>Nostr</span>
       </a>
     </nav>
   </div>
@@ -94,10 +98,10 @@
     <div class="pwa-install-card">
       <span class="pwa-install-icon">🌊</span>
       <div class="pwa-install-text">
-        <strong>koshiをインストール</strong>
-        <small>ホーム画面に追加してアプリのように使えます</small>
+        <strong>Install koshi</strong>
+        <small>Add to home screen for app-like experience</small>
       </div>
-      <button class="btn btn-primary btn-sm" id="pwa-install-btn">インストール</button>
+      <button class="btn btn-primary btn-sm" id="pwa-install-btn">Install</button>
       <button class="btn btn-sm" id="pwa-dismiss-btn" style="color:var(--text3)">✕</button>
     </div>
   </div>
