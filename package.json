@@ -1,6 +1,6 @@
 {
   "name": "@ryopc/koshi",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Terminal-native P2P decentralized SNS — koshi board v2",
   "homepage": "https://koshi.js.org",
   "type": "module",
