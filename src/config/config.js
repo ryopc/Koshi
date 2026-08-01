@@ -1,5 +1,5 @@
 // ============================================================================
-// koshi – Terminal-Native Decentralized SNS v2.0.2
+// koshi – Terminal-Native Decentralized SNS v3.0.0
 // Configuration Management (Multi-Account + Nostr + P2P)
 // License: MIT
 // ============================================================================
@@ -7,11 +7,11 @@
 //   - Multi-account (existing)
 //   - Nostr keys & relays (new in v2.0.0)
 //   - P2P / corestore settings (new in v2.0.0)
-//   - Bug fixes & stability improvements (v2.0.2)
+//   - Serverless P2P-first operation (new in v3.0.0)
 //
 // Config file format:
 //   {
-//     "version": "2.0.2",
+//     "version": "3.0.0",
 //     "activeUsername": "alice",
 //     "p2p": {
 //       "corestorePath": "/home/user/.config/koshi/corestore",
@@ -48,7 +48,17 @@ const CONFIG_DIR = join(homedir(), '.config', 'koshi');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 const SNSRC_FILE = join(homedir(), '.snsrc');
 const DEFAULT_CORESTORE_DIR = join(CONFIG_DIR, 'corestore');
-const KOSHI_VERSION = '2.0.2';
+const KOSHI_VERSION = '3.0.0';
+
+// ============================================================================
+// P2P discovery topics (v3: serverless global mesh)
+// ============================================================================
+// All koshi nodes join the global board topic, so posts/profile gossip across
+// the whole network. Each account additionally joins its own user topic for
+// direct DM delivery.
+// ============================================================================
+export const P2P_TOPIC_BOARD = 'koshi:v1:board';
+export const P2P_TOPIC_USER_PREFIX = 'koshi:v1:user:';
 
 // ============================================================================
 // Default config
@@ -57,10 +67,10 @@ function defaultConfig() {
     return {
         version: KOSHI_VERSION,
         activeUsername: null,
-        serverUrl: null, // null = use built-in default server
+        serverUrl: null, // null = P2P serverless mode (default)
         p2p: {
             corestorePath: DEFAULT_CORESTORE_DIR,
-            autoSync: false,
+            autoSync: true, // v3: P2P runs automatically as infrastructure
             port: 0, // random port
         },
         accounts: {},
@@ -274,7 +284,9 @@ export function setP2PConfig(config, p2pSettings) {
 export function getActiveBundle() {
     const config = loadConfig();
     const active = getActiveAccount(config);
-    return { config, active, activeUsername: config.activeUsername };
+    // `full` is kept as an alias of `config` for CLI backward compatibility
+    // (older code destructures `const { full } = getConfigBundle()`).
+    return { config, active, activeUsername: config.activeUsername, full: config };
 }
 
 // ============================================================================
@@ -322,6 +334,8 @@ export default {
     getP2PConfig,
     setP2PConfig,
     getActiveBundle,
+    P2P_TOPIC_BOARD,
+    P2P_TOPIC_USER_PREFIX,
     CONFIG_DIR,
     CONFIG_FILE,
     SNSRC_FILE,

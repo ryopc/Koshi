@@ -16,6 +16,39 @@
 import { initDB, closeDB, users, posts, dms, generateId, now } from './db.js';
 import { signToken } from '../auth/jwt.js';
 import { verifySignature } from '../auth/ed25519.js';
+import { loadConfig } from '../config/config.js';
+import { logger } from '../logger.js';
+
+// ============================================================================
+// P2P broadcast helpers (lazy import to avoid module cycles)
+// ============================================================================
+
+async function broadcastPostToP2P(postData) {
+    try {
+        const { broadcastPost } = await import('./p2p-bridge.js');
+        await broadcastPost(postData);
+    } catch (err) {
+        logger.debug({ err: err.message }, 'api: P2P post broadcast skipped');
+    }
+}
+
+async function broadcastDMToP2P(dmData) {
+    try {
+        const { broadcastDM } = await import('./p2p-bridge.js');
+        await broadcastDM(dmData);
+    } catch (err) {
+        logger.debug({ err: err.message }, 'api: P2P DM broadcast skipped');
+    }
+}
+
+async function broadcastProfileToP2P(profile) {
+    try {
+        const { broadcastProfile } = await import('./p2p-bridge.js');
+        await broadcastProfile(profile);
+    } catch (err) {
+        logger.debug({ err: err.message }, 'api: P2P profile broadcast skipped');
+    }
+}
 
 // ============================================================================
 // Local API object
@@ -96,6 +129,15 @@ export const localAPI = {
 
         // Generate JWT
         const token = signToken({ userId: user.id, username: user.username });
+
+        // Broadcast the new identity to the P2P mesh (serverless directory)
+        await broadcastProfileToP2P({
+            username: user.username,
+            publicKey,
+            displayName: null,
+            bio: null,
+            avatarUrl: null,
+        });
 
         return { userId: user.id, token };
     },
@@ -213,6 +255,15 @@ export const localAPI = {
         const updated = await users.updateProfile(userId, { displayName, bio, avatarUrl });
         if (!updated) throw new Error('No fields to update.');
 
+        // Broadcast the update to the P2P mesh
+        await broadcastProfileToP2P({
+            username: updated.username,
+            publicKey: updated.public_key,
+            displayName: updated.display_name,
+            bio: updated.bio,
+            avatarUrl: updated.avatar_url,
+        });
+
         return {
             id: updated.id,
             username: updated.username,
@@ -300,6 +351,19 @@ export const localAPI = {
 
         // Fetch the created post with author info
         const created = await posts.getById(result.id);
+
+        // Broadcast to the P2P mesh immediately (serverless board)
+        const author = await users.findById(userId);
+        await broadcastPostToP2P({
+            id: created.id,
+            content: trimmedContent,
+            username: author?.username || 'unknown',
+            authorPubkey: author?.public_key || null,
+            displayName: author?.display_name || null,
+            signature,
+            createdAt: created.createdAt,
+        });
+
         return created;
     },
 
@@ -360,7 +424,27 @@ export const localAPI = {
 
         // Fetch the created DM
         const allDms = await dms.getForUser(senderId, 1, 0);
-        return allDms[0] || { id: result.id };
+        const created = allDms[0] || { id: result.id };
+
+        // Broadcast to the P2P mesh immediately (end-to-end encrypted)
+        const sender = await users.findById(senderId);
+        const config = loadConfig();
+        const senderSecret = config?.accounts?.[sender?.username]?.secretKey || null;
+        if (sender && recipient && senderSecret) {
+            await broadcastDMToP2P({
+                id: created.id,
+                content: trimmedContent,
+                fromUsername: sender.username,
+                fromPubkey: sender.public_key,
+                toUsername: recipient.username,
+                toPubkey: recipient.public_key,
+                signature,
+                createdAt: new Date().toISOString(),
+                secretKey: senderSecret,
+            });
+        }
+
+        return created;
     },
 
     /**

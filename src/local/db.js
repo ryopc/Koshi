@@ -452,6 +452,55 @@ export const users = {
             return _db.prepare('SELECT id, username, is_admin FROM users WHERE id = ?').get(id);
         });
     },
+
+    /**
+     * Upsert a user discovered via P2P.
+     * Inserts if the username/public key is unknown; updates display name,
+     * bio and avatar if provided. Never touches admin flags or secrets.
+     */
+    upsertFromP2P({ username, publicKey, displayName, bio, avatarUrl }) {
+        return wrap(() => {
+            if (!username || !publicKey) return null;
+
+            const byKey = _db.prepare('SELECT * FROM users WHERE public_key = ?').get(publicKey);
+            const byName = _db.prepare('SELECT * FROM users WHERE username = ?').get(username.toLowerCase().trim());
+
+            if (byKey) {
+                const updates = [];
+                const values = [];
+                if (displayName && displayName !== byKey.display_name) {
+                    updates.push('display_name = ?');
+                    values.push(displayName);
+                }
+                if (bio !== undefined && bio !== byKey.bio) {
+                    updates.push('bio = ?');
+                    values.push(bio);
+                }
+                if (avatarUrl !== undefined && avatarUrl !== byKey.avatar_url) {
+                    updates.push('avatar_url = ?');
+                    values.push(avatarUrl);
+                }
+                if (updates.length > 0) {
+                    updates.push("updated_at = datetime('now')");
+                    values.push(byKey.id);
+                    _db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+                }
+                return _db.prepare('SELECT * FROM users WHERE id = ?').get(byKey.id);
+            }
+
+            if (byName) {
+                // Same name, different key — adopt the key (key is the identity)
+                _db.prepare('UPDATE users SET public_key = ? WHERE id = ?').run(publicKey, byName.id);
+                return _db.prepare('SELECT * FROM users WHERE id = ?').get(byName.id);
+            }
+
+            const id = generateId();
+            _db.prepare(
+                'INSERT INTO users (id, username, public_key, display_name, bio, avatar_url) VALUES (?, ?, ?, ?, ?, ?)'
+            ).run(id, username.toLowerCase().trim(), publicKey, displayName || null, bio || null, avatarUrl || null);
+            return _db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        });
+    },
 };
 
 // ============================================================================

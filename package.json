@@ -1,19 +1,17 @@
 {
   "name": "@ryopc/koshi",
-  "version": "2.0.2",
-  "description": "Terminal-native P2P decentralized SNS — koshi board v2",
+  "version": "3.0.0",
+  "description": "Terminal-native P2P decentralized SNS — serverless koshi board v3",
   "homepage": "https://koshi.js.org",
   "type": "module",
   "bin": {
     "kb": "bin/cli.js"
   },
   "scripts": {
-    "dev": "nodemon --exec node bin/server.js",
     "dev:cli": "nodemon --exec node bin/cli.js",
-    "start": "node bin/server.js",
+    "start": "node bin/cli.js serve",
     "test": "node --experimental-vm-modules node_modules/.bin/jest || true",
     "lint": "eslint . --ext .js || true",
-    "migrate": "node src/db/migrate.js",
     "postinstall": "echo '🍄 Thank you for installing koshi! Type kb --help to get started.'"
   },
   "dependencies": {
@@ -22,6 +20,7 @@
     "better-sqlite3": "^12.11.1",
     "chalk": "^5.3.0",
     "corestore": "^7.11.1",
+    "ed2curve": "^0.3.0",
     "hypercore": "^10.38.2",
     "hyperswarm": "^4.17.0",
     "nostr-tools": "^2.23.12",
@@ -74,5 +73,8 @@
     "cli",
     "ed25519",
     "nostr"
-  ]
+  ],
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
+  }
 }
