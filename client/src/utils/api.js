@@ -12,13 +12,22 @@ import { getToken } from './storage.js';
 let _resolvedBase = null; // cached after first fetch
 let _resolved = false;
 
+// Build-time override: VITE_API_BASE_URL forces a remote server (client-only build)
+const BUILD_API_BASE = import.meta.env.VITE_API_BASE_URL;
+
 async function resolveApiBase() {
     if (_resolved) return _resolvedBase;
     _resolved = true;
 
     // Dev mode: Vite proxy handles /api
     if (import.meta.env.DEV) {
-        _resolvedBase = '';
+        _resolvedBase = BUILD_API_BASE || '';
+        return _resolvedBase;
+    }
+
+    // Build-time override takes priority — client-only mode, no /api/config lookup
+    if (BUILD_API_BASE) {
+        _resolvedBase = BUILD_API_BASE.replace(/\/$/, '');
         return _resolvedBase;
     }
 
