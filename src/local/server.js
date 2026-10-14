@@ -403,6 +403,19 @@ export async function startLocalServer(options = {}) {
         });
     });
 
+    // ---- Config (Web UI reads runtime config) ----
+    app.get('/api/config', async (req, res) => {
+        const p2p = await import('../p2p/index.js').catch(() => null);
+        res.json({
+            version: '3.0.0',
+            mode: 'serverless-p2p',
+            serverUrl: null, // null = same-origin (serverless default)
+            apiBase: '',     // relative (same-origin)
+            p2p: p2p ? p2p.getP2PStatus() : { ready: false, peers: 0 },
+            timestamp: new Date().toISOString(),
+        });
+    });
+
     // ---- Serve static web files ----
     const webPath = join(__dirname, '..', '..', 'web');
     app.use(express.static(webPath, {

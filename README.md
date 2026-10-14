@@ -1,31 +1,47 @@
 # 🏄 koshi — Terminal-Native Decentralized SNS
 
-**Version 2.0.2** · MIT License · by [game_ryo](https://github.com/ryopc)
+**Version 3.0.0** · MIT License · by [game_ryo](https://github.com/ryopc)
 
 > A terminal-native, decentralized social network powered by ed25519 cryptography.
+> **Serverless P2P mesh is the default** — no database or server setup needed. Just install and go.
 
 ---
 
 ## ✨ Features
 
-### v2.0.2 — バグ修正・安定性向上 🎉
+### v3.0.0 — Serverless P2P Mesh
 
-- **🔐 Decentralized Auth** — ed25519 keypair authentication (Nostr-inspired)
+- **🏠 Serverless Mode (Default)** — Runs locally on your machine with SQLite + P2P mesh. No PostgreSQL required, no server setup needed.
+- **🖧 P2P Gossip Network** — Posts, DMs, and profiles sync automatically across connected peers via hypercore + hyperswarm. No central server.
+- **📡 Real-time Updates** — WebSocket-powered live feed and DM chat when running `kb serve`.
+- **🔐 Decentralized Auth** — ed25519 keypair authentication (Nostr-inspired). Your keys, your identity.
+- **🔑 Nostr Protocol Integration** — Generate/manage Nostr keys (nsec/npub), push koshi posts to Nostr relays, pull events from the Nostr network.
 - **📝 Posts** — Create and view posts on the koshi board
 - **👥 Follow System** — Follow/unfollow other users
-- **✉️ Direct Messages** — Signed, private DMs
-- **💬 Real-time Chat** — Interactive DM chat via WebSocket
-- **📡 Real-time Feed** — WebSocket-powered live updates
-- **✏️ Profile Editing** — Update your display name, bio, and avatar
+- **✉️ End-to-End Encrypted DMs** — Private messages encrypted with x25519 (ed25519-derived) keys
+- **💬 Interactive Chat** — LINE-style bubble chat UI in the terminal with real-time WebSocket
+- **✏️ Profile Editing** — Update display name, bio, and avatar
 - **🛠️ Admin Controls** — User management, account deletion, admin grants
-- **💻 Terminal-native** — Beautiful CLI with chalk colors and spinners
+- **💻 Terminal-native** — Beautiful CLI with chalk colors and ora spinners
+- **🌐 Web UI** — React/Vite web frontend served by the local server
+- **👥 Multi-Account Support** — Manage multiple koshi identities from a single CLI
+- **🔌 Server Mode** — `kb connect` to a remote server (PostgreSQL-backed) for shared instances
 
-### 🆕 New in v2.0
+### 🆕 New in v3.0
 
-- **🔑 Nostr Protocol Integration** — Generate/manage Nostr keys (nsec/npub), push koshi posts to Nostr relays, pull events from the Nostr network, manage relay connections
-- **🖧 P2P Sync (hypercore)** — Peer-to-peer data synchronization using hypercore + corestore + hyperswarm. Posts and DMs replicated across connected peers
-- **👥 Multi-Account Support** — Manage multiple koshi identities from a single CLI. Switch between accounts with `kb switch`, interactive login, account removal
-- **⚙️ Enhanced Config** — All credentials stored in `~/.config/koshi/config.json` with support for per-account Nostr keys and P2P settings
+- **🖧 P2P Mesh (hypercore)** — Peer-to-peer data synchronization using hypercore + corestore + hyperswarm. Posts and DMs replicated across connected peers
+- **💽 SQLite Local Database** — All data stored locally in `~/.config/koshi/local.db`. No external database needed.
+- **`kb serve` Command** — Start a local serverless node (REST + WebSocket + Web UI + P2P)
+- **`kb connect` Command** — Connect to a remote koshi server instead of using local mode
+- **Multi-Account Support** — Manage multiple koshi identities from a single CLI. Switch between accounts with `kb switch`
+- **Enhanced Config** — All credentials stored in `~/.config/koshi/config.json` with support for per-account Nostr keys and P2P settings
+
+### v2.0 Features (Still Supported)
+
+- **🔑 Nostr Protocol Integration** — Generate/manage Nostr keys, push/pull to/from Nostr relays
+- **🖧 P2P Sync** — Peer-to-peer data synchronization (Node.js server/CLI mode)
+- **👥 Multi-Account Support** — `kb switch` between accounts
+- **⚙️ Enhanced Config** — `~/.config/koshi/config.json` with Nostr keys and P2P settings
 
 ---
 
@@ -34,7 +50,9 @@
 - [Quick Start](#quick-start)
 - [Installation](#installation)
 - [CLI Usage](#cli-usage)
-- [Server Setup](#server-setup)
+- [Server Mode](#server-mode-kb-serve--kb-connect)
+- [Nostr Integration](#-nostr-integration)
+- [P2P Architecture](#p2p-architecture-serverless-mesh)
 - [API Reference](#api-reference)
 - [Deployment](#deployment)
 - [Development](#development)
@@ -45,36 +63,61 @@
 
 ## 🚀 Quick Start
 
+### Serverless Mode (Default — No Setup Required)
+
 ```bash
-# 1. Start the server (requires PostgreSQL)
-DATABASE_URL=postgresql://user:pass@localhost:5432/koshi \
-JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))") \
-node bin/server.js
+# 1. Install from source
+git clone https://github.com/ryopc/koshi.git
+cd koshi
+npm install
 
-# 2. Register a new account
+# 2. Link the CLI globally
+npm link
+
+# 3. Register and start posting (automatically uses local SQLite + P2P)
 kb register alice
-
-# 3. Post to the koshi board
 kb post "Hello, koshi! 🌊"
 
 # 4. View your feed
 kb feed
 
-# 5. Start the real-time stream
-kb realtime
+# 5. Start the local server (Web UI + Realtime WebSockets + P2P mesh)
+kb serve
+# Open http://localhost:3000 in your browser
+```
+
+### Connecting to a Remote Server
+
+```bash
+# Connect to a remote koshi server
+kb connect https://koshi-api.ryopc.f5.si
+kb register bob        # Now registers on the remote server
+kb post "Hello from remote!"
+kb realtime            # Live stream of posts from the network
+```
+
+### Interactive DM Chat
+
+```bash
+# Search and start a real-time encrypted chat
+kb chat                # Interactive: search → select user
+kb chat bob            # Direct: chat with bob
+# Type /exit to end the chat
 ```
 
 ---
 
 ## 📦 Installation
 
-### Global Install (CLI only)
+### From npm
 
 ```bash
-# From npm (coming soon)
 npm install -g @ryopc/koshi
+```
 
-# Or from source
+### From Source
+
+```bash
 git clone https://github.com/ryopc/koshi.git
 cd koshi
 npm install
@@ -83,8 +126,14 @@ npm link
 
 ### Dependencies
 
-- **Node.js** >= 18.0.0
-- **PostgreSQL** >= 15.0 (hosted on [Neon.tech](https://neon.tech) in production)
+- **Node.js** >= 20.0.0 (requires native module support for `better-sqlite3`)
+
+### Modes
+
+| Mode | Database | P2P | Use Case |
+|------|----------|-----|----------|
+| **Serverless (default)** | SQLite (`~/.config/koshi/local.db`) | ✅ hypercore + hyperswarm | Offline-first, P2P gossip |
+| **Server (remote)** | PostgreSQL | Optional | Shared multi-user instance |
 
 ---
 
@@ -97,120 +146,205 @@ The `kb` command is your gateway to the koshi board.
 | Command | Description |
 |---------|-------------|
 | `kb register <username>` | Create a new account with ed25519 keypair |
-| `kb login <username>` | Authenticate using existing keypair |
+| `kb login <username>` | Authenticate using existing keypair (interactive) |
 | `kb whoami` | Show your profile information |
 | `kb post <message>` | Create a new post on the koshi board |
 | `kb feed [--limit=20]` | Display your post feed |
-| `kb follow <username>` | Follow a user |
+| `kb follow <username>` | Follow a user (interactive search mode) |
 | `kb unfollow <username>` | Unfollow a user |
-| `kb dm <username> <message>` | Send a direct message |
-| `kb dms [--unread]` | View your direct messages |
-| `kb chat <username>` | Start an interactive real-time DM chat |
-| `kb edit-profile --display-name=... --bio=...` | Update your own profile |
+| `kb dm <username> <message>` | Send an encrypted DM |
+| `kb dms [--unread]` | View your DM inbox |
+| `kb chat <username>` | Start an interactive real-time DM chat (bubble UI) |
+| `kb edit-profile [--display-name=...]` | Update your own profile |
 | `kb profile [username]` | View a user profile |
 | `kb search <query>` | Search users by username |
-| `kb realtime` | Connect to the real-time event stream |
+| `kb realtime` | Stream real-time events |
+| `kb accounts` | List all saved accounts |
+| `kb switch [username]` | Switch active account (interactive) |
+| `kb account remove <username>` | Delete a saved account from config |
+| `kb serve [--port=3000] [--daemon]` | Start local serverless node (REST+WS+Web+P2P) |
+| `kb serve --stop` | Stop a background server started with `--daemon` |
+| `kb connect <url>` | Connect to a remote server |
+| `kb connect --reset` | Return to serverless mode |
+| `kb connect --status` | Show current connection target |
+| `kb nostr <command>` | Nostr integration (keys, relays, push/pull) |
+| `kb p2p <command>` | P2P node management (status, sync, posts, dms) |
 | `kb admin <command>` | Admin commands (users, delete-user, grant, revoke) |
 | `kb help [command]` | Show help |
 
 ### Examples
 
 ```bash
-# Register a new user
+# Register a new user (serverless by default)
 kb register alice
-
-# Login with existing keys
-kb login alice
 
 # Post something
 kb post "Just joined koshi! 🌊"
 
-# View feed
-kb feed --limit=30
+# Start a local serverless node
+kb serve
 
-# Follow someone
-kb follow bob
-
-# Send a DM
-kb dm bob "Hey, how's it going?"
-
-# Start an interactive real-time DM chat
-kb chat bob
-
-# Edit your profile
-kb edit-profile --display-name="Alice" --bio="Building the terminal future"
-
-# Search for users
-kb search alice
+# Connect to a remote server
+kb connect https://koshi-api.ryopc.f5.si
 
 # Live stream
 kb realtime
 
-# Admin: list all users
-kb admin users
+# Interactive DM chat with bubble TUI
+kb chat
 
-# Admin: delete a user account (requires confirmation)
-kb admin delete-user bob
-
-# Admin: grant admin privileges
-kb admin grant alice
+# Nostr key generation and relay management
+kb nostr key generate
+kb nostr relay add wss://relay.damus.io
+kb nostr push
+kb nostr pull
 ```
 
 ### Configuration
 
-Credentials are stored in `~/.config/koshi/config.json` and `~/.snsrc`.
+Credentials are stored in `~/.config/koshi/config.json`.
+
+**Serverless mode is the default.** If no server URL is configured, koshi automatically uses local SQLite + P2P mesh.
 
 Environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `KOSHI_API_URL` | `https://koshi-api.ryopc.f5.si` | API base URL |
-| `KOSHI_WS_URL` | `wss://koshi-api.ryopc.f5.si` | WebSocket URL |
+| `KOSHI_API_URL` | `https://koshi-api.ryopc.f5.si` | API base URL (overrides serverUrl config) |
+| `KOSHI_WS_URL` | `wss://koshi-api.ryopc.f5.si` | WebSocket URL (overrides serverUrl config) |
+| `--local` | — | Force serverless mode flag |
 
 ---
 
-## 🖥️ Server Setup
+## ⚙️ Server Mode (`kb serve` & `kb connect`)
 
-### Local Development
+### `kb serve` — Run a Local Serverless Node
 
-```bash
-# 1. Clone and install
-git clone https://github.com/ryopc/koshi.git
-cd koshi
-npm install
-
-# 2. Set up PostgreSQL database
-createdb koshi
-
-# 3. Run database migrations
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/koshi \
-JWT_SECRET=dev-secret-change-in-production \
-node src/db/migrate.js
-
-# 4. Start the server
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/koshi \
-JWT_SECRET=dev-secret-change-in-production \
-node bin/server.js
-```
-
-Or use the .env file:
+Starts a local server with REST API + WebSocket + Web UI + P2P mesh. All data stored in local SQLite.
 
 ```bash
-cp .env.example .env
-# Edit .env with your database credentials
-npm run migrate
-npm start
+# Foreground (Ctrl+C to stop)
+kb serve
+
+# Custom port
+kb serve --port=8080
+
+# Background daemon
+kb serve --daemon
+
+# Stop background server
+kb serve --stop
 ```
 
-### Environment Variables
+On startup, `kb serve` displays:
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | ✅ | PostgreSQL connection string |
-| `JWT_SECRET` | ✅ | Secret key for JWT signing |
-| `PORT` | ❌ | Server port (default: 3000) |
-| `NODE_ENV` | ❌ | `development` or `production` |
-| `LOG_LEVEL` | ❌ | Log level (default: debug in dev, info in prod) |
+```
+🖥️  koshi server — serverless P2P node
+REST API:  http://127.0.0.1:3000
+Web UI:    http://127.0.0.1:3000
+WebSocket: ws://127.0.0.1:3000/ws?token=<token>
+P2P Mesh:  active (3 peers)
+```
+
+### `kb connect` — Connect to a Remote Server
+
+Switch between your local serverless node and a remote koshi server.
+
+```bash
+kb connect http://localhost:3000    # Connect to local kb serve
+kb connect https://koshi-api.ryopc.f5.si  # Connect to public server
+kb connect --reset                  # Return to serverless mode
+kb connect --status                 # Show current connection target
+```
+
+### Architecture: Serverless vs Remote
+
+```
+Serverless (default):
+  kb register → ~/.config/koshi/local.db (SQLite)
+  kb post     → P2P mesh broadcast (hyperswarm)
+  kb serve    → REST + WebSocket + Web UI on 127.0.0.1:3000
+  kb chat     → WebSocket to local serve
+
+Remote (kb connect <url>):
+  kb register → Remote PostgreSQL
+  kb post     → Remote API
+  kb realtime → WebSocket to remote server
+```
+
+---
+
+## 🔑 Nostr Integration
+
+koshi integrates with the Nostr protocol. You can generate Nostr keys, push posts to Nostr relays, and pull events from the Nostr network.
+
+```bash
+# Generate a Nostr keypair
+kb nostr key generate
+
+# Show your Nostr keys
+kb nostr key show
+
+# Manage relays
+kb nostr relay list
+kb nostr relay add wss://relay.damus.io
+kb nostr relay test wss://relay.damus.io
+
+# Cross-post koshi posts to Nostr
+kb nostr push
+
+# Pull Nostr events into koshi feed
+kb nostr pull
+
+# Show Nostr sync status
+kb nostr status
+```
+
+---
+
+## 🖧 P2P Architecture (Serverless Mesh)
+
+### Overview
+
+In serverless mode, koshi uses a decentralized P2P mesh network:
+
+- **hypercore** — Append-only logs for posts, DMs, and profiles
+- **corestore** — Manages multiple hypercore instances per node
+- **hyperswarm** — P2P network discovery and connection management
+- **ed2curve** — ed25519 → x25519 key conversion for DM encryption
+
+### Topology
+
+```
+Global Board Topic (koshi:v1:board)
+  ├── All nodes join this topic
+  ├── Posts and profile announcements gossip here
+  └── Discovery key shared across the mesh
+
+Per-User Topic (koshi:v1:user:<pubkey>)
+  ├── Individual users join their own topic
+  ├── Direct DM delivery to connected peers
+  └── E2E encrypted with x25519
+```
+
+### Data Flow
+
+1. **Create**: Local API writes to SQLite + appends to P2P core
+2. **Sync**: P2P bridge replicates to connected peers via corestore
+3. **Discover**: New peers join topics, receive announce blocks
+4. **Merge**: Bridge reconciles P2P data with local SQLite
+
+### P2P Commands
+
+```bash
+kb p2p status    # Show P2P node status
+kb p2p start     # Start P2P node manually
+kb p2p stop      # Stop P2P node
+kb p2p sync      # Show synced posts from the mesh
+kb p2p dms       # Show synced DMs from the mesh
+```
+
+> **Note**: P2P requires Node.js (not available in browsers). Use `kb serve` + Web UI for browser-based access.
 
 ---
 
@@ -218,8 +352,8 @@ npm start
 
 ### Base URL
 
-Development: `http://localhost:3000/api`
-Production: `https://koshi-api.ryopc.f5.si/api`
+- **Serverless (local)**: `http://localhost:3000/api` (when running `kb serve`)
+- **Remote**: Depends on `kb connect` target or `KOSHI_API_URL` env var
 
 ### Authentication
 
@@ -229,14 +363,16 @@ All authenticated endpoints require a JWT Bearer token:
 Authorization: Bearer <token>
 ```
 
+Tokens encode the `userId` and are signed with HMAC-SHA256 (24h expiry).
+
 ### Endpoints
 
 #### Auth
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/auth/register` | No | Register a new user |
-| POST | `/api/auth/login` | No | Login with signature |
+| POST | `/api/auth/register` | No | Register with ed25519 public key |
+| POST | `/api/auth/login` | No | Login with signed challenge |
 
 #### Users
 
@@ -254,7 +390,7 @@ Authorization: Bearer <token>
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/posts/feed` | Optional | Get post feed |
+| GET | `/api/posts/feed` | Optional | Get post feed (personalized or global) |
 | POST | `/api/posts` | Yes | Create a post |
 | GET | `/api/posts/:id` | No | Get a single post |
 
@@ -272,17 +408,28 @@ Authorization: Bearer <token>
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/admin/users` | Admin | List all users |
-| GET | `/api/admin/users/:id` | Admin | Get user details (with keys, DM count) |
-| DELETE | `/api/admin/users/:id` | Admin | Permanently delete a user account |
-| PUT | `/api/admin/users/:id/admin` | Admin | Grant or revoke admin privileges |
+| GET | `/api/admin/users/:id` | Admin | Get user details |
+| DELETE | `/api/admin/users/:id` | Admin | Permanently delete a user |
+| PUT | `/api/admin/users/:id/admin` | Admin | Grant/revoke admin privileges |
 
-> Admin privileges: Set `ADMIN_USERNAME` environment variable, or mark user as admin via `UPDATE users SET is_admin = TRUE WHERE username = '...';`
+> Admin: First registered user is admin in local mode. For remote servers, set `ADMIN_USERNAME` env var or `UPDATE users SET is_admin = TRUE WHERE username = '...';`
+
+#### P2P
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/p2p/status` | No | Get P2P node status |
+| GET | `/api/p2p/peers` | Yes | List connected peers |
+| GET | `/api/p2p/posts` | Yes | Get P2P-synced posts |
+| POST | `/api/p2p/sync` | Yes | Trigger manual sync |
+| POST | `/api/p2p/start` | Yes | Start P2P node |
+| POST | `/api/p2p/stop` | Yes | Stop P2P node |
 
 #### WebSocket
 
 Connect: `ws://host:port/ws?token={jwt}`
 
-Events: `message_sent`, `dm_received`, `user_online`, `user_offline`, `post_created`, `follow_notification`
+Events: `connected`, `post_created`, `dm_received`, `dm:sent`, `user_online`, `user_offline`, `post:created`, `error`
 
 #### Health
 
@@ -294,57 +441,41 @@ Events: `message_sent`, `dm_received`, `user_online`, `user_offline`, `post_crea
 
 ## ☁️ Deployment
 
-### Render.com + Neon.tech (Recommended)
+### Docker (Standalone — No External Dependencies)
 
-#### 1. Set up Neon.tech Database
-
-1. Go to [Neon.tech](https://neon.tech) and create an account
-2. Create a new project (PostgreSQL 15)
-3. Get your connection string from **Connection Details** → `DATABASE_URL`
-4. For production, use the **pooled connection string** (with `?pgbouncer=true`)
-
-#### 2. Deploy on Render.com
-
-1. Push this repo to GitHub
-2. Go to [Render.com](https://render.com) and connect your GitHub repo
-3. Render will auto-detect [`render.yaml`](render.yaml) (Blueprint) and create the service
-4. In Render dashboard, add environment variables:
-   - `DATABASE_URL` — your Neon.tech connection string
-   - `JWT_SECRET` — generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-5. Render will auto-deploy on every push to `main`
-
-#### Alternative: Manual Setup on Render
-
-If you prefer not to use Blueprint:
-
-1. Create a new **Web Service** on Render
-2. Connect your GitHub repo
-3. Configure:
-   - **Name**: `koshi-api`
-   - **Environment**: `Node`
-   - **Build Command**: `npm ci`
-   - **Start Command**: `node bin/server.js`
-   - **Health Check Path**: `/api/health`
-   - **Pre-Deploy Command**: `node src/db/migrate.js`
-4. Add environment variables (see above)
-5. Deploy!
-
-### Docker
+Build and run the standalone server using SQLite (no PostgreSQL needed):
 
 ```bash
-# Build the image
-docker build -t koshi-api .
+# Build the standalone image
+docker build --target standalone -t koshi:standalone .
 
 # Run the container
 docker run -d \
-  --name koshi-api \
+  --name koshi \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://... \
-  -e JWT_SECRET=... \
-  koshi-api
+  -v $HOME/.config/koshi:/home/koshi/.config/koshi \
+  koshi:standalone
 ```
 
-### Docker Compose
+The standalone server automatically creates a SQLite database at `~/.config/koshi/server.db` and runs REST API + WebSocket + Web UI + P2P mesh.
+
+### Docker (PostgreSQL-backed Full Server)
+
+```bash
+# Build the full server image
+docker build --target runner -t koshi:full .
+
+# Run with PostgreSQL
+docker run -d \
+  --name koshi-api \
+  -p 3000:3000 \
+  -e DATABASE_URL=postgresql://user:pass@db:5432/koshi \
+  -e JWT_SECRET=$(openssl rand -base64 32) \
+  -e NODE_ENV=production \
+  koshi:full
+```
+
+### Docker Compose (PostgreSQL + API)
 
 ```yaml
 version: '3.8'
@@ -358,12 +489,15 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   api:
-    build: .
+    build:
+      context: .
+      target: runner
     ports:
       - "3000:3000"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/koshi
       JWT_SECRET: change-this-in-production
+      NODE_ENV: production
     depends_on:
       - db
 
@@ -371,73 +505,130 @@ volumes:
   pgdata:
 ```
 
----
+### Render.com + Neon.tech
 
-## 🔒 Security
+Deploy the PostgreSQL-backed server on Render with Neon as the database:
 
-- **Ed25519 Signatures** — All posts and DMs are signed for authenticity
-- **JWT Auth** — Tokens expire after 24 hours
-- **Admin Auth** — Admin-only endpoints protected by `requireAdmin` middleware
-- **Rate Limiting** — Auth endpoints limited to 10 req/min per IP
-- **SQL Injection Prevention** — Parameterized queries throughout
-- **Input Validation** — All endpoints validate input
-- **Helmet** — Security headers enabled
-- **No Hardcoded Secrets** — Everything via environment variables
-- **CORS** — Restricted to CLI client origins
+1. Go to [Neon.tech](https://neon.tech), create a project, get your `DATABASE_URL`
+2. Go to [Render.com](https://render.com), connect your GitHub repo
+3. Add environment variables:
+   - `DATABASE_URL` — your Neon.tech connection string
+   - `JWT_SECRET` — generate with: `openssl rand -base64 32`
+4. Render auto-deploys on every push to `main`
+
+### Self-Hosted Standalone
+
+For a personal node with no external services:
+
+```bash
+# Just run the server (SQLite + P2P mesh, no config needed)
+npm run server
+# → http://localhost:3000
+```
 
 ---
 
 ## 🧪 Development
 
 ```bash
-# Run tests
+# Install dependencies
+npm install
+
+# Run the CLI in dev mode (auto-reload)
+npm run dev:cli
+
+# Run the standalone server in dev mode
+npm run server:dev
+
+# Run tests (when implemented)
 npm test
 
 # Run linter
 npm run lint
 
-# Run with auto-reload
-npm run dev
-
-# Run migration
+# Run migration (PostgreSQL mode only)
 npm run migrate
 ```
+
+### Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm start` | Start the CLI server (`kb serve`) |
+| `npm run server` | Run the standalone server |
+| `npm run server:dev` | Run standalone server with auto-reload |
+| `npm run dev:cli` | Run CLI with auto-reload (nodemon) |
+| `npm test` | Run tests |
+| `npm run lint` | Run ESLint |
+| `npm run migrate` | Run PostgreSQL migrations |
 
 ### Project Structure
 
 ```
 koshi/
 ├── bin/
-│   ├── cli.js           # CLI/TUI entry point
-│   └── server.js         # Express + WebSocket server
+│   ├── cli.js              # CLI/TUI entry point (kb command)
+│   └── server.js           # Express + WebSocket server (PostgreSQL mode)
 ├── src/
 │   ├── api/
-│   │   ├── auth.js       # Auth routes (register/login)
-│   │   ├── users.js      # User management routes
-│   │   ├── posts.js      # Posts routes (koshi board)
-│   │   ├── dms.js        # Direct messages routes
-│   │   └── admin.js      # Admin routes (users, delete, grant)
+│   │   ├── auth.js         # Auth routes (register/login)
+│   │   ├── users.js        # User management routes
+│   │   ├── posts.js        # Posts routes (koshi board)
+│   │   ├── dms.js          # Direct messages routes
+│   │   ├── admin.js        # Admin routes (users, delete, grant)
+│   │   └── p2p.js          # P2P API routes (web client bridge)
 │   ├── auth/
-│   │   ├── ed25519.js    # Ed25519 crypto utilities
-│   │   ├── jwt.js        # JWT token utilities
-│   │   └── utils.js      # Hex encoding utilities
+│   │   ├── ed25519.js      # Ed25519 crypto utilities
+│   │   ├── jwt.js          # JWT token utilities
+│   │   ├── dh.js           # DM encryption (ed25519 → x25519 + nacl.box)
+│   │   └── utils.js        # Hex encoding utilities
+│   ├── config/
+│   │   └── config.js       # Multi-account + Nostr + P2P config management
 │   ├── db/
-│   │   ├── schema.sql    # PostgreSQL schema
-│   │   ├── migrate.js    # Migration script
-│   │   └── pool.js       # Database connection pool
+│   │   ├── schema.sql      # PostgreSQL schema
+│   │   ├── migrate.js      # Migration script
+│   │   └── pool.js         # Database connection pool
+│   ├── local/
+│   │   ├── db.js           # SQLite database engine
+│   │   ├── api.js          # Local API (drop-in for remote API)
+│   │   ├── server.js       # Local Express + WebSocket server
+│   │   ├── p2p-bridge.js   # P2P ↔ SQLite sync bridge
+│   └── server-standalone.js  # Fully self-contained SQLite server
 │   ├── middleware/
-│   │   ├── auth.js       # Auth middleware
-│   │   └── rateLimit.js  # Rate limiting middleware
+│   │   ├── auth.js         # Auth middleware (requireAuth, requireAdmin)
+│   │   └── rateLimit.js    # Rate limiting middleware
+│   ├── nostr/
+│   │   └── index.js        # Nostr protocol integration
+│   ├── p2p/
+│   │   └── index.js        # P2P mesh (hypercore + corestore + hyperswarm)
 │   ├── ws/
-│   │   ├── index.js      # WebSocket server
-│   │   └── handlers.js   # WebSocket message handlers
-│   └── index.js          # Express app setup + logger
+│   │   ├── index.js        # WebSocket server
+│   │   └── handlers.js     # WebSocket message handlers
+│   └── index.js            # Express app setup + logger
+├── client/                 # React web frontend (Vite + React 18)
+├── web/                    # Built static files
 ├── package.json
 ├── Dockerfile
-├── render.yaml           # Render Blueprint (deployment config)
+├── render.yaml             # Render Blueprint
 ├── .env.example
-└── .github/workflows/deploy.yml
+└── .github/workflows/      # CI/CD
 ```
+
+---
+
+## 🔒 Security
+
+- **Ed25519 Signatures** — All posts and DMs are signed for authenticity
+- **End-to-End DM Encryption** — DMs encrypted with x25519 keys derived from ed25519 keypairs
+- **JWT Auth** — Tokens expire after 24 hours (HMAC-SHA256 in serverless, configurable in remote)
+- **Admin Auth** — Admin-only endpoints protected by `requireAdmin` middleware
+- **Rate Limiting** — Auth endpoints limited to 10 req/min per IP
+- **SQL Injection Prevention** — Parameterized queries throughout
+- **Input Validation** — All endpoints validate input (username format, content length, key format)
+- **Helmet** — Security headers enabled
+- **No Hardcoded Secrets** — Everything via environment variables
+- **CORS** — Configurable per deployment
+- **File Permissions** — Config files set to 0600 (owner read/write only)
 
 ---
 
@@ -451,9 +642,13 @@ MIT — see [LICENSE](LICENSE).
 
 - [@noble/ed25519](https://github.com/paulmillr/noble-ed25519) — Pure JS ed25519 implementation
 - [tweetnacl](https://tweetnacl.js.org/) — Cryptographic primitives
-- [Ink](https://github.com/vadimdemedes/ink) — React for CLI
+- [ed2curve](https://github.com/dominictarr/ed2curve) — ed25519 to x25519 key conversion
 - [Chalk](https://github.com/chalk/chalk) — Terminal styling
+- [Ora](https://github.com/sindresorhus/ora) — Terminal spinners
 - [Express](https://expressjs.com/) — Web framework
-- [PostgreSQL](https://www.postgresql.org/) — Database
-- [Render](https://render.com) — Cloud hosting
-- [Neon](https://neon.tech) — Serverless PostgreSQL
+- [hypercore](https://github.com/hypercore-protocol/hypercore) — Append-only logs
+- [corestore](https://github.com/hypercore-protocol/corestore) — Hypercore factory
+- [hyperswarm](https://github.com/hypercore-protocol/hyperswarm) — P2P network discovery
+- [nostr-tools](https://github.com/paulmillr/nostr-tools) — Nostr protocol library
+- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) — Fast SQLite bindings
+- [PostgreSQL](https://www.postgresql.org/) — Database (remote server mode)
