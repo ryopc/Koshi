@@ -441,7 +441,7 @@ Events: `connected`, `post_created`, `dm_received`, `dm:sent`, `user_online`, `u
 
 ## ☁️ Deployment
 
-### Docker (Standalone — No External Dependencies)
+### Docker (Standalone — No External Dependencies) ✅ Recommended
 
 **Use the pre-built image from GitHub Container Registry:**
 

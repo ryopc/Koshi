@@ -1461,8 +1461,19 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
 
         <h3 id="deploy-docker">Docker</h3>
 
-        <h4>Standalone (Serverless — SQLite, No External DB)</h4>
-        <pre><code><span class="comment"># Build the standalone image (SQLite + P2P + Web UI)</span>
+        <div class="info-box success">
+            <p><strong>✅ Recommended:</strong> Standalone Docker image — runs the full serverless stack (SQLite + P2P mesh + REST API + WebSocket + Web UI) with zero setup. Just pull and run.</p>
+        </div>
+
+        <h4>Standalone (Serverless — SQLite, No External DB) ✅ Recommended</h4>
+        <pre><code><span class="comment"># Pull pre-built image from GitHub Container Registry (recommended)</span>
+<span class="prompt">$</span> docker run -d \
+  --name koshi \
+  -p 3000:3000 \
+  -v $HOME/.config/koshi:/home/koshi/.config/koshi \
+  ghcr.io/ryopc/koshi:standalone-v3.0.0
+
+<span class="comment"># Or build from source</span>
 <span class="prompt">$</span> docker build --target standalone -t koshi:standalone .
 
 <span class="comment"># Run the container (data persists in volume)</span>
