@@ -90,7 +90,7 @@ kb serve
 
 ```bash
 # Connect to a remote koshi server
-kb connect https://koshi-api.ryopc.f5.si
+kb connect https://koshi.ryopc.org
 kb register bob        # Now registers on the remote server
 kb post "Hello from remote!"
 kb realtime            # Live stream of posts from the network
@@ -185,7 +185,7 @@ kb post "Just joined koshi! 🌊"
 kb serve
 
 # Connect to a remote server
-kb connect https://koshi-api.ryopc.f5.si
+kb connect https://koshi.ryopc.org
 
 # Live stream
 kb realtime
@@ -210,8 +210,8 @@ Environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `KOSHI_API_URL` | `https://koshi-api.ryopc.f5.si` | API base URL (overrides serverUrl config) |
-| `KOSHI_WS_URL` | `wss://koshi-api.ryopc.f5.si` | WebSocket URL (overrides serverUrl config) |
+| `KOSHI_API_URL` | `https://koshi.ryopc.org` | API base URL (overrides serverUrl config) |
+| `KOSHI_WS_URL` | `wss://koshi.ryopc.org` | WebSocket URL (overrides serverUrl config) |
 | `--local` | — | Force serverless mode flag |
 
 ---
@@ -252,7 +252,7 @@ Switch between your local serverless node and a remote koshi server.
 
 ```bash
 kb connect http://localhost:3000    # Connect to local kb serve
-kb connect https://koshi-api.ryopc.f5.si  # Connect to public server
+kb connect https://koshi.ryopc.org  # Connect to public server
 kb connect --reset                  # Return to serverless mode
 kb connect --status                 # Show current connection target
 ```
@@ -479,13 +479,14 @@ docker pull ghcr.io/ryopc/koshi:runner-v3.0.0
 # Or build from source
 docker build --target runner -t koshi:full .
 
-# Run with PostgreSQL
+# Run with PostgreSQL (quote DATABASE_URL — & in query params breaks bash)
 docker run -d \
   --name koshi-api \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://user:pass@db:5432/koshi \
-  -e JWT_SECRET=$(openssl rand -base64 32) \
-  -e NODE_ENV=production \
+  -e 'DATABASE_URL=postgresql://user:pass@db:5432/koshi' \
+  -e 'JWT_SECRET=your-secret' \
+  -e 'ADMIN_USERNAME=alice' \
+  -e 'NODE_ENV=production' \
   ghcr.io/ryopc/koshi:runner-v3.0.0
 ```
 

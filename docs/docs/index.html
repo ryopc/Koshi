@@ -531,7 +531,7 @@ NODE_ENV=production</code></pre>
 <span class="cmd-out">P2P Mesh:  active (0 peers)</span>
 
 <span class="comment"># Or connect to a remote server</span>
-<span class="prompt">$</span> kb connect https://koshi-api.ryopc.f5.si</code></pre>
+<span class="prompt">$</span> kb connect https://koshi.ryopc.org</code></pre>
 
         <h2 id="configuration">Configuration</h2>
         <p>Credentials and runtime settings are stored in <code>~/.config/koshi/config.json</code>. In serverless mode (default), all data lives in <code>~/.config/koshi/local.db</code> (SQLite). The CLI reads the config automatically.</p>
@@ -544,8 +544,8 @@ NODE_ENV=production</code></pre>
             <table>
                 <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
                 <tbody>
-                    <tr><td><code>KOSHI_API_URL</code></td><td><code>https://koshi-api.ryopc.f5.si</code></td><td>API base URL (overrides serverUrl config)</td></tr>
-                    <tr><td><code>KOSHI_WS_URL</code></td><td><code>wss://koshi-api.ryopc.f5.si</code></td><td>WebSocket URL (overrides serverUrl config)</td></tr>
+                    <tr><td><code>KOSHI_API_URL</code></td><td><code>https://koshi.ryopc.org</code></td><td>API base URL (overrides serverUrl config)</td></tr>
+                    <tr><td><code>KOSHI_WS_URL</code></td><td><code>wss://koshi.ryopc.org</code></td><td>WebSocket URL (overrides serverUrl config)</td></tr>
                 </tbody>
             </table>
         </div>
@@ -854,8 +854,8 @@ NODE_ENV=production</code></pre>
             <table>
                 <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
                 <tbody>
-                    <tr><td><code>KOSHI_API_URL</code></td><td><code>https://koshi-api.ryopc.f5.si</code></td><td>API base URL for all requests</td></tr>
-                    <tr><td><code>KOSHI_WS_URL</code></td><td><code>wss://koshi-api.ryopc.f5.si</code></td><td>WebSocket URL for realtime</td></tr>
+                    <tr><td><code>KOSHI_API_URL</code></td><td><code>https://koshi.ryopc.org</code></td><td>API base URL for all requests</td></tr>
+                    <tr><td><code>KOSHI_WS_URL</code></td><td><code>wss://koshi.ryopc.org</code></td><td>WebSocket URL for realtime</td></tr>
                 </tbody>
             </table>
         </div>
@@ -986,7 +986,7 @@ NODE_ENV=production</code></pre>
         <div class="info-box info">
             <p><strong>Base URLs:</strong><br>
             Serverless (local): <code>http://localhost:3000/api</code> (when running <code>kb serve</code>)<br>
-            Remote: <code>https://koshi-api.ryopc.f5.si/api</code> (<code>kb connect https://...</code> or <code>KOSHI_API_URL</code> env var)</p>
+            Remote: <code>https://koshi.ryopc.org/api</code> (<code>kb connect https://...</code> or <code>KOSHI_API_URL</code> env var)</p>
         </div>
 
         <h3 id="api-auth">Authentication</h3>
@@ -1061,7 +1061,7 @@ NODE_ENV=production</code></pre>
         </div>
 
         <h4>GET /api/users/:username</h4>
-        <pre><code><span class="prompt">$</span> curl https://koshi-api.ryopc.f5.si/api/users/alice
+        <pre><code><span class="prompt">$</span> curl https://koshi.ryopc.org/api/users/alice
 
 {
   <span class="string">"id"</span>: <span class="string">"e7d00463-38f8-4d85-8231-6762bb988f7d"</span>,
@@ -1076,7 +1076,7 @@ NODE_ENV=production</code></pre>
 
         <h4>PUT /api/users/me</h4>
         <p>Update profile fields. Only include fields you want to change.</p>
-        <pre><code><span class="prompt">$</span> curl -X PUT https://koshi-api.ryopc.f5.si/api/users/me \
+        <pre><code><span class="prompt">$</span> curl -X PUT https://koshi.ryopc.org/api/users/me \
   -H <span class="string">"Authorization: Bearer &lt;token&gt;"</span> \
   -H <span class="string">"Content-Type: application/json"</span> \
   -d '{
@@ -1104,7 +1104,7 @@ NODE_ENV=production</code></pre>
         <h4>POST /api/posts</h4>
         <p>Create a new post. Content must be signed with your ed25519 key. Rate limited to 10 posts/min.</p>
 
-        <pre><code><span class="prompt">$</span> curl -X POST https://koshi-api.ryopc.f5.si/api/posts \
+        <pre><code><span class="prompt">$</span> curl -X POST https://koshi.ryopc.org/api/posts \
   -H <span class="string">"Authorization: Bearer &lt;token&gt;"</span> \
   -H <span class="string">"Content-Type: application/json"</span> \
   -d '{
@@ -1142,11 +1142,11 @@ NODE_ENV=production</code></pre>
 
         <h4>DELETE /api/admin/users/:id</h4>
         <p>Permanently deletes a user and all associated data (posts, follows, DMs) via database CASCADE. Accepts either a UUID or a username as the <code>:id</code> parameter.</p>
-        <pre><code><span class="prompt">$</span> curl -X DELETE https://koshi-api.ryopc.f5.si/api/admin/users/bob \
+        <pre><code><span class="prompt">$</span> curl -X DELETE https://koshi.ryopc.org/api/admin/users/bob \
   -H <span class="string">"Authorization: Bearer &lt;admin-token&gt;"</span>
 
 <span class="comment"># Or using a UUID:</span>
-<span class="prompt">$</span> curl -X DELETE https://koshi-api.ryopc.f5.si/api/admin/users/f8e11574-38f8-4d85-8231-6762bb988f7d \
+<span class="prompt">$</span> curl -X DELETE https://koshi.ryopc.org/api/admin/users/f8e11574-38f8-4d85-8231-6762bb988f7d \
   -H <span class="string">"Authorization: Bearer &lt;admin-token&gt;"</span>
 
 {
@@ -1163,7 +1163,7 @@ NODE_ENV=production</code></pre>
 
         <h4>PUT /api/admin/users/:id/admin</h4>
         <p>Toggle admin status for a user. Accepts either a UUID or a username as the <code>:id</code> parameter. Body: <code>{ "isAdmin": true }</code> or <code>{ "isAdmin": false }</code>.</p>
-        <pre><code><span class="prompt">$</span> curl -X PUT https://koshi-api.ryopc.f5.si/api/admin/users/bob/admin \
+        <pre><code><span class="prompt">$</span> curl -X PUT https://koshi.ryopc.org/api/admin/users/bob/admin \
   -H <span class="string">"Authorization: Bearer &lt;admin-token&gt;"</span> \
   -H <span class="string">"Content-Type: application/json"</span> \
   -d '{"isAdmin": true}'
@@ -1196,7 +1196,7 @@ NODE_ENV=production</code></pre>
 
         <h4>POST /api/dms/:userId</h4>
         <p>Send a signed direct message. Content max 5000 characters.</p>
-        <pre><code><span class="prompt">$</span> curl -X POST https://koshi-api.ryopc.f5.si/api/dms/TARGET_USER_ID \
+        <pre><code><span class="prompt">$</span> curl -X POST https://koshi.ryopc.org/api/dms/TARGET_USER_ID \
   -H <span class="string">"Authorization: Bearer &lt;token&gt;"</span> \
   -H <span class="string">"Content-Type: application/json"</span> \
   -d '{
@@ -1308,7 +1308,7 @@ NODE_ENV=production</code></pre>
 ws://host:port/ws?token=&lt;your-jwt-token&gt;
 
 <span class="comment"># Production example</span>
-wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
+wss://koshi.ryopc.org/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
 
         <h3 id="ws-events">Server Events (received from server)</h3>
 
@@ -1514,16 +1514,17 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
   koshi:standalone</code></pre>
 
         <h4>PostgreSQL-backed Full Server</h4>
-        <pre><code><span class="comment"># Build the image</span>
-<span class="prompt">$</span> docker build --target runner -t koshi-api .
+        <pre><code><span class="comment"># Pull the pre-built image from GHCR</span>
+<span class="prompt">$</span> docker pull ghcr.io/ryopc/koshi:runner-v3.0.0
 
-<span class="comment"># Run the container</span>
+<span class="comment"># Run the container (quote DATABASE_URL — the & in query params breaks bash)</span>
 <span class="prompt">$</span> docker run -d \
   --name koshi-api \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://... \
-  -e JWT_SECRET=... \
-  koshi-api</code></pre>
+  -e <span class="string">'DATABASE_URL=postgresql://user:pass@host:5432/db?sslmode=require'</span> \
+  -e <span class="string">'JWT_SECRET=your-secret'</span> \
+  -e <span class="string">'ADMIN_USERNAME=alice'</span> \
+  ghcr.io/ryopc/koshi:runner-v3.0.0</code></pre>
 
         <div class="info-box info">
             <p><strong>💡 Tip:</strong> The standalone Docker image includes everything — SQLite, P2P mesh, REST API, WebSocket, and Web UI. No external database is needed.</p>
