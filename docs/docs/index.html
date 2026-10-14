@@ -317,6 +317,7 @@
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-group">
             <div class="sidebar-group-title">Getting Started</div>
+            <a href="#docker" class="sidebar-link">Docker Quick Deploy (✅ Recommended)</a>
             <a href="#getting-started" class="sidebar-link active">Installation</a>
             <a href="#quick-start" class="sidebar-link">Quick Start</a>
             <a href="#configuration" class="sidebar-link">Configuration</a>
@@ -420,6 +421,35 @@
             <p><strong>📦 Version:</strong> 3.0.0 · <strong>License:</strong> MIT · <strong>Author:</strong> game_ryo · <strong>Mode:</strong> Serverless P2P Mesh (SQLite)</p>
         </div>
 
+        <!-- ============================================================ -->
+        <!-- DOCKER QUICK DEPLOY (Top of page) -->
+        <!-- ============================================================ -->
+        <div class="info-box success">
+            <p><strong>✅ Recommended:</strong> Run Koshi instantly with Docker — no installation or database setup required.</p>
+        </div>
+
+        <h2 id="docker">Docker Quick Deploy</h2>
+        <pre><code><span class="comment"># Pull and run the pre-built standalone image (GHCR)</span>
+<span class="prompt">$</span> docker run -d \
+  --name koshi \
+  -p 3000:3000 \
+  -v $HOME/.config/koshi:/home/koshi/.config/koshi \
+  ghcr.io/ryopc/koshi:standalone-v3.0.0
+
+<span class="comment"># Access the Web UI</span>
+<span class="prompt">$</span> open http://localhost:3000</code></pre>
+
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Image</th><th>Use Case</th><th>External DB</th></tr></thead>
+                <tbody>
+                    <tr><td><code>ghcr.io/ryopc/koshi:standalone-v3.0.0</code></td><td>Personal / Serverless (✅ Recommended)</td><td>No (SQLite)</td></tr>
+                    <tr><td><code>ghcr.io/ryopc/koshi:runner-v3.0.0</code></td><td>Production Server</td><td>Yes (PostgreSQL)</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ============================================================ -->
         <h2 id="getting-started">Installation</h2>
         <p>Koshi requires <strong>Node.js 20+</strong>. In serverless mode (default), <strong>SQLite</strong> is used locally — no external database required. PostgreSQL 15+ is only needed for remote multi-user server deployments.</p>
 
