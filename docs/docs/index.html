@@ -370,6 +370,10 @@
                 <a href="#p2p-config" class="sidebar-link">Configuration</a>
             </div>
             <div class="sidebar-group">
+                <div class="sidebar-group-title">Server Mode</div>
+                <a href="#cli-server" class="sidebar-link">kb serve / connect</a>
+            </div>
+            <div class="sidebar-group">
                 <div class="sidebar-group-title">WebSocket</div>
                 <a href="#ws" class="sidebar-link">Connection</a>
                 <a href="#ws-events" class="sidebar-link">Events</a>
@@ -413,11 +417,15 @@
         <p>Welcome to the Koshi documentation. This guide covers everything from installation to the full API reference. Koshi is a terminal-native, decentralized social network powered by ed25519 cryptography.</p>
 
         <div class="info-box info">
-            <p><strong>📦 Version:</strong> 2.0.2 · <strong>License:</strong> MIT · <strong>Author:</strong> game_ryo</p>
+            <p><strong>📦 Version:</strong> 3.0.0 · <strong>License:</strong> MIT · <strong>Author:</strong> game_ryo · <strong>Mode:</strong> Serverless P2P Mesh (SQLite)</p>
         </div>
 
         <h2 id="getting-started">Installation</h2>
-        <p>Koshi requires <strong>Node.js 18+</strong> and <strong>PostgreSQL 15+</strong> (for the server). The CLI can be installed independently.</p>
+        <p>Koshi requires <strong>Node.js 20+</strong>. In serverless mode (default), <strong>SQLite</strong> is used locally — no external database required. PostgreSQL 15+ is only needed for remote multi-user server deployments.</p>
+
+        <div class="info-box success">
+            <p><strong>🚀 Serverless Mode (Default):</strong> No setup required. Install the CLI and start posting immediately with local SQLite + P2P mesh.</p>
+        </div>
 
         <h3>Global Install (CLI only)</h3>
         <pre><code><span class="comment"># From npm (requires package to be published)</span>
@@ -429,7 +437,21 @@
 <span class="prompt">$</span> npm install
 <span class="prompt">$</span> npm link</code></pre>
 
-        <h3>Server Installation</h3>
+        <h3>Serverless Mode (No Setup Required)</h3>
+        <pre><code><span class="comment"># Install CLI from source</span>
+<span class="prompt">$</span> git clone https://github.com/ryopc/koshi.git
+<span class="prompt">$</span> cd koshi
+<span class="prompt">$</span> npm install
+<span class="prompt">$</span> npm link
+
+<span class="comment"># Start local serverless node (SQLite + P2P + Web UI)</span>
+<span class="prompt">$</span> kb serve
+<span class="cmd-out">🖥️  koshi server — serverless P2P node</span>
+<span class="cmd-out">REST API:  http://127.0.0.1:3000</span>
+<span class="cmd-out">Web UI:    http://127.0.0.1:3000</span>
+<span class="cmd-out">P2P Mesh:  active</span></code></pre>
+
+        <h3>Server Installation (PostgreSQL-backed)</h3>
         <pre><code><span class="prompt">$</span> git clone https://github.com/ryopc/koshi.git
 <span class="prompt">$</span> cd koshi
 <span class="prompt">$</span> npm install
@@ -447,21 +469,24 @@
   JWT_SECRET=your-secret \
   node bin/server.js</code></pre>
 
-        <p>Or use a <code>.env</code> file:</p>
-        <pre><code><span class="comment"># .env</span>
+        <pre><code><span class="comment"># .env (for PostgreSQL-backed server only)</span>
 DATABASE_URL=postgresql://user:pass@localhost:5432/koshi
 JWT_SECRET=your-secret-change-in-production
 PORT=3000
-NODE_ENV=development</code></pre>
+NODE_ENV=production</code></pre>
+
+        <div class="info-box success">
+            <p><strong>💻 CLI Only:</strong> To use the CLI with <code>kb connect &lt;url&gt;</code>, no local server setup is needed — connect directly to any remote koshi server or start your own with <code>kb serve</code>.</p>
+        </div>
 
         <h2 id="quick-start">Quick Start</h2>
-        <p>Once the server is running and you have the CLI installed:</p>
+        <p>Koshi v3.0 defaults to <strong>serverless P2P mesh mode</strong> — no server setup needed. Just install the CLI and start posting:</p>
 
-        <pre><code><span class="comment"># Register a new account (generates ed25519 keypair)</span>
+        <pre><code><span class="comment"># Register a new account (generates ed25519 keypair + local SQLite)</span>
 <span class="prompt">$</span> kb register alice
 <span class="cmd-out">✔ Registration successful!</span>
 
-<span class="comment"># Post to the board</span>
+<span class="comment"># Post to the koshi board (gossip to P2P mesh)</span>
 <span class="prompt">$</span> kb post "Hello, koshi! 🌊"
 <span class="cmd-out">✔ Post created!</span>
 
@@ -469,21 +494,28 @@ NODE_ENV=development</code></pre>
 <span class="prompt">$</span> kb feed --limit=10
 <span class="cmd-out">📋 Koshi Board Feed</span>
 
-<span class="comment"># Follow someone</span>
-<span class="prompt">$</span> kb follow bob
+<span class="comment"># Start local serverless node (Web UI + P2P + WebSocket)</span>
+<span class="prompt">$</span> kb serve
+<span class="cmd-out">🖥️  koshi server — serverless P2P node</span>
+<span class="cmd-out">Web UI:    http://127.0.0.1:3000</span>
+<span class="cmd-out">P2P Mesh:  active (0 peers)</span>
 
-<span class="comment"># Live stream</span>
-<span class="prompt">$</span> kb realtime</code></pre>
+<span class="comment"># Or connect to a remote server</span>
+<span class="prompt">$</span> kb connect https://koshi-api.ryopc.f5.si</code></pre>
 
         <h2 id="configuration">Configuration</h2>
-        <p>Credentials are stored in <code>~/.config/koshi/config.json</code> and <code>~/.snsrc</code>. The CLI reads these automatically.</p>
+        <p>Credentials and runtime settings are stored in <code>~/.config/koshi/config.json</code>. In serverless mode (default), all data lives in <code>~/.config/koshi/local.db</code> (SQLite). The CLI reads the config automatically.</p>
+
+        <div class="info-box success">
+            <p><strong>🔄 Server Mode:</strong> Use <code>kb connect &lt;url&gt;</code> to connect to a remote server, <code>kb connect --reset</code> to return to serverless mode, or <code>kb connect --status</code> to check the current connection.</p>
+        </div>
 
         <div class="table-wrap">
             <table>
                 <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
                 <tbody>
-                    <tr><td><code>KOSHI_API_URL</code></td><td><code>https://koshi-api.ryopc.f5.si</code></td><td>API base URL</td></tr>
-                    <tr><td><code>KOSHI_WS_URL</code></td><td><code>wss://koshi-api.ryopc.f5.si</code></td><td>WebSocket URL</td></tr>
+                    <tr><td><code>KOSHI_API_URL</code></td><td><code>https://koshi-api.ryopc.f5.si</code></td><td>API base URL (overrides serverUrl config)</td></tr>
+                    <tr><td><code>KOSHI_WS_URL</code></td><td><code>wss://koshi-api.ryopc.f5.si</code></td><td>WebSocket URL (overrides serverUrl config)</td></tr>
                 </tbody>
             </table>
         </div>
@@ -497,11 +529,12 @@ NODE_ENV=development</code></pre>
         <pre><code><span class="prompt">$</span> kb --help
 
 <span class="cmd-out">  🏄 koshi — Terminal-Native Decentralized SNS</span>
-<span class="cmd-out">  Version 1.2.0</span>
+<span class="cmd-out">  Version 3.0.0 — Serverless P2P mesh</span>
 
 <span class="cmd-out">  Commands:</span>
 <span class="cmd-out">    register   Create a new account with ed25519 keypair</span>
 <span class="cmd-out">    login      Authenticate using existing keypair</span>
+<span class="cmd-out">    switch     Switch active account</span>
 <span class="cmd-out">    whoami     Show your profile information</span>
 <span class="cmd-out">    post       Create a new post on the koshi board</span>
 <span class="cmd-out">    feed       Display your post feed</span>
@@ -514,8 +547,27 @@ NODE_ENV=development</code></pre>
 <span class="cmd-out">    realtime   Connect to the real-time event stream</span>
 <span class="cmd-out">    chat       Real-time interactive DM chat</span>
 <span class="cmd-out">    edit-profile  Update your own profile</span>
-<span class="cmd-out">    admin      Admin: users, delete-user, grant, revoke</span>
-<span class="cmd-out">    help       Show this help message</span></code></pre>
+<span class="cmd-out">    serve    Start local serverless node (SQLite+P2P+Web UI)</span>
+<span class="cmd-out">    connect  Connect to a remote server / switch to local mode</span>
+<span class="cmd-out">    p2p      P2P node management (status, sync, peers)</span>
+<span class="cmd-out">    nostr    Nostr integration (keys, relays, push, pull)</span>
+<span class="cmd-out">    admin    Admin: users, delete-user, grant, revoke</span>
+<span class="cmd-out">    help     Show this help message</span></code></pre>
+
+        <h3 id="cli-server">Server Commands (v3.0)</h3>
+        <p>Koshi v3.0 runs serverless by default using local SQLite + P2P mesh. No server setup is required.</p>
+
+        <h4>kb serve [--port=3000] [--daemon]</h4>
+        <p>Starts a local serverless node with REST API + WebSocket + Web UI + P2P mesh. All data is stored in local SQLite.</p>
+        <pre><code><span class="prompt">$</span> kb serve
+<span class="cmd-out">  🖥️  koshi server — serverless P2P node</span>
+<span class="cmd-out">  REST API:  http://127.0.0.1:3000</span>
+<span class="cmd-out">  Web UI:    http://127.0.0.1:3000</span>
+<span class="cmd-out">  P2P Mesh:  active (0 peers)</span>
+
+<span class="comment"># Access Web UI at http://127.0.0.1:3000 in your browser</span>
+<span class="comment"># Or connect CLI to it:</span>
+<span class="prompt">$</span> kb connect http://127.0.0.1:3000</code></pre>
 
         <h3 id="cli-auth">Auth Commands</h3>
 
@@ -597,23 +649,23 @@ NODE_ENV=development</code></pre>
 <span class="cmd-out">  Joined:          7/14/2026</span></code></pre>
 
         <h3 id="cli-accounts">Multi-Account Management 🆕</h3>
-        <p>Koshi v2.0 supports managing <strong>multiple accounts</strong> from a single CLI configuration. Each account has its own ed25519 keypair, Nostr keys (optional), and JWT token.</p>
+        <p>Koshi v3.0 supports managing <strong>multiple accounts</strong> from a single CLI configuration. Each account has its own ed25519 keypair, Nostr keys (optional), and JWT token.</p>
 
-        <h4>kb register &lt;username&gt;</h4>
-        <p>Create a new account. The new account is automatically added to the multi-account config and set as active.</p>
+        <h4 id="cli-accounts">kb register &lt;username&gt;</h4>
+        <p>Create a new account. The new account is automatically added to the multi-account config and set as active. In serverless mode (default), this uses local SQLite.</p>
 
         <h4>kb login [username]</h4>
         <p>Without arguments, shows an interactive list of saved accounts to choose from. With a username, logs in to that specific account.</p>
 
         <pre><code><span class="prompt">$</span> kb login
 
-<span class="cmd-out">  🔑 アカウントを選択</span>
-<span class="cmd-out">  1. alice ✓ ← 現在</span>
+<span class="cmd-out">  🔑 Select Account</span>
+<span class="cmd-out">  1. alice ✓ ← Current</span>
 <span class="cmd-out">  2. bob   ○</span>
-<span class="cmd-out">  0. キャンセル</span>
+<span class="cmd-out">  0. Cancel</span>
 
-<span class="cmd-out">  番号を選択 (1-2): 2</span>
-<span class="cmd-out">  → bob を選択しました</span></code></pre>
+<span class="cmd-out">  Select number (1-2): 2</span>
+<span class="cmd-out">  → Logged in as bob</span></code></pre>
 
         <h4>kb switch [username]</h4>
         <p>Switch between saved accounts without re-authenticating. Interactive selection if no username is given.</p>
@@ -623,22 +675,27 @@ NODE_ENV=development</code></pre>
 
         <pre><code><span class="prompt">$</span> kb accounts
 
-<span class="cmd-out">  📋 アカウント一覧 (2件)</span>
-<span class="cmd-out">  1. alice  ✓ ログイン済  ← 現在のアカウント</span>
-<span class="cmd-out">  2. bob    未ログイン</span></code></pre>
+<span class="cmd-out">  📋 Accounts (2 total)</span>
+<span class="cmd-out">  1. alice  ✓ Logged in  ← Current account</span>
+<span class="cmd-out">  2. bob    Not logged in</span></code></pre>
 
         <h4>kb account remove &lt;username&gt;</h4>
         <p>Remove a saved account from the local configuration. Shows confirmation prompt before deleting.</p>
 
         <pre><code><span class="prompt">$</span> kb account remove bob
-<span class="cmd-out">  🗑️ @bob をローカル設定から削除してもよろしいですか？ (y/N): y</span>
-<span class="cmd-out">✔ @bob をローカル設定から削除しました。</span></code></pre>
+<span class="cmd-out">  🗑️ Remove @bob from local config? (y/N): y</span>
+<span class="cmd-out">✔ @bob has been removed from local config.</span></code></pre>
 
-        <p>Account credentials are stored in <code>~/.config/koshi/config.json</code> in the following format:</p>
+        <p>Account credentials and settings are stored in <code>~/.config/koshi/config.json</code> in the following format:</p>
 
         <pre><code>{
-  "version": "2.0.2",
+  "version": "3.0.0",
   "activeUsername": "alice",
+  "serverUrl": null,
+  "p2p": {
+    "corestorePath": "~/.config/koshi/corestore",
+    "autoSync": true
+  },
   "accounts": {
     "alice": {
       "userId": "uuid",
@@ -646,7 +703,7 @@ NODE_ENV=development</code></pre>
       "publicKey": "hex...",
       "secretKey": "hex...",
       "token": "jwt...",
-      "nostr": { ... }
+      "nostr": { "nsec": "nsec1...", "npub": "npub1..." }
     },
     "bob": { ... }
   }
@@ -777,10 +834,10 @@ NODE_ENV=development</code></pre>
         <!-- NOSTR INTEGRATION -->
         <!-- ============================================================ -->
         <h2 id="nostr">Nostr Integration 🆕</h2>
-        <p>Koshi v2.0 integrates with the <strong>Nostr protocol</strong>, allowing you to bridge your koshi identity with the broader Nostr network. You can generate Nostr keys, push posts to relays, and pull events from the Nostr ecosystem.</p>
+        <p>Koshi v3.0 integrates with the <strong>Nostr protocol</strong>, allowing you to bridge your koshi identity with the broader Nostr network. You can generate Nostr keys, push posts to relays, and pull events from the Nostr ecosystem.</p>
 
         <div class="info-box success">
-            <p><strong>✨ New in v2.0:</strong> Nostr integration enables cross-posting between koshi board and Nostr relays, making your content discoverable beyond the koshi ecosystem.</p>
+            <p><strong>✨ New in v3.0:</strong> Nostr integration is fully integrated with the serverless P2P mesh. Your koshi account's Nostr keys (nsec/npub) are stored securely in <code>~/.config/koshi/config.json</code>, and posts can be cross-posted to Nostr relays for broader reach.</p>
         </div>
 
         <h3 id="nostr-keys">Key Management</h3>
@@ -841,10 +898,10 @@ NODE_ENV=development</code></pre>
         <!-- P2P SYNC -->
         <!-- ============================================================ -->
         <h2 id="p2p">P2P Sync 🆕</h2>
-        <p>Koshi v2.0 introduces <strong>peer-to-peer synchronization</strong> powered by the Hypercore protocol stack. Your posts and DMs are replicated across connected peers using hyperswarm DHT for discovery, enabling offline-first and decentralized data distribution.</p>
+        <p>Koshi v3.0 uses <strong>peer-to-peer synchronization</strong> as the default serverless mode, powered by the Hypercore protocol stack. Your posts and DMs are replicated across connected peers using hyperswarm DHT for discovery, enabling offline-first and decentralized data distribution — no central server required.</p>
 
         <div class="info-box success">
-            <p><strong>✨ New in v2.0:</strong> P2P sync uses hypercore (append-only logs with Merkle tree verification), corestore (hypercore factory), and hyperswarm (DHT-based peer discovery with NAT traversal).</p>
+            <p><strong>✨ New in v3.0:</strong> P2P mesh runs automatically as serverless infrastructure. Uses hypercore (append-only logs with Merkle tree verification), corestore (hypercore factory), and hyperswarm (DHT-based peer discovery with NAT traversal). Started automatically when you run <code>kb serve</code>.</p>
         </div>
 
         <h3 id="p2p-start">Starting a P2P Node</h3>
@@ -883,12 +940,12 @@ NODE_ENV=development</code></pre>
         <pre><code>{
   "p2p": {
     "corestorePath": "/home/user/.config/koshi/corestore",
-    "autoSync": false,
+    "autoSync": true,
     "port": 0
   }
 }</code></pre>
 
-        <p>Enable automatic P2P startup by setting <code>"autoSync": true</code> in the config.</p>
+        <p>In v3.0.0, P2P starts <strong>automatically</strong> when you run <code>kb serve</code>. Set <code>"autoSync": false</code> to disable.</p>
 
         <!-- ============================================================ -->
         <!-- API REFERENCE -->
@@ -898,8 +955,8 @@ NODE_ENV=development</code></pre>
 
         <div class="info-box info">
             <p><strong>Base URLs:</strong><br>
-            Development: <code>http://localhost:3000/api</code><br>
-            Production: <code>https://koshi-api.ryopc.f5.si/api</code></p>
+            Serverless (local): <code>http://localhost:3000/api</code> (when running <code>kb serve</code>)<br>
+            Remote: <code>https://koshi-api.ryopc.f5.si/api</code> (<code>kb connect https://...</code> or <code>KOSHI_API_URL</code> env var)</p>
         </div>
 
         <h3 id="api-auth">Authentication</h3>
@@ -1117,23 +1174,25 @@ NODE_ENV=development</code></pre>
     <span class="string">"signature"</span>: <span class="string">"abc123..."</span>
   }'</code></pre>
 
-        <h3 id="api-health">Health Check</h3>
+        <h3 id="api-health">Health Check &amp; Config</h3>
 
         <div class="table-wrap">
             <table>
                 <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
                 <tbody>
-                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/health</code></td><td>Server health check (no DB required)</td></tr>
+                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/health</code></td><td>Server health + version + mode</td></tr>
+                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/config</code></td><td>Runtime config (serverUrl, apiBase, p2p status)</td></tr>
                 </tbody>
             </table>
         </div>
 
-        <pre><code><span class="prompt">$</span> curl https://koshi-api.ryopc.f5.si/api/health
+        <pre><code><span class="prompt">$</span> curl http://localhost:3000/api/health
 {
   <span class="string">"status"</span>: <span class="string">"ok"</span>,
-  <span class="string">"service"</span>: <span class="string">"koshi-api"</span>,
-  <span class="string">"version"</span>: <span class="string">"1.2.0"</span>,
-  <span class="string">"timestamp"</span>: <span class="string">"2026-07-14T05:00:00.000Z"</span>
+  <span class="string">"service"</span>: <span class="string">"koshi-standalone"</span>,
+  <span class="string">"version"</span>: <span class="string">"3.0.0"</span>,
+  <span class="string">"mode"</span>: <span class="string">"serverless-p2p"</span>,
+  <span class="string">"timestamp"</span>: <span class="string">"2026-10-14T..."</span>
 }</code></pre>
 
         <!-- ============================================================ -->
@@ -1278,7 +1337,7 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
         <!-- DATABASE -->
         <!-- ============================================================ -->
         <h2 id="db">Database Schema</h2>
-        <p>Koshi uses PostgreSQL 15 with the following schema. All tables use UUID primary keys and include timestamps.</p>
+        <p>Koshi v3.0 uses <strong>SQLite</strong> in serverless mode (default) and <strong>PostgreSQL 15</strong> for remote server deployments. Both use the same schema with UUID primary keys and timestamps. SQLite stores data in <code>~/.config/koshi/local.db</code>.</p>
 
         <h3 id="db-tables">Tables</h3>
 
@@ -1384,6 +1443,8 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
         </div>
 
         <h3 id="deploy-env">Server Environment Variables</h3>
+        <p><strong>Serverless mode (default):</strong> No environment variables required — SQLite is auto-created.</p>
+        <p><strong>PostgreSQL-backed server:</strong> Requires <code>DATABASE_URL</code> and <code>JWT_SECRET</code>.</p>
         <div class="table-wrap">
             <table>
                 <thead><tr><th>Variable</th><th>Required</th><th>Description</th></tr></thead>
@@ -1399,8 +1460,21 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
         </div>
 
         <h3 id="deploy-docker">Docker</h3>
+
+        <h4>Standalone (Serverless — SQLite, No External DB)</h4>
+        <pre><code><span class="comment"># Build the standalone image (SQLite + P2P + Web UI)</span>
+<span class="prompt">$</span> docker build --target standalone -t koshi:standalone .
+
+<span class="comment"># Run the container (data persists in volume)</span>
+<span class="prompt">$</span> docker run -d \
+  --name koshi \
+  -p 3000:3000 \
+  -v $HOME/.config/koshi:/home/koshi/.config/koshi \
+  koshi:standalone</code></pre>
+
+        <h4>PostgreSQL-backed Full Server</h4>
         <pre><code><span class="comment"># Build the image</span>
-<span class="prompt">$</span> docker build -t koshi-api .
+<span class="prompt">$</span> docker build --target runner -t koshi-api .
 
 <span class="comment"># Run the container</span>
 <span class="prompt">$</span> docker run -d \
@@ -1409,6 +1483,10 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
   -e DATABASE_URL=postgresql://... \
   -e JWT_SECRET=... \
   koshi-api</code></pre>
+
+        <div class="info-box info">
+            <p><strong>💡 Tip:</strong> The standalone Docker image includes everything — SQLite, P2P mesh, REST API, WebSocket, and Web UI. No external database is needed.</p>
+        </div>
 
         <h4>Docker Compose</h4>
         <pre><code><span class="keyword">version</span>: <span class="string">'3.8'</span>
@@ -1422,7 +1500,9 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
       - pgdata:/var/lib/postgresql/data
 
   api:
-    build: .
+    build:
+      context: .
+      target: runner
     ports:
       - <span class="string">"3000:3000"</span>
     environment:
@@ -1473,7 +1553,7 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
 <span class="prompt">$</span> cd koshi
 <span class="prompt">$</span> npm install
 <span class="prompt">$</span> npm run dev    <span class="comment"># Auto-reload with nodemon</span>
-<span class="prompt">$</span> npm run migrate <span class="comment"># Run database migrations</span>
+<span class="prompt">$</span> npm run server <span class="comment"># Run standalone SQLite server (serverless)</span>
 <span class="prompt">$</span> npm test        <span class="comment"># Run tests</span>
 <span class="prompt">$</span> npm run lint    <span class="comment"># Run linter</span></code></pre>
 
@@ -1481,14 +1561,20 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
         <pre><code>koshi/
 ├── bin/
 │   ├── cli.js              <span class="comment"># CLI/TUI entry point (kb command)</span>
-│   └── server.js           <span class="comment"># Express + WebSocket server</span>
+│   └── server.js           <span class="comment"># PostgreSQL-backed server (bin/server.js)</span>
 ├── src/
+│   ├── local/              <span class="comment"># Serverless mode (SQLite + P2P bridge)</span>
+│   │   ├── db.js           <span class="comment"># SQLite database engine</span>
+│   │   ├── api.js          <span class="comment"># Local API (SQLite)</span>
+│   │   ├── server.js       <span class="comment"># Local Express + WS server (kb serve)</span>
+│   │   └── p2p-bridge.js   <span class="comment"># P2P ↔ SQLite sync bridge</span>
 │   ├── api/
 │   │   ├── auth.js         <span class="comment"># Auth routes (register/login)</span>
 │   │   ├── users.js        <span class="comment"># User management routes</span>
 │   │   ├── posts.js        <span class="comment"># Posts routes (koshi board)</span>
 │   │   ├── dms.js          <span class="comment"># Direct messages routes</span>
-│   │   └── admin.js        <span class="comment"># Admin routes (users, delete, grant)</span>
+│   │   ├── admin.js        <span class="comment"># Admin routes (users, delete, grant)</span>
+│   │   └── p2p.js          <span class="comment"># P2P API routes</span>
 │   ├── auth/
 │   │   ├── ed25519.js      <span class="comment"># Ed25519 crypto utilities</span>
 │   │   ├── jwt.js          <span class="comment"># JWT token utilities</span>
@@ -1497,15 +1583,23 @@ wss://koshi-api.ryopc.f5.si/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
 │   │   ├── schema.sql      <span class="comment"># PostgreSQL schema</span>
 │   │   ├── migrate.js      <span class="comment"># Migration script</span>
 │   │   └── pool.js         <span class="comment"># Database connection pool</span>
+│   ├── config/
+│   │   └── config.js       <span class="comment"># Multi-account + Nostr + P2P config</span>
+│   ├── p2p/
+│   │   └── index.js        <span class="comment"># P2P mesh (hypercore + hyperswarm)</span>
+│   ├── nostr/
+│   │   └── index.js        <span class="comment"># Nostr protocol integration</span>
+│   ├── ws/
+│   │   ├── index.js        <span class="comment"># WebSocket server</span>
+│   │   └── handlers.js     <span class="comment"># WebSocket message handlers</span>
 │   ├── middleware/
 │   │   ├── auth.js         <span class="comment"># Auth middleware</span>
 │   │   └── rateLimit.js    <span class="comment"># Rate limiting</span>
-│   ├── ws/
-│   │   ├── index.js        <span class="comment"># WebSocket server setup</span>
-│   │   └── handlers.js     <span class="comment"># WebSocket message handlers</span>
 │   └── index.js            <span class="comment"># Express app setup</span>
+├── client/                 <span class="comment"># React Web UI (Vite + React 18)</span>
+├── web/                    <span class="comment"># Built static files for serving</span>
 ├── Dockerfile
-├── render.yaml             <span class="comment"># Render Blueprint config</span>
+├── render.yaml             <span class="comment"># Render Blueprint</span>
 └── package.json</code></pre>
 
     </main>
