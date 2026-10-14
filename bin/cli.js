@@ -2212,6 +2212,9 @@ async function cmdServe(args) {
     const daemon = args.includes('--daemon');
     const stop = args.includes('--stop');
 
+    // Suppress pino debug/info logs in serverless mode — only show warnings/errors
+    process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'warn';
+
     // ---- Stop a running background server ----
     if (stop) {
         try {
@@ -2219,14 +2222,14 @@ async function cmdServe(args) {
             if (pid && Number.isFinite(pid)) {
                 process.kill(pid, 'SIGTERM');
                 removeServePid();
-                console.log(`\n  ${chalk.green('✓')} koshi server (PID ${pid}) を停止しました。`);
+                console.log(`\n  ${chalk.green('✓')} koshi server (PID ${pid}) stopped.`);
                 return;
             }
         } catch {
             // fall through
         }
-        console.log(chalk.yellow('\n  ✖ バックグラウンドのサーバーが見つかりません。'));
-        console.log(chalk.dim('  kb serve  でフォアグラウンド起動できます。'));
+        console.log(chalk.yellow('\n  ✖ No background server found.'));
+        console.log(chalk.dim('  Start one with: kb serve'));
         return;
     }
 
@@ -2239,10 +2242,10 @@ async function cmdServe(args) {
         const child = spawn(process.execPath, [fileURLToPath(import.meta.url), 'serve', `--port=${port}`], {
             detached: true,
             stdio: ['ignore', out, out],
-            env: { ...process.env, KOSHI_DAEMON: '1' },
+            env: { ...process.env, KOSHI_DAEMON: '1', LOG_LEVEL: 'warn' },
         });
         child.unref();
-        console.log(`\n  ${chalk.green('✓')} koshi server をバックグラウンドで起動しました (port ${port})`);
+        console.log(`\n  ${chalk.green('✓')} koshi server started in background (port ${port})`);
         console.log(`  ${chalk.dim('Log:')}   ${chalk.italic(logFile)}`);
         console.log(`  ${chalk.dim('Stop:')}  ${chalk.italic('kb serve --stop')}`);
         return;
@@ -2257,8 +2260,8 @@ async function cmdServe(args) {
         const { server, p2p } = await initLocalMode({ server: true, serverPort: port });
 
         if (!server) {
-            console.error(chalk.red('✖ サーバーの起動に失敗しました。'));
-            console.error(chalk.dim('  KOSHI_API_URL 環境変数が競合していないか確認してください。'));
+            console.error(chalk.red('✖ Failed to start server.'));
+            console.error(chalk.dim('  Check for conflicting KOSHI_API_URL environment variable.'));
             process.exit(1);
         }
 
@@ -2273,11 +2276,11 @@ async function cmdServe(args) {
         console.log(`  ${chalk.bold('Web UI:')}    ${chalk.cyan(`http://127.0.0.1:${actualPort}`)} (web/)`);
         console.log(`  ${chalk.bold('WebSocket:')} ${chalk.dim(wsUrl)}`);
         console.log(`  ${chalk.bold('P2P Mesh:')}  ${p2pStatus.ready ? chalk.green('active') : chalk.dim('offline')} ${chalk.dim(`(${p2pStatus.peers || 0} peers)`)}`);
-        console.log(`\n  ${chalk.dim('CLI から接続:')} ${chalk.italic('kb connect http://127.0.0.1:' + actualPort)}`);
-        console.log(`  ${chalk.dim('停止:')}         ${chalk.italic('Ctrl+C')}\n`);
+        console.log(`\n  ${chalk.dim('Connect CLI:')} ${chalk.italic('kb connect http://127.0.0.1:' + actualPort)}`);
+        console.log(`  ${chalk.dim('Stop:')}         ${chalk.italic('Ctrl+C')}\n`);
 
         const shutdown = async () => {
-            console.log(chalk.dim('\n  シャットダウン中...'));
+            console.log(chalk.dim('\n  Shutting down...'));
             removeServePid();
             try {
                 const { closeLocalMode } = await import('../src/local/index.js');
@@ -2291,7 +2294,7 @@ async function cmdServe(args) {
         // Keep the process alive
         await new Promise(() => {});
     } catch (err) {
-        console.error(chalk.red(`✖ サーバー起動失敗: ${err.message}`));
+        console.error(chalk.red(`✖ Server start failed: ${err.message}`));
         process.exit(1);
     }
 }
@@ -2307,14 +2310,14 @@ async function cmdConnect(args) {
     // ---- Status ----
     if (args.includes('--status')) {
         const current = getServerUrl(config);
-        console.log(`\n  ${chalk.bold.cyan('🔌 接続先')}`);
+        console.log(`\n  ${chalk.bold.cyan('🔌 Connection')}`);
         console.log(`  ${chalk.dim('─'.repeat(40))}`);
         if (current) {
             console.log(`  ${chalk.bold('Server:')}  ${chalk.cyan(current)}`);
         } else {
             console.log(`  ${chalk.bold('Mode:')}    ${chalk.green('Serverless (local SQLite + P2P)')}`);
         }
-        console.log(`  ${chalk.dim('  @' + (activeUsername || '未ログイン') + ' として利用中')}`);
+        console.log(`  ${chalk.dim('  @' + (activeUsername || 'not logged in') + '  active')}`);
         console.log();
         return;
     }
@@ -2322,19 +2325,19 @@ async function cmdConnect(args) {
     // ---- Reset to serverless ----
     if (args.includes('--reset') || args.includes('--offline') || args.includes('--local')) {
         setServerUrl(config, null);
-        console.log(`\n  ${chalk.green('✓')} Serverless モードに戻しました。`);
-        console.log(`  ${chalk.dim('  以降はローカル SQLite + P2P mesh で動作します。')}\n`);
+        console.log(`\n  ${chalk.green('✓')} Switched to serverless mode.`);
+        console.log(`  ${chalk.dim('  Local SQLite + P2P mesh will be used.')}\n`);
         return;
     }
 
     // ---- Set a server URL ----
     if (!url) {
-        console.log(`\n  ${chalk.bold.cyan('🔌 kb connect — 接続先の管理')}`);
+        console.log(`\n  ${chalk.bold.cyan('🔌 kb connect — Manage connection')}`);
         console.log(`  ${chalk.dim('─'.repeat(44))}`);
-        console.log(`  ${chalk.cyan('kb connect <url>')}       リモートサーバーに接続`);
-        console.log(`  ${chalk.cyan('kb connect --reset')}     Serverless モードに戻す`);
-        console.log(`  ${chalk.cyan('kb connect --status')}    現在の接続先を表示`);
-        console.log(`\n  ${chalk.dim('例:')} ${chalk.italic('kb connect http://localhost:3000')}`);
+        console.log(`  ${chalk.cyan('kb connect <url>')}       Connect to a remote server`);
+        console.log(`  ${chalk.cyan('kb connect --reset')}     Return to serverless mode`);
+        console.log(`  ${chalk.cyan('kb connect --status')}    Show current connection`);
+        console.log(`\n  ${chalk.dim('Example:')} ${chalk.italic('kb connect http://localhost:3000')}`);
         console.log();
         return;
     }
@@ -2343,21 +2346,21 @@ async function cmdConnect(args) {
     try {
         parsed = new URL(url);
     } catch {
-        console.error(chalk.red(`✖ 無効な URL です: "${url}"`));
+        console.error(chalk.red(`✖ Invalid URL: "${url}"`));
         process.exit(1);
     }
 
     if (!['http:', 'https:'].includes(parsed.protocol)) {
-        console.error(chalk.red('✖ http:// または https:// の URL を指定してください。'));
+        console.error(chalk.red('✖ Please specify a URL starting with http:// or https://'));
         process.exit(1);
     }
 
     const normalized = url.replace(/\/+$/, '');
     setServerUrl(config, normalized);
 
-    console.log(`\n  ${chalk.green('✓')} 接続先を設定しました: ${chalk.cyan(normalized)}`);
-    console.log(`  ${chalk.dim('  以降の kb コマンドはこのサーバーへ接続します。')}`);
-    console.log(`  ${chalk.dim('  Serverless に戻す:')} ${chalk.italic('kb connect --reset')}\n`);
+    console.log(`\n  ${chalk.green('✓')} Server set: ${chalk.cyan(normalized)}`);
+    console.log(`  ${chalk.dim('  Subsequent kb commands will connect to this server.')}`);
+    console.log(`  ${chalk.dim('  To return to serverless:')} ${chalk.italic('kb connect --reset')}\n`);
 }
 
 // ============================================================================
@@ -2368,32 +2371,32 @@ function showHelp(command = null) {
         // Account management
         register: {
             usage: 'kb register [username]',
-            desc: '新規アカウント登録（引数なしで対話式）',
+            desc: 'Register a new account (interactive if no argument)',
         },
         login: {
             usage: 'kb login [username]',
-            desc: 'ログイン（引数なしでアカウント一覧から選択）',
+            desc: 'Login (selects from saved accounts if no argument)',
         },
         switch: {
             usage: 'kb switch [username]',
-            desc: '保存済みアカウントを切り替え（対話式）',
+            desc: 'Switch active account (interactive if no argument)',
         },
         accounts: {
             usage: 'kb accounts',
-            desc: '保存済みアカウント一覧',
+            desc: 'List all saved accounts',
         },
         'account': {
             usage: 'kb account remove <username>',
-            desc: 'アカウントをローカル設定から削除',
+            desc: 'Remove an account from local config',
         },
         whoami: {
             usage: 'kb whoami',
-            desc: '現在のアカウント情報を表示',
+            desc: 'Show current account info',
         },
         // Posts & Feed
         post: {
             usage: 'kb post [message]',
-            desc: '投稿する（引数なしで対話式入力）',
+            desc: 'Create a post (interactive prompt if no message)',
         },
         feed: {
             usage: 'kb feed [--limit=20]',
@@ -2441,28 +2444,28 @@ function showHelp(command = null) {
         // P2P
         p2p: {
             usage: 'kb p2p <command>',
-            desc: 'P2P 同期（hypercore + hyperswarm）',
+            desc: 'P2P sync (hypercore + hyperswarm)',
         },
         // Other
         serve: {
             usage: 'kb serve [--port=3000] [--daemon]',
-            desc: '自分のマシンでサーバーレスノードを起動 (REST+WS+P2P)',
+            desc: 'Start a local serverless node (REST+WS+P2P)',
         },
         connect: {
             usage: 'kb connect <url> | --reset | --status',
-            desc: '接続先サーバーの設定 / serverlessモード切替',
+            desc: 'Manage server connection / toggle serverless mode',
         },
         realtime: {
             usage: 'kb realtime',
-            desc: 'リアルタイムフィードをストリーム表示',
+            desc: 'Stream real-time feed',
         },
         admin: {
             usage: 'kb admin <command>',
-            desc: '管理者コマンド',
+            desc: 'Admin commands',
         },
         help: {
             usage: 'kb help [command]',
-            desc: 'ヘルプを表示',
+            desc: 'Show help',
         },
     };
 
@@ -2536,11 +2539,12 @@ function showHelp(command = null) {
     console.log(`    --help, -h    Show help for a command`);
     console.log(`    --version, -v Show version`);
     console.log(`    --local       Force serverless mode`);
-    console.log(`\n  ${chalk.dim('環境変数:')}`);
+    console.log(`\n  ${chalk.dim('Environment:')}`);
     console.log(`    ${chalk.dim('KOSHI_API_URL   API base URL (overrides serverUrl config)')}`);
     console.log(`    ${chalk.dim('KOSHI_WS_URL    WebSocket URL (overrides serverUrl config)')}`);
-    console.log(`\n  ${chalk.dim('💡 v3: P2P は基盤インフラです。')}`);
-    console.log(`  ${chalk.dim('    kb connect していなければ自動で serverless モード (SQLite+P2P) で動きます。')}`);
+    console.log(`    ${chalk.dim('LOG_LEVEL       Log level: debug|info|warn|error (default: warn)')}`);
+    console.log(`\n  ${chalk.dim('💡 v3: P2P is the foundational infrastructure.')}`);
+    console.log(`  ${chalk.dim('    Without kb connect, runs in serverless mode (SQLite+P2P) automatically.')}`);
     console.log();
 }
 
