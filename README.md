@@ -443,7 +443,18 @@ Events: `connected`, `post_created`, `dm_received`, `dm:sent`, `user_online`, `u
 
 ### Docker (Standalone — No External Dependencies)
 
-Build and run the standalone server using SQLite (no PostgreSQL needed):
+**Use the pre-built image from GitHub Container Registry:**
+
+```bash
+# Pull and run (no build required)
+docker run -d \
+  --name koshi \
+  -p 3000:3000 \
+  -v $HOME/.config/koshi:/home/koshi/.config/koshi \
+  ghcr.io/ryopc/koshi:standalone-v3.0.0
+```
+
+**Or build from source:**
 
 ```bash
 # Build the standalone image
@@ -462,7 +473,10 @@ The standalone server automatically creates a SQLite database at `~/.config/kosh
 ### Docker (PostgreSQL-backed Full Server)
 
 ```bash
-# Build the full server image
+# Pull the pre-built image from GHCR
+docker pull ghcr.io/ryopc/koshi:runner-v3.0.0
+
+# Or build from source
 docker build --target runner -t koshi:full .
 
 # Run with PostgreSQL
@@ -472,7 +486,7 @@ docker run -d \
   -e DATABASE_URL=postgresql://user:pass@db:5432/koshi \
   -e JWT_SECRET=$(openssl rand -base64 32) \
   -e NODE_ENV=production \
-  koshi:full
+  ghcr.io/ryopc/koshi:runner-v3.0.0
 ```
 
 ### Docker Compose (PostgreSQL + API)
