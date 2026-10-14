@@ -67,7 +67,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # Start standalone server
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    LOG_LEVEL=warn
 CMD ["node", "src/local/server-standalone.js"]
 
 # ============================================================================
