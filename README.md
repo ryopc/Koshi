@@ -9,7 +9,7 @@
 
 ## ✨ Features
 
-### v3.0.0 — Serverless P2P Mesh
+### v3.1.2 — Serverless P2P Mesh (with Account Self-Deletion)
 
 - **🏠 Serverless Mode (Default)** — Runs locally on your machine with SQLite + P2P mesh. No PostgreSQL required, no server setup needed.
 - **🖧 P2P Gossip Network** — Posts, DMs, and profiles sync automatically across connected peers via hypercore + hyperswarm. No central server.
@@ -162,6 +162,7 @@ The `kb` command is your gateway to the koshi board.
 | `kb accounts` | List all saved accounts |
 | `kb switch [username]` | Switch active account (interactive) |
 | `kb account remove <username>` | Delete a saved account from config |
+| `kb delete [--force]` | Permanently delete your own account |
 | `kb serve [--port=3000] [--daemon]` | Start local serverless node (REST+WS+Web+P2P) |
 | `kb serve --stop` | Stop a background server started with `--daemon` |
 | `kb connect <url>` | Connect to a remote server |
@@ -451,7 +452,7 @@ docker run -d \
   --name koshi \
   -p 3000:3000 \
   -v $HOME/.config/koshi:/home/koshi/.config/koshi \
-  ghcr.io/ryopc/koshi:standalone-v3.0.0
+  ghcr.io/ryopc/koshi:standalone-v3.1.2
 ```
 
 **Or build from source:**
@@ -474,7 +475,7 @@ The standalone server automatically creates a SQLite database at `~/.config/kosh
 
 ```bash
 # Pull the pre-built image from GHCR
-docker pull ghcr.io/ryopc/koshi:runner-v3.0.0
+docker pull ghcr.io/ryopc/koshi:runner-v3.1.2
 
 # Or build from source
 docker build --target runner -t koshi:full .
@@ -487,7 +488,7 @@ docker run -d \
   -e 'JWT_SECRET=your-secret' \
   -e 'ADMIN_USERNAME=alice' \
   -e 'NODE_ENV=production' \
-  ghcr.io/ryopc/koshi:runner-v3.0.0
+  ghcr.io/ryopc/koshi:runner-v3.1.2
 ```
 
 ### Docker Compose (PostgreSQL + API)
