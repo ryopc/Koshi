@@ -115,6 +115,7 @@ export default {
         dms: 'View your DM inbox',
         chat: 'Real-time interactive DM chat (search if no argument)',
         nostr: 'Nostr integration (keys, relays, sync)',
+        delete: 'Permanently delete your own account',
         p2p: 'P2P sync (hypercore + hyperswarm)',
     },
     // Interactive prompts

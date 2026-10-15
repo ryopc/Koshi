@@ -2442,6 +2442,10 @@ function showHelp(command = null) {
             usage: 'kb nostr <command>',
             desc: t('cmd.nostr'),
         },
+        delete: {
+            usage: 'kb delete [--force]',
+            desc: t('cmd.delete'),
+        },
         // P2P
         p2p: {
             usage: 'kb p2p <command>',
@@ -2495,7 +2499,7 @@ function showHelp(command = null) {
     const groups = [
         {
             title: t('help.groupAccounts'),
-            keys: ['register', 'login', 'switch', 'accounts', 'account', 'whoami'],
+            keys: ['register', 'login', 'switch', 'accounts', 'account', 'whoami', 'delete'],
         },
         {
             title: t('help.groupPosts'),
@@ -2580,6 +2584,9 @@ async function cmdAdmin(args) {
         console.log(`  ${chalk.cyan('kb admin delete-user <username>')}  Permanently delete a user account`);
         console.log(`  ${chalk.cyan('kb admin grant <username>')}     Grant admin privileges`);
         console.log(`  ${chalk.cyan('kb admin revoke <username>')}    Revoke admin privileges`);
+        console.log();
+        console.log(`  ${chalk.cyan('kb delete')}                   Permanently delete your own account`);
+        return;
         console.log(`  ${chalk.dim('─'.repeat(50))}\n`);
         return;
     }
@@ -2697,6 +2704,63 @@ async function cmdAdminDeleteUser(config, args) {
         const result = await apiRequest('DELETE', `/api/admin/users/${userData.id}`, {}, config.token);
 
         spinner.succeed(chalk.green(`User @${username} has been permanently deleted.`));
+    } catch (err) {
+        spinner.fail(chalk.red(`Delete failed: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+// ============================================================================
+// Command: delete (self-account deletion)
+// ============================================================================
+async function cmdDeleteAccount(config, args) {
+    const { token, activeUsername } = config;
+
+    if (!token) {
+        console.error(chalk.red('✖ Not logged in.'));
+        console.error(chalk.dim('  Use kb register or kb login first.'));
+        process.exit(1);
+    }
+
+    const confirm = args.includes('--force');
+
+    if (!confirm) {
+        console.log(`\n  ${chalk.yellow('⚠️  WARNING: This will permanently delete your account.')}`);
+        console.log(`  ${chalk.yellow('All posts, DMs, and follows will be erased.')}`);
+        console.log(chalk.dim('  This action cannot be undone.\n'));
+        console.log(`  ${chalk.bold('Account:')} @${activeUsername}`);
+        console.log();
+
+        const answer = await new Promise((resolve) => {
+            process.stdout.write(`  ${chalk.bold('Type your username to confirm')}: `);
+            process.stdin.once('data', (buf) => resolve(buf.toString().trim()));
+        });
+
+        if (answer !== activeUsername) {
+            console.log(chalk.yellow('\n  ✖ Confirmation does not match. Aborted.'));
+            process.exit(1);
+        }
+    }
+
+    const spinner = ora(`Deleting account @${activeUsername}...`).start();
+
+    try {
+        const result = await apiRequest('DELETE', '/api/users/me', null, token);
+        spinner.succeed(chalk.green(`✔ ${result.message || 'Account permanently deleted.'}`));
+        // Clear local credentials for this account
+        try {
+            const fs = await import('node:fs');
+            const cfgPath = join(CONFIG_DIR, 'config.json');
+            const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+            if (cfg.accounts && cfg.accounts[activeUsername]) {
+                delete cfg.accounts[activeUsername];
+                if (cfg.activeUsername === activeUsername) {
+                    delete cfg.activeUsername;
+                }
+                fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+            }
+        } catch { /* best-effort cleanup */ }
+        process.exit(0);
     } catch (err) {
         spinner.fail(chalk.red(`Delete failed: ${err.message}`));
         process.exit(1);
@@ -3240,6 +3304,10 @@ async function main() {
 
         case 'admin':
             await cmdAdmin(args.slice(1));
+            break;
+
+        case 'delete':
+            await cmdDeleteAccount(config, args.slice(1));
             break;
 
         case 'nostr':

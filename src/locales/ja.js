@@ -115,6 +115,7 @@ export default {
         dms: 'DM受信箱を表示',
         chat: 'リアルタイムDMチャット（引数なしで検索）',
         nostr: 'Nostr 統合（鍵・リレー・同期）',
+        delete: '自分のアカウントを永久削除',
         p2p: 'P2P 同期（hypercore + hyperswarm）',
     },
     // Interactive prompts

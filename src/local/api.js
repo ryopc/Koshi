@@ -521,6 +521,14 @@ export const localAPI = {
             },
         };
     },
+
+    /**
+     * Delete a user account (self-deletion).
+     * Removes all posts, DMs, follows, and the user record.
+     */
+    async deleteUser(userId) {
+        await users.delete(userId);
+    },
 };
 
 export default localAPI;
