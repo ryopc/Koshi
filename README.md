@@ -648,9 +648,63 @@ koshi/
 
 ---
 
-## 📄 License
+## 📄 License & Copyright
 
-MIT — see [LICENSE](LICENSE).
+### koshi (this project)
+
+**Package:** `@ryopc/koshi`  
+**Version:** `3.1.3`  
+**Copyright:** © 2026 ryopc  
+**License:** MIT
+
+```
+MIT License
+
+Copyright (c) 2026 ryopc
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Third-Party Dependencies
+
+All runtime and development dependencies are under **permissive licenses** (MIT, Apache-2.0, ISC, BSD, Unlicense, Python-2.0, BlueOak-1.0.0). No copyleft licenses (GPL, AGPL, LGPL, MPL, SSPL, BSL) were detected, so the project's MIT declaration is not compromised.
+
+| License | Packages | Nature |
+|---------|----------|--------|
+| MIT | ~306 | Permissive (highest compatibility) |
+| Apache-2.0 | ~62 | Permissive (express patent grant) |
+| ISC | ~31 | Permissive (MIT-like) |
+| BSD-2-Clause / BSD-3-Clause | ~13 | Permissive |
+| Unlicense | 3 | Public-domain-like |
+| Python-2.0 | 1 | Permissive (attribution required) |
+| BlueOak-1.0.0 | 1 | Permissive (modern) |
+
+Notable direct dependencies:
+
+| Package | License | Notes |
+|---------|---------|-------|
+| `@noble/ed25519`, `b4a`, `better-sqlite3`, `chalk`, `cors`, `corestore`, `express`, `helmet`, `hypercore`, `hyperswarm`, `ora`, `ws` | MIT | Permissive |
+| `ed2curve`, `nostr-tools`, `tweetnacl` | Unlicense | Public-domain-like; legal uncertainty exists in some jurisdictions but is compatible with MIT in practice |
+| `argparse` (transitive) | Python-2.0 | Permissive, attribution required |
+| `minimatch` (transitive, under `nodemon`, dev-only) | BlueOak-1.0.0 | Permissive, not bundled in production |
+
+> **Note:** `Unlicense` is close to the public domain and may carry legal uncertainty in certain jurisdictions. `Python-2.0` requires attribution. Neither is copyleft and both are compatible with MIT. See each package's `LICENSE` file for exact terms.
 
 ---
 
