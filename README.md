@@ -681,9 +681,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Third-Party Dependencies
+### Third-Party Dependencies (copyright attribution)
 
-All runtime and development dependencies are under **permissive licenses** (MIT, Apache-2.0, ISC, BSD, Unlicense, Python-2.0, BlueOak-1.0.0). No copyleft licenses (GPL, AGPL, LGPL, MPL, SSPL, BSL) were detected, so the project's MIT declaration is not compromised.
+All runtime and development dependencies are under **permissive licenses**. No copyleft licenses (GPL, AGPL, LGPL, MPL, SSPL, BSL) were detected, so the project's MIT declaration is not compromised.
+
+License distribution across `node_modules` (scanned):
 
 | License | Packages | Nature |
 |---------|----------|--------|
@@ -691,20 +693,52 @@ All runtime and development dependencies are under **permissive licenses** (MIT,
 | Apache-2.0 | ~62 | Permissive (express patent grant) |
 | ISC | ~31 | Permissive (MIT-like) |
 | BSD-2-Clause / BSD-3-Clause | ~13 | Permissive |
-| Unlicense | 3 | Public-domain-like |
+| Unlicense | 3 | Public-domain-like (no copyright assertion) |
 | Python-2.0 | 1 | Permissive (attribution required) |
 | BlueOak-1.0.0 | 1 | Permissive (modern) |
 
-Notable direct dependencies:
+#### Direct runtime dependencies
+
+| Package | License | Copyright (c) |
+|---------|---------|---------------|
+| `@noble/ed25519` | MIT | 2019 Paul Miller |
+| `b4a` | Apache-2.0 | Holepunch |
+| `better-sqlite3` | MIT | 2017 Joshua Wise |
+| `chalk` | MIT | Sindre Sorhus |
+| `cors` | MIT | 2013 Troy Goode |
+| `corestore` | Apache-2.0 | Holepunch Inc |
+| `ed2curve` | Unlicense | Dmitry Chestnykh (public domain) |
+| `express` | MIT | 2009-2014 TJ Holowaychuk; 2013-2014 Roman Shtylman; 2014-2015 Douglas Christopher Wilson |
+| `helmet` | MIT | 2012-2024 Evan Hahn, Adam Baldwin |
+| `hypercore` | MIT | 2016 Mathias Buus |
+| `hyperswarm` | MIT | 2019 Mathias Buus, Paul Frazee, David Mark Clements and contributors |
+| `nostr-tools` | Unlicense | public domain (no copyright assertion) |
+| `ora` | MIT | Sindre Sorhus |
+| `tweetnacl` | Unlicense | TweetNaCl-js contributors (public domain) |
+| `ws` | MIT | 2011 Einar Otto Stangvik; 2013 Arnout Kazemier and contributors; 2016 Luigi Pinca and contributors |
+
+#### Direct development dependencies
+
+| Package | License | Copyright (c) |
+|---------|---------|---------------|
+| `dotenv` | BSD-like | 2015 Scott Motte |
+| `eslint` | MIT | OpenJS Foundation and other contributors |
+| `express-rate-limit` | MIT | 2023 Nathan Friedly, Vedant K |
+| `jsonwebtoken` | MIT | 2015 Auth0, Inc. |
+| `nodemon` | MIT | 2010-present Remy Sharp |
+| `pg` | MIT | 2010-2021 Brian Carlson |
+| `pino` | MIT | 2016-2024 Matteo Collina, David Mark Clements and Pino contributors |
+| `pino-pretty` | MIT | 2019 the Pino team |
+| `uuid` | MIT | 2010-2020 Robert Kieffer and other contributors |
+
+#### Notable transitive dependencies (license only)
 
 | Package | License | Notes |
 |---------|---------|-------|
-| `@noble/ed25519`, `b4a`, `better-sqlite3`, `chalk`, `cors`, `corestore`, `express`, `helmet`, `hypercore`, `hyperswarm`, `ora`, `ws` | MIT | Permissive |
-| `ed2curve`, `nostr-tools`, `tweetnacl` | Unlicense | Public-domain-like; legal uncertainty exists in some jurisdictions but is compatible with MIT in practice |
-| `argparse` (transitive) | Python-2.0 | Permissive, attribution required |
-| `minimatch` (transitive, under `nodemon`, dev-only) | BlueOak-1.0.0 | Permissive, not bundled in production |
+| `argparse` | Python-2.0 | Permissive, attribution required |
+| `minimatch` (under `nodemon`, dev-only) | ISC | Permissive, not bundled in production |
 
-> **Note:** `Unlicense` is close to the public domain and may carry legal uncertainty in certain jurisdictions. `Python-2.0` requires attribution. Neither is copyleft and both are compatible with MIT. See each package's `LICENSE` file for exact terms.
+> **Note:** `Unlicense` (`ed2curve`, `nostr-tools`, `tweetnacl`) is close to the public domain and may carry legal uncertainty in certain jurisdictions; it contains no copyright assertion. `Python-2.0` (`argparse`, transitive) requires attribution. Neither is copyleft and both are compatible with MIT. See each package's `LICENSE` file for exact terms.
 
 ---
 
