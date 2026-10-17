@@ -278,6 +278,17 @@ export async function startLocalServer(options = {}) {
         }
     });
 
+    // ---- Users: Self-delete ----
+    app.delete('/api/users/me', async (req, res) => {
+        try {
+            const userId = extractUserId(req.headers.authorization);
+            await localAPI.deleteUser(userId);
+            return res.json({ success: true, message: 'Account permanently deleted.' });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    });
+
     // ---- Posts Routes ----
     app.get('/api/posts/feed', async (req, res) => {
         try {

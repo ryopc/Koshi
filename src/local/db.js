@@ -454,6 +454,19 @@ export const users = {
     },
 
     /**
+     * Delete a user and all associated data (posts, DMs, follows).
+     */
+    delete(id) {
+        return wrap(() => {
+            _db.prepare('DELETE FROM posts WHERE author_id = ?').run(id);
+            _db.prepare('DELETE FROM dms WHERE sender_id = ? OR recipient_id = ?').run(id, id);
+            _db.prepare('DELETE FROM follows WHERE follower_id = ? OR following_id = ?').run(id, id);
+            _db.prepare('DELETE FROM users WHERE id = ?').run(id);
+            return { success: true };
+        });
+    },
+
+    /**
      * Upsert a user discovered via P2P.
      * Inserts if the username/public key is unknown; updates display name,
      * bio and avatar if provided. Never touches admin flags or secrets.

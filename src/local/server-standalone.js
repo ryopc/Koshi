@@ -303,6 +303,23 @@ app.put('/api/users/me', requireAuth, (req, res) => {
     }
 });
 
+// ---- Users: Self-delete account ----
+app.delete('/api/users/me', requireAuth, (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const username = req.user.username;
+        // Delete all associated data first (SQLite has limited CASCADE support)
+        db.prepare('DELETE FROM posts WHERE author_id = ?').run(userId);
+        db.prepare('DELETE FROM dms WHERE sender_id = ? OR recipient_id = ?').run(userId, userId);
+        db.prepare('DELETE FROM follows WHERE follower_id = ? OR following_id = ?').run(userId, userId);
+        // Delete the user
+        db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+        return res.json({ success: true, message: `Account @${username} has been permanently deleted.` });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
 // ---- Users: Follow ----
 app.post('/api/users/:id/follow', requireAuth, (req, res) => {
     try {
