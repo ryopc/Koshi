@@ -434,7 +434,7 @@
   --name koshi \
   -p 3000:3000 \
   -v $HOME/.config/koshi:/home/koshi/.config/koshi \
-  ghcr.io/ryopc/koshi:standalone-v3.0.0
+  ghcr.io/ryopc/koshi:standalone-v3.1.4
 
 <span class="comment"># Access the Web UI</span>
 <span class="prompt">$</span> open http://localhost:3000</code></pre>
@@ -443,8 +443,8 @@
             <table>
                 <thead><tr><th>Image</th><th>Use Case</th><th>External DB</th></tr></thead>
                 <tbody>
-                    <tr><td><code>ghcr.io/ryopc/koshi:standalone-v3.0.0</code></td><td>Personal / Serverless (✅ Recommended)</td><td>No (SQLite)</td></tr>
-                    <tr><td><code>ghcr.io/ryopc/koshi:runner-v3.0.0</code></td><td>Production Server</td><td>Yes (PostgreSQL)</td></tr>
+                    <tr><td><code>ghcr.io/ryopc/koshi:standalone-v3.1.4</code></td><td>Personal / Serverless (✅ Recommended)</td><td>No (SQLite)</td></tr>
+                    <tr><td><code>ghcr.io/ryopc/koshi:runner-v3.1.4</code></td><td>Production Server</td><td>Yes (PostgreSQL)</td></tr>
                 </tbody>
             </table>
         </div>
@@ -975,7 +975,7 @@ NODE_ENV=production</code></pre>
   }
 }</code></pre>
 
-        <p>In v3.0.0, P2P starts <strong>automatically</strong> when you run <code>kb serve</code>. Set <code>"autoSync": false</code> to disable.</p>
+        <p>In v3.1.4, P2P starts <strong>automatically</strong> when you run <code>kb serve</code>. Set <code>"autoSync": false</code> to disable.</p>
 
         <!-- ============================================================ -->
         <!-- API REFERENCE -->
@@ -1501,7 +1501,7 @@ wss://koshi.ryopc.org/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
   --name koshi \
   -p 3000:3000 \
   -v $HOME/.config/koshi:/home/koshi/.config/koshi \
-  ghcr.io/ryopc/koshi:standalone-v3.0.0
+  ghcr.io/ryopc/koshi:standalone-v3.1.4
 
 <span class="comment"># Or build from source</span>
 <span class="prompt">$</span> docker build --target standalone -t koshi:standalone .
@@ -1515,7 +1515,7 @@ wss://koshi.ryopc.org/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
 
         <h4>PostgreSQL-backed Full Server</h4>
         <pre><code><span class="comment"># Pull the pre-built image from GHCR</span>
-<span class="prompt">$</span> docker pull ghcr.io/ryopc/koshi:runner-v3.0.0
+<span class="prompt">$</span> docker pull ghcr.io/ryopc/koshi:runner-v3.1.4
 
 <span class="comment"># Run the container (quote DATABASE_URL — the & in query params breaks bash)</span>
 <span class="prompt">$</span> docker run -d \
@@ -1524,7 +1524,7 @@ wss://koshi.ryopc.org/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
   -e <span class="string">'DATABASE_URL=postgresql://user:pass@host:5432/db?sslmode=require'</span> \
   -e <span class="string">'JWT_SECRET=your-secret'</span> \
   -e <span class="string">'ADMIN_USERNAME=alice'</span> \
-  ghcr.io/ryopc/koshi:runner-v3.0.0</code></pre>
+  ghcr.io/ryopc/koshi:runner-v3.1.4</code></pre>
 
         <div class="info-box info">
             <p><strong>💡 Tip:</strong> The standalone Docker image includes everything — SQLite, P2P mesh, REST API, WebSocket, and Web UI. No external database is needed.</p>
