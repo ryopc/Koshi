@@ -188,6 +188,27 @@ router.put('/me', requireAuth, async (req, res) => {
 });
 
 // ============================================================================
+// DELETE /api/users/me — Self-delete account
+// ============================================================================
+// Permanently deletes the authenticated user's account and all associated data.
+// ============================================================================
+router.delete('/me', requireAuth, async (req, res) => {
+    const userId = req.user.userId;
+    const username = req.user.username;
+
+    try {
+        // Delete user and all associated data (CASCADE handles posts, DMs, follows, etc.)
+        await query('DELETE FROM users WHERE id = $1', [userId]);
+
+        logger.info({ userId, username }, 'User self-deleted account');
+        return res.json({ success: true, message: `Account @${username} has been permanently deleted.` });
+    } catch (err) {
+        logger.error({ err }, 'Failed to delete user account');
+        return res.status(500).json({ error: 'Failed to delete account' });
+    }
+});
+
+// ============================================================================
 // GET /api/users/:id/followers
 // ============================================================================
 // Get list of users following the specified user.

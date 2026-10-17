@@ -27,3 +27,5 @@ npm-debug.log*
 # Misc
 *.deb
 keybase_amd64.deb
+*.tmp.*
+.tmp_*

@@ -1,9 +1,9 @@
 # koshi プロジェクト 作業メモ（AI引き継ぎ用）
-# 最終更新: 2026-07-17
+# 最終更新: 2026-10-14
 
 ## プロジェクト概要
 koshiは「ターミナルネイティブ分散型SNS」。ed25519暗号で認証するソーシャルネットワーク。
-- バージョン: 2.0.2
+- バージョン: 3.0.0 (serverless P2P mesh)
 - ライセンス: MIT
 - 作者: game_ryo (ryopc)
 
@@ -64,16 +64,12 @@ web/                - ビルド済み静的ファイル
   function getWsBase() { ... } // http→ws変換付き
   ```
 
-### 5. CLI: kb server / kb connect コマンド (未実装)
-**main関数のswitchにcase追加済みだが、関数本体がまだ:**
-```javascript
-case 'server':
-    await cmdServer(args.slice(1));
-    break;
-case 'connect':
-    await cmdConnect(args.slice(1));
-    break;
-```
+### 5. CLI: kb serve / kb connect コマンド (実装済み)
+**bin/cli.js修正済み:**
+- `cmdServe()` (line 2210) → `initLocalMode({ server: true })` → `startLocalServer()`
+- `cmdConnect()` (line 2303) → config.serverUrlの設定/リセット/ステータス
+- `getApiBase()` / `getWsBase()` 動的解決関数実装済み
+- showHelp()に serve / connect コマンド追加済み (line 2447-2454)
 
 ### 6. SQLite自己完結型サーバー (新規作成済み)
 **ファイル: src/local/server-standalone.js (新規作成)**
@@ -81,7 +77,7 @@ case 'connect':
 - Express REST API (全エンドポイント対応)
 - WebSocketリアルタイム通信用
 - 自動マイグレーション (起動時にテーブル作成)
-- 静的ファイル配信 (Web UI)
+- 静的ファイル配信 (Web UI) — `/api/config` エンドポイント追加済み (v3.0.0)
 - JWT認証 (HMAC-SHA256、外部ライブラリ不要)
 - ed25519署名検証 (tweetnacl使用)
 - 使用方法: `node src/local/server-standalone.js`
@@ -89,39 +85,12 @@ case 'connect':
 
 ## 未実装タスク（引き継ぎ）
 
-### 優先度: 高
-1. **CLI `kb server` コマンド実装** - standaloneサーバーをCLIから起動
-   - `kb server` → ポート指定でstandaloneサーバー起動
-   - `kb server --port=8080` → ポート指定
-   - `kb server --daemon` → バックグラウンド起動
-   - 実装場所: bin/cli.js にcmdServer()関数を追加
-
-2. **CLI `kb connect` コマンド実装** - リモートサーバーに接続
-   - `kb connect http://localhost:3000` → config.serverUrlに保存
-   - `kb connect https://my-koshi.example.com` → リモートサーバー
-   - `kb connect --reset` → デフォルトサーバーに戻す
-   - `kb connect --status` → 現在の接続先表示
-   - 実装場所: bin/cli.js にcmdConnect()関数を追加
-
-3. **package.json更新** - serverスクリプト追加
-   ```json
-   "scripts": {
-     "server": "node src/local/server-standalone.js",
-     "server:dev": "nodemon --exec node src/local/server-standalone.js"
-   }
-   ```
-
-### 優先度: 中
-4. **showHelp()更新** - kb server/kb connectをヘルプに追加
-5. **Dockerfile更新** - standaloneサーバー対応
-6. **client/src/utils/api.js更新** - configのserverUrlを読み込む
-
-### 優先度: 低（P2P関連 - 方針転換済み）
-7. P2Pは諦め、分散型サーバー方式に移行
-8. clientのP2P関連コードは不要（useP2P, P2PPage等は作成不要）
+### 優先度: 低 (P2P関連 - 実装済み)
+7. P2PはNode.jsで実行 (ブラウザ不可) → `kb serve` + Web UI でブラウザアクセス
+8. hypercore/hyperswarmはCLI/サーバーで使用、Web UIはREST+WS経由
 
 ## 重要な設計判断
-- **P2P放棄**: hypercore/hyperswarmはNode.jsネイティブモジュールでブラウザ不可 → 分散サーバー方式に
+- **Serverless P2P mesh (v3.0.0)**: SQLite + hypercore + hyperswarm でローカル実行。PostgreSQL不要
 - **standaloneサーバー**: SQLite使用、PostgreSQL不要、誰でもワンコマンド起動可能
 - **サーバーURL管理**: config.jsonのserverUrlフィールドで保存、CLIから切り替え可能
 - **API互換性**: standaloneサーバーは既存のkoshi APIと完全互換
@@ -135,22 +104,31 @@ node src/local/server-standalone.js
 KOSHI_API_URL=http://localhost:3000 node bin/cli.js register testuser
 KOSHI_API_URL=http://localhost:3000 node bin/cli.js feed
 
-# kb connectで接続先変更テスト（未実装）
-# kb serverで起動テスト（未実装）
+# kb serve + kb connect テスト (実装済み)
+kb serve --port=3000
+kb connect http://localhost:3000     # ローカルサーバーに接続
+kb connect --status                   # 接続先確認
+kb connect --reset                    # serverlessモードに戻す
 ```
 
-## 既知の問題
-- bin/cli.jsのshowHelp()にserver/connectコマンドの記載がない
-- package.jsonにserverスクリプトがない
-- client/src/utils/api.jsはconfigのserverUrl未対応
-- standaloneサーバーのtweetnacl importが動的import必要かもしれない
+## 既知の問題 (解消済み)
+- ~~bin/cli.jsのshowHelp()にserver/connectコマンドの記載がない~~ → serve/connect追加済み
+- ~~package.jsonにserverスクリプトがない~~ → server/server:dev追加済み
+- ~~client/src/utils/api.jsはconfigのserverUrl未対応~~ → /api/configエンドポイント + 動的解決追加済み
+- ~~Dockerfile standaloneターゲットのwget欠落~~ → apk add --no-cache wget 追加
+- ~~server-standalone.jsヘルスチェックのversion 2.0.2~~ → 3.0.0修正
+- ~~server.js /api/configのp2pスコープ~~ → async + 動的import修正
 
-## ファイル変更一覧
+## ファイル変更一覧 (Phase 0 完了 ✅)
 ```
-[新規] src/api/p2p.js          - P2P REST API
-[新規] src/local/server-standalone.js - SQLite standaloneサーバー
-[修正] src/index.js             - p2pRouter追加
-[修正] src/ws/handlers.js       - P2P WSハンドラ追加
-[修正] src/config/config.js     - serverUrl対応追加
-[修正] bin/cli.js               - API_BASE動的化、server/connect case追加
+[修正] README.md                    - v3.0.0 rewrite (serverless-first, kb serve/connect docs)
+[修正] package.json                 - v3.0.0, server/server:devスクリプト確認済み
+[修正] Dockerfile                   - standaloneターゲット修正 (apk add wget, build deps)
+[修正] src/local/server-standalone.js - /api/config追加, health version 3.0.0
+[修正] src/local/server.js          - /api/config追加 (async, dynamic p2p import)
+[修正] client/src/utils/api.js       - 動的APIベースURL取得 (config.serverUrl対応)
+[修正] bin/cli.js                   - cmdServe/cmdConnect実装, getApiBase動的化
+[修正] src/config/config.js         - serverUrl対応 (getServerUrl/setServerUrl)
+[修正] src/api/p2p.js               - P2P REST API (新規)
+[修正] src/ws/handlers.js           - P2P WSハンドラ追加
 ```

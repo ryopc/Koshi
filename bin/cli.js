@@ -22,8 +22,11 @@
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { cursorTo, clearScreenDown } from 'node:readline';
+import { writeFileSync, unlinkSync, readFileSync, openSync } from 'node:fs';
+import { join } from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
+import { t, lang } from '../src/i18n.js';
 
 // Config management (v2.0.1)
 import {
@@ -66,52 +69,57 @@ const API_BASE = getApiBase();
 const WS_URL = getWsBase();
 
 // ============================================================================
-// Local mode support (server-independent operation)
+// Local mode support (server-independent operation) — v3 serverless-first
 // ============================================================================
-// When --local is passed, the CLI uses a local SQLite database + P2P sync
-// instead of the remote API server. Works fully offline.
+// v3.0.0: P2P is the base infrastructure. Local mode is the DEFAULT:
+//   - explicit `--local` flag, OR
+//   - no server URL configured (user never ran `kb connect <url>`)
+// Remote mode only applies when the user explicitly connected to a server.
 // ============================================================================
 
-const IS_LOCAL = process.argv.includes('--local');
+const HAS_LOCAL_FLAG = process.argv.includes('--local');
+const _firstCmd = process.argv[2];
+const _META_COMMANDS = new Set(['serve', 'server', 'connect', 'help', '--help', '-h', '--version', '-v']);
+// Commands that must KEEP RUNNING (they own the P2P node / event loop)
+const _LONG_RUNNING_COMMANDS = new Set(['serve', 'server', 'chat', 'realtime', 'stream', 'p2p']);
+const IS_LOCAL = HAS_LOCAL_FLAG || (!loadFullConfig().serverUrl && !_META_COMMANDS.has(_firstCmd));
 let _localAPI = null;
+let _localP2P = null;
+let _localServerInfo = null;
 
 /**
- * Auto-initialize local mode if --local flag is present.
+ * Auto-initialize local mode (serverless).
  * Called early in startup before any commands execute.
  */
 async function autoInitLocalMode() {
     if (!IS_LOCAL) return false;
 
-    console.log(chalk.dim('  🏠 Local mode activated (no server required)'));
+    console.log(chalk.dim('  🏠 Serverless mode (local SQLite + P2P mesh)'));
 
     try {
-        const { initLocalMode } = await import('../src/local/index.js');
+        const { initLocalMode, whenP2PReady } = await import('../src/local/index.js');
 
-        // Try to init P2P if available
-        let p2pModule = null;
-        try {
-            p2pModule = await import('../src/p2p/index.js');
-            await p2pModule.autoStart();
-        } catch {
-            // P2P not available, that's OK
-        }
-
-        const { api } = await initLocalMode({
-            p2p: p2pModule,
-            server: false,
-        });
+        const { api, p2p, server } = await initLocalMode({ server: false });
 
         _localAPI = api;
-        console.log(chalk.dim('  ✓ Local database ready (' + chalk.italic('~/.config/koshi/local.db') + ')'));
+        _localP2P = p2p;
+        _localServerInfo = server;
 
-        if (p2pModule) {
-            try {
-                const { initP2PBridge } = await import('../src/local/p2p-bridge.js');
-                await initP2PBridge(p2pModule);
-            } catch {
-                // Bridge init is best-effort
-            }
+        // P2P init is non-blocking — wait briefly so the banner is accurate,
+        // but never stall one-shot commands behind DHT discovery.
+        if (p2p?.autoStart) {
+            await Promise.race([
+                whenP2PReady(),
+                new Promise((resolve) => setTimeout(resolve, 2000)),
+            ]);
         }
+
+        if (p2p?.isReady?.()) {
+            console.log(chalk.dim('  ✓ P2P mesh active (' + chalk.italic('hypercore + hyperswarm') + ')'));
+        } else {
+            console.log(chalk.dim('  ○ P2P mesh offline (start with: kb p2p start)'));
+        }
+        console.log(chalk.dim('  ✓ Local database ready (' + chalk.italic('~/.config/koshi/local.db') + ')'));
 
         return true;
     } catch (err) {
@@ -119,6 +127,24 @@ async function autoInitLocalMode() {
         console.error(chalk.dim('  Falling back to server mode...'));
         return false;
     }
+}
+
+/**
+ * Ensure a local web server (REST + WebSocket) is running and return its
+ * ws:// base URL. Used by kb chat / kb realtime in serverless mode.
+ */
+async function ensureLocalWSBase() {
+    if (!IS_LOCAL) return WS_URL;
+    try {
+        const { initLocalMode } = await import('../src/local/index.js');
+        const { server } = await initLocalMode({ server: true, serverPort: 0 });
+        if (server?.port) {
+            return `ws://127.0.0.1:${server.port}`;
+        }
+    } catch {
+        // fall through to default
+    }
+    return WS_URL;
 }
 
 // ============================================================================
@@ -239,7 +265,9 @@ async function localApiCall(method, path, body, token) {
     // Strip query string before path parsing
     const cleanPath = path.split('?')[0];
     const parts = cleanPath.split('/').filter(Boolean);
-    if (parts.length < 3) throw new Error('Invalid API path: ' + path);
+    // Minimal shape: /api/<resource>[/...] — 2 segments is valid for
+    // collection-level routes such as POST /api/posts or GET /api/dms.
+    if (parts.length < 2 || parts[0] !== 'api') throw new Error('Invalid API path: ' + path);
 
     const resource = parts[1];
     const action = parts[2];
@@ -2163,6 +2191,180 @@ async function cmdP2PDMs(args) {
 }
 
 // ============================================================================
+// Command: serve (run the local serverless node — REST + WebSocket + P2P)
+// ============================================================================
+
+const SERVE_PID_FILE = join(CONFIG_DIR, 'serve.pid');
+
+function writeServePid() {
+    try {
+        writeFileSync(SERVE_PID_FILE, String(process.pid));
+    } catch { /* best-effort */ }
+}
+
+function removeServePid() {
+    try {
+        unlinkSync(SERVE_PID_FILE);
+    } catch { /* best-effort */ }
+}
+
+async function cmdServe(args) {
+    const port = parseInt(args.find((a) => a.startsWith('--port='))?.split('=')[1]) || 3000;
+    const daemon = args.includes('--daemon');
+    const stop = args.includes('--stop');
+
+    // Suppress pino debug/info logs in serverless mode — only show warnings/errors
+    process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'warn';
+
+    // ---- Stop a running background server ----
+    if (stop) {
+        try {
+            const pid = parseInt(readFileSync(SERVE_PID_FILE, 'utf8').trim(), 10);
+            if (pid && Number.isFinite(pid)) {
+                process.kill(pid, 'SIGTERM');
+                removeServePid();
+                console.log(`\n  ${chalk.green('✓')} ${t('serve.serverStopped', { pid })}`);
+                return;
+            }
+        } catch {
+            // fall through
+        }
+        console.log(chalk.yellow(`\n  ✖ ${t('serve.noBackground')}`));
+        console.log(chalk.dim(`  ${t('serve.startForeground')}`));
+        return;
+    }
+
+    // ---- Daemon mode: spawn detached child ----
+    if (daemon) {
+        const { spawn } = await import('node:child_process');
+        const { fileURLToPath } = await import('node:url');
+        const logFile = join(CONFIG_DIR, 'serve.log');
+        const out = openSync(logFile, 'a');
+        const child = spawn(process.execPath, [fileURLToPath(import.meta.url), 'serve', `--port=${port}`], {
+            detached: true,
+            stdio: ['ignore', out, out],
+            env: { ...process.env, KOSHI_DAEMON: '1', LOG_LEVEL: 'warn' },
+        });
+        child.unref();
+        console.log(`\n  ${chalk.green('✓')} ${t('serve.backgroundStarted', { port })}`);
+        console.log(`  ${chalk.dim(t('serve.logFile'))}   ${chalk.italic(logFile)}`);
+        console.log(`  ${chalk.dim(t('serve.stopCmd'))}  ${chalk.italic(t('serve.stopDaemonCmd'))}`);
+        return;
+    }
+
+    // ---- Foreground mode ----
+    console.log(`\n  ${chalk.bold.cyan(t('serve.banner'))}`);
+    console.log(`  ${chalk.dim(t('serve.separator'))}\n`);
+
+    try {
+        const { initLocalMode } = await import('../src/local/index.js');
+        const { server, p2p } = await initLocalMode({ server: true, serverPort: port });
+
+        if (!server) {
+            console.error(chalk.red('✖ ' + t('serve.failedStart')));
+            console.error(chalk.dim(`  ${t('serve.checkKoshiApiUrl')}`));
+            process.exit(1);
+        }
+
+        _localP2P = p2p || null;
+        writeServePid();
+
+        const actualPort = server.port;
+        const p2pStatus = _localP2P?.getP2PStatus?.() || { ready: false, peers: 0 };
+        const wsUrl = `ws://127.0.0.1:${actualPort}/ws?token=<token>`;
+
+        console.log(`  ${chalk.bold(t('serve.restApi'))}  ${chalk.cyan(`http://127.0.0.1:${actualPort}`)}`);
+        console.log(`  ${chalk.bold(t('serve.webUi'))}    ${chalk.cyan(`http://127.0.0.1:${actualPort}`)} (web/)`);
+        console.log(`  ${chalk.bold(t('serve.websocket'))} ${chalk.dim(wsUrl)}`);
+        console.log(`  ${chalk.bold(t('serve.p2pMesh'))}  ${p2pStatus.ready ? chalk.green('active') : chalk.dim('offline')} ${chalk.dim(`(${p2pStatus.peers || 0} peers)`)}`);
+        console.log(`\n  ${chalk.dim(t('serve.connectCli'))} ${chalk.italic('kb connect http://127.0.0.1:' + actualPort)}`);
+        console.log(`  ${chalk.dim(t('serve.stop'))}         ${chalk.italic(t('serve.ctrlC'))}\n`);
+
+        const shutdown = async () => {
+            console.log(chalk.dim(`\n  ${t('serve.shuttingDown')}`));
+            removeServePid();
+            try {
+                const { closeLocalMode } = await import('../src/local/index.js');
+                await closeLocalMode();
+            } catch { /* ignore */ }
+            process.exit(0);
+        };
+        process.on('SIGINT', shutdown);
+        process.on('SIGTERM', shutdown);
+
+        // Keep the process alive
+        await new Promise(() => {});
+    } catch (err) {
+        console.error(chalk.red(`✖ ${t('serve.serverStartFailed', { error: err.message })}`));
+        process.exit(1);
+    }
+}
+
+// ============================================================================
+// Command: connect (manage the remote/serverless target)
+// ============================================================================
+
+async function cmdConnect(args) {
+    const url = args[0];
+    const { config, activeUsername } = getConfigBundle();
+
+    // ---- Status ----
+    if (args.includes('--status')) {
+        const current = getServerUrl(config);
+        console.log(`\n  ${chalk.bold.cyan(t('connect.connection'))}`);
+        console.log(`  ${chalk.dim('─'.repeat(40))}`);
+        if (current) {
+            console.log(`  ${chalk.bold(t('connect.server'))}  ${chalk.cyan(current)}`);
+        } else {
+            console.log(`  ${chalk.bold(t('connect.mode'))}    ${chalk.green(t('connect.serverless'))}`);
+        }
+        console.log(`  ${chalk.dim(t('connect.active', { username: activeUsername || t('connect.notLoggedIn') }))}`);
+        console.log();
+        return;
+    }
+
+    // ---- Reset to serverless ----
+    if (args.includes('--reset') || args.includes('--offline') || args.includes('--local')) {
+        setServerUrl(config, null);
+        console.log(`\n  ${chalk.green('✓')} ${t('connect.reset')}`);
+        console.log(`  ${chalk.dim(`  ${t('connect.resetHint')}`)}\n`);
+        return;
+    }
+
+    // ---- Set a server URL ----
+    if (!url) {
+        console.log(`\n  ${chalk.bold.cyan(t('connect.manage'))}`);
+        console.log(`  ${chalk.dim('─'.repeat(44))}`);
+        console.log(`  ${chalk.cyan(t('connect.connectUrl'))}`);
+        console.log(`  ${chalk.cyan(t('connect.connectReset'))}`);
+        console.log(`  ${chalk.cyan(t('connect.connectStatus'))}`);
+        console.log(`\n  ${chalk.dim(t('connect.example'))} ${chalk.italic(t('connect.connectExample'))}`);
+        console.log();
+        return;
+    }
+
+    let parsed;
+    try {
+        parsed = new URL(url);
+    } catch {
+        console.error(chalk.red(`✖ ${t('connect.invalidUrl')} "${url}"`));
+        process.exit(1);
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+        console.error(chalk.red(`✖ ${t('connect.invalidProto')}`));
+        process.exit(1);
+    }
+
+    const normalized = url.replace(/\/+$/, '');
+    setServerUrl(config, normalized);
+
+    console.log(`\n  ${chalk.green('✓')} ${t('connect.serverSet')} ${chalk.cyan(normalized)}`);
+    console.log(`  ${chalk.dim(`  ${t('connect.serverSetHint')}`)}\n`);
+    console.log(`  ${chalk.dim(`  ${t('connect.returnServerless')}:`)} ${chalk.italic(t('connect.returnServerlessCmd'))}\n`);
+}
+
+// ============================================================================
 // Command: help
 // ============================================================================
 function showHelp(command = null) {
@@ -2170,93 +2372,105 @@ function showHelp(command = null) {
         // Account management
         register: {
             usage: 'kb register [username]',
-            desc: '新規アカウント登録（引数なしで対話式）',
+            desc: t('cmd.register'),
         },
         login: {
             usage: 'kb login [username]',
-            desc: 'ログイン（引数なしでアカウント一覧から選択）',
+            desc: t('cmd.login'),
         },
         switch: {
             usage: 'kb switch [username]',
-            desc: '保存済みアカウントを切り替え（対話式）',
+            desc: t('cmd.switch'),
         },
         accounts: {
             usage: 'kb accounts',
-            desc: '保存済みアカウント一覧',
+            desc: t('cmd.accounts'),
         },
         'account': {
             usage: 'kb account remove <username>',
-            desc: 'アカウントをローカル設定から削除',
+            desc: t('cmd.accountRemove'),
         },
         whoami: {
             usage: 'kb whoami',
-            desc: '現在のアカウント情報を表示',
+            desc: t('cmd.whoami'),
         },
         // Posts & Feed
         post: {
             usage: 'kb post [message]',
-            desc: '投稿する（引数なしで対話式入力）',
+            desc: t('cmd.post'),
         },
         feed: {
             usage: 'kb feed [--limit=20]',
-            desc: 'フィードを表示',
+            desc: t('cmd.feed'),
         },
         // Social
         follow: {
             usage: 'kb follow [username]',
-            desc: 'フォロー（引数なしで検索→選択）',
+            desc: t('cmd.follow'),
         },
         unfollow: {
             usage: 'kb unfollow [username]',
-            desc: 'アンフォロー（引数なしで検索→選択）',
+            desc: t('cmd.unfollow'),
         },
         profile: {
             usage: 'kb profile [username]',
-            desc: 'プロフィール表示（引数なしで検索→選択）',
+            desc: t('cmd.profile'),
         },
         'edit-profile': {
             usage: 'kb edit-profile [--display-name=...]',
-            desc: 'プロフィール編集（引数なしで対話式）',
+            desc: t('cmd.editProfile'),
         },
         search: {
             usage: 'kb search [query]',
-            desc: 'ユーザー検索（引数なしで対話式）',
+            desc: t('cmd.search'),
         },
         // Direct Messages
         dm: {
             usage: 'kb dm [username] [message]',
-            desc: 'DM送信（引数なしで検索→対話式入力）',
+            desc: t('cmd.dm'),
         },
         dms: {
             usage: 'kb dms [--unread] [--limit=50]',
-            desc: 'DM受信箱を表示',
+            desc: t('cmd.dms'),
         },
         chat: {
             usage: 'kb chat [username]',
-            desc: 'リアルタイムDMチャット（引数なしで検索）',
+            desc: t('cmd.chat'),
         },
         // Nostr
         nostr: {
             usage: 'kb nostr <command>',
-            desc: 'Nostr 統合（鍵・リレー・同期）',
+            desc: t('cmd.nostr'),
+        },
+        delete: {
+            usage: 'kb delete [--force]',
+            desc: t('cmd.delete'),
         },
         // P2P
         p2p: {
             usage: 'kb p2p <command>',
-            desc: 'P2P 同期（hypercore + hyperswarm）',
+            desc: t('cmd.p2p'),
         },
         // Other
+        serve: {
+            usage: 'kb serve [--port=3000] [--daemon]',
+            desc: t('cmd.serve'),
+        },
+        connect: {
+            usage: 'kb connect <url> | --reset | --status',
+            desc: t('cmd.connect'),
+        },
         realtime: {
             usage: 'kb realtime',
-            desc: 'リアルタイムフィードをストリーム表示',
+            desc: t('cmd.realtime'),
         },
         admin: {
             usage: 'kb admin <command>',
-            desc: '管理者コマンド',
+            desc: t('cmd.admin'),
         },
         help: {
             usage: 'kb help [command]',
-            desc: 'ヘルプを表示',
+            desc: t('cmd.help'),
         },
     };
 
@@ -2273,34 +2487,34 @@ function showHelp(command = null) {
     // Show active account info in help
     const { activeUsername } = getConfigBundle();
     const activeInfo = activeUsername
-        ? `  ${chalk.green('●')} ${chalk.bold.cyan(`@${activeUsername}`)} ${chalk.dim('(アクティブ)')}`
-        : `  ${chalk.red('○')} ${chalk.dim('ログインしていません')}`;
+        ? `  ${chalk.green('●')} ${chalk.bold.cyan(`@${activeUsername}`)} ${chalk.dim(t('help.active'))}`
+        : `  ${chalk.red('○')} ${chalk.dim(t('help.notLoggedIn'))}`;
 
     console.log(`\n  ${chalk.bold.cyan('🏄 koshi — Terminal-Native Decentralized SNS')}`);
-    console.log(`  ${chalk.dim('Version 2.0.1 — Nostr/P2P 統合')}`);
+    console.log(`  ${chalk.dim('Version 3.0.0 — Serverless P2P mesh')}`);
     console.log(`\n  ${activeInfo}`);
     console.log(`\n  ${chalk.bold('Usage:')} kb <command> [options]\n`);
 
     // Group commands by category
     const groups = [
         {
-            title: '👤 アカウント管理',
-            keys: ['register', 'login', 'switch', 'accounts', 'account', 'whoami'],
+            title: t('help.groupAccounts'),
+            keys: ['register', 'login', 'switch', 'accounts', 'account', 'whoami', 'delete'],
         },
         {
-            title: '📝 投稿',
+            title: t('help.groupPosts'),
             keys: ['post', 'feed'],
         },
         {
-            title: '👥 ソーシャル',
+            title: t('help.groupSocial'),
             keys: ['follow', 'unfollow', 'profile', 'edit-profile', 'search'],
         },
         {
-            title: '✉️ DM',
+            title: t('help.groupDMs'),
             keys: ['dm', 'dms', 'chat'],
         },
         {
-            title: '🔑 Nostr',
+            title: t('help.groupNostr'),
             keys: ['nostr'],
         },
         {
@@ -2308,8 +2522,8 @@ function showHelp(command = null) {
             keys: ['p2p'],
         },
         {
-            title: '⚙️ その他',
-            keys: ['realtime', 'admin', 'help'],
+            title: t('help.groupOther'),
+            keys: ['serve', 'connect', 'realtime', 'admin', 'help'],
         },
     ];
 
@@ -2329,9 +2543,13 @@ function showHelp(command = null) {
     console.log(`  ${chalk.bold('Options:')}`);
     console.log(`    --help, -h    Show help for a command`);
     console.log(`    --version, -v Show version`);
-    console.log(`\n  ${chalk.dim('環境変数:')}`);
-    console.log(`    ${chalk.dim('KOSHI_API_URL   API base URL (default: https://koshi-api.ryopc.f5.si)')}`);
-    console.log(`    ${chalk.dim('KOSHI_WS_URL    WebSocket URL (default: wss://koshi-api.ryopc.f5.si)')}`);
+    console.log(`    --local       Force serverless mode`);
+    console.log(`\n  ${chalk.dim('Environment:')}`);
+    console.log(`    ${chalk.dim('KOSHI_API_URL   API base URL (overrides serverUrl config)')}`);
+    console.log(`    ${chalk.dim('KOSHI_WS_URL    WebSocket URL (overrides serverUrl config)')}`);
+    console.log(`    ${chalk.dim('LOG_LEVEL       Log level: debug|info|warn|error (default: warn)')}`);
+    console.log(`\n  ${chalk.dim('💡 v3: P2P is the foundational infrastructure.')}`);
+    console.log(`  ${chalk.dim('    Without kb connect, runs in serverless mode (SQLite+P2P) automatically.')}`);
     console.log();
 }
 
@@ -2339,8 +2557,8 @@ function showHelp(command = null) {
 // Command: version
 // ============================================================================
 function showVersion() {
-    console.log('koshi v2.0.2' + (IS_LOCAL ? ' (local mode)' : ''));
-    console.log('Terminal-native decentralized SNS — Nostr/P2P 統合');
+    console.log('koshi v3.0.0' + (IS_LOCAL ? ' (serverless mode)' : ''));
+    console.log('Terminal-native decentralized SNS — serverless P2P mesh');
     console.log('License: MIT');
     console.log('Author: game_ryo');
     console.log('Website: https://koshi.js.org');
@@ -2366,6 +2584,9 @@ async function cmdAdmin(args) {
         console.log(`  ${chalk.cyan('kb admin delete-user <username>')}  Permanently delete a user account`);
         console.log(`  ${chalk.cyan('kb admin grant <username>')}     Grant admin privileges`);
         console.log(`  ${chalk.cyan('kb admin revoke <username>')}    Revoke admin privileges`);
+        console.log();
+        console.log(`  ${chalk.cyan('kb delete')}                   Permanently delete your own account`);
+        return;
         console.log(`  ${chalk.dim('─'.repeat(50))}\n`);
         return;
     }
@@ -2483,6 +2704,63 @@ async function cmdAdminDeleteUser(config, args) {
         const result = await apiRequest('DELETE', `/api/admin/users/${userData.id}`, {}, config.token);
 
         spinner.succeed(chalk.green(`User @${username} has been permanently deleted.`));
+    } catch (err) {
+        spinner.fail(chalk.red(`Delete failed: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+// ============================================================================
+// Command: delete (self-account deletion)
+// ============================================================================
+async function cmdDeleteAccount(config, args) {
+    const { token, activeUsername } = config;
+
+    if (!token) {
+        console.error(chalk.red('✖ Not logged in.'));
+        console.error(chalk.dim('  Use kb register or kb login first.'));
+        process.exit(1);
+    }
+
+    const confirm = args.includes('--force');
+
+    if (!confirm) {
+        console.log(`\n  ${chalk.yellow('⚠️  WARNING: This will permanently delete your account.')}`);
+        console.log(`  ${chalk.yellow('All posts, DMs, and follows will be erased.')}`);
+        console.log(chalk.dim('  This action cannot be undone.\n'));
+        console.log(`  ${chalk.bold('Account:')} @${activeUsername}`);
+        console.log();
+
+        const answer = await new Promise((resolve) => {
+            process.stdout.write(`  ${chalk.bold('Type your username to confirm')}: `);
+            process.stdin.once('data', (buf) => resolve(buf.toString().trim()));
+        });
+
+        if (answer !== activeUsername) {
+            console.log(chalk.yellow('\n  ✖ Confirmation does not match. Aborted.'));
+            process.exit(1);
+        }
+    }
+
+    const spinner = ora(`Deleting account @${activeUsername}...`).start();
+
+    try {
+        const result = await apiRequest('DELETE', '/api/users/me', null, token);
+        spinner.succeed(chalk.green(`✔ ${result.message || 'Account permanently deleted.'}`));
+        // Clear local credentials for this account
+        try {
+            const fs = await import('node:fs');
+            const cfgPath = join(CONFIG_DIR, 'config.json');
+            const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+            if (cfg.accounts && cfg.accounts[activeUsername]) {
+                delete cfg.accounts[activeUsername];
+                if (cfg.activeUsername === activeUsername) {
+                    delete cfg.activeUsername;
+                }
+                fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+            }
+        } catch { /* best-effort cleanup */ }
+        process.exit(0);
     } catch (err) {
         spinner.fail(chalk.red(`Delete failed: ${err.message}`));
         process.exit(1);
@@ -2688,8 +2966,9 @@ async function cmdChat(args) {
         // ── Message history ──
         const chatMessages = [];
 
-        // Connect to WebSocket
-        const ws = new WebSocket(WS_URL + '/ws?token=' + config.token);
+        // Connect to WebSocket (local serverless node in serverless mode)
+        const wsBase = await ensureLocalWSBase();
+        const ws = new WebSocket(wsBase + '/ws?token=' + config.token);
 
         ws.on('open', () => {
             // Update status to connected
@@ -2861,7 +3140,8 @@ async function cmdRealtime() {
 
     try {
         const { default: WebSocket } = await import('ws');
-        const ws = new WebSocket(`${WS_URL}/ws?token=${config.token}`);
+        const wsBase = await ensureLocalWSBase();
+        const ws = new WebSocket(`${wsBase}/ws?token=${config.token}`);
 
         ws.on('open', () => {
             console.log(chalk.green('  ✓ Connected! Waiting for new posts...\n'));
@@ -3026,12 +3306,18 @@ async function main() {
             await cmdAdmin(args.slice(1));
             break;
 
+        case 'delete':
+            await cmdDeleteAccount(config, args.slice(1));
+            break;
+
         case 'nostr':
             await cmdNostr(args.slice(1));
             break;
+        case 'serve':
         case 'server':
-            await cmdServer(args.slice(1));
+            await cmdServe(args.slice(1));
             break;
+
         case 'connect':
             await cmdConnect(args.slice(1));
             break;
@@ -3053,6 +3339,14 @@ async function main() {
             console.error(chalk.red(`✖ Unknown command: "${command}"`));
             console.error(chalk.dim('  Run "kb help" to see available commands.'));
             process.exit(1);
+    }
+
+    // ---- One-shot serverless commands ----
+    // The in-process P2P node keeps the event loop alive (hyperswarm handles),
+    // which would otherwise prevent `kb register` / `kb post` / etc. from
+    // ever exiting. Give in-flight P2P writes a short grace, then exit.
+    if (IS_LOCAL && !_LONG_RUNNING_COMMANDS.has(command)) {
+        setTimeout(() => process.exit(0), 2000);
     }
 }
 

@@ -22,7 +22,7 @@ services:
   # ============================================================================
   - type: web
     name: koshi-api
-    env: node
+    runtime: node
     # Region: Choose the region closest to your users
     # Options: oregon, frankfurt, singapore, ohio, virginia, tokyo
     # region: singapore
