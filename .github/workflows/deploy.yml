@@ -1,16 +1,7 @@
 # ============================================================================
 # koshi – Terminal-Native Decentralized SNS
-# GitHub Actions CI/CD Workflow
+# GitHub Actions CI/CD Workflow (Ultra-Fast Edition)
 # License: MIT
-# ============================================================================
-# Automatically tests on every push, builds multi-arch Docker images to GHCR,
-# then triggers a deploy to Render.com via Deploy Hook when pushing to main.
-#
-# Prerequisites:
-#   1. Connect your GitHub repo to Render.com
-#   2. Create a Deploy Hook in Render dashboard:
-#      https://dashboard.render.com → your service → Settings → Deploy Hook
-#   3. Add the Deploy Hook URL as a GitHub secret: RENDER_DEPLOY_HOOK_URL
 # ============================================================================
 
 name: CI/CD
@@ -34,6 +25,7 @@ jobs:
   test:
     name: Lint & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -46,34 +38,48 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline
 
       - name: Run lint
         run: npm run lint
-        continue-on-error: true  # Don't block deployment on lint warnings
+        continue-on-error: true
 
       - name: Run tests
         run: npm test
-        continue-on-error: true  # Allow deployment while tests are being set up
+        continue-on-error: true
 
   # ============================================================================
-  # Docker Build & Push job: builds multi-arch images (amd64 + arm64) to GHCR
-  # Runs on tag pushes (versioned) and push to main (latest)
+  # Docker Build & Push job: native ARM runner + platform-split parallel build
   # ============================================================================
   docker:
-    name: Build & Push Docker (${{ matrix.target }})
+    name: Build & Push Docker (${{ matrix.target }} / ${{ matrix.platform }})
     needs: test
     if: |
       github.ref == 'refs/heads/main' ||
       startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
 
     strategy:
+      fail-fast: false
+      max-parallel: 4
       matrix:
-        target: [standalone, runner]
+        include:
+          - target: standalone
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - target: standalone
+            platform: linux/arm64
+            runner: ubuntu-latest-arm64
+          - target: runner
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - target: runner
+            platform: linux/arm64
+            runner: ubuntu-latest-arm64
 
     steps:
       - name: Checkout repository
@@ -81,6 +87,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -97,7 +105,6 @@ jobs:
           else
             echo "VERSION=v$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
           fi
-          echo "VERSION_TAGS=${{ matrix.target }}-${{ steps.version.outputs.VERSION }}" >> $GITHUB_OUTPUT
 
       - name: Determine image tags
         id: tags
@@ -108,11 +115,11 @@ jobs:
             echo "IMAGE_TAGS=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build & push ${{ matrix.target }}
-        uses: docker/build-push-action@v5
+      - name: Build & push ${{ matrix.target }} (${{ matrix.platform }})
+        uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           target: ${{ matrix.target }}
           push: true
           tags: |
@@ -120,3 +127,7 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.repository }}
             org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
+          cache-from: |
+            type=gha, mode=max
+          cache-to: |
+            type=gha, mode=max

@@ -1,35 +1,9 @@
-# Build output
-# NOTE: web/ must be INCLUDED (pre-built static files for the server)
 node_modules/
-client/node_modules/
-
-# Local dev artifacts
-*.log
-serve.log
-.svelte-kit/
-.vite/
-dist/
-
-# OS / editor
-.DS_Store
-*.swp
-*.swo
-.idea/
-.vscode/
-
-# Git
 .git/
-.gitignore
 .github/
-
-# Config / secrets
-.env
-.env.local
-.env.*.local
-.snsrc
-~/.config/koshi/
-
-# Docs (not needed in container)
 docs/
+scripts/
 *.md
-memo.txt
+.env*
+.env.*
+*.html
