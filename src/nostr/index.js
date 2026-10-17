@@ -246,6 +246,7 @@ export async function publishEvent(event, relayUrls) {
     });
 
     await Promise.allSettled(promises);
+    closeAll();
     return results;
 }
 
@@ -289,6 +290,9 @@ export async function pushPostsToNostr(posts, secretKey, relayUrls) {
     } catch {
         // best effort
     }
+
+    // Close relay connections to prevent unhandled _onmessage errors
+    closeAll();
 
     return { published, results };
 }
@@ -407,7 +411,10 @@ export async function pullPostsFromNostr(limit = 50, secretKey, relayUrls) {
         return { posts, total: posts.length };
     } catch (err) {
         logger.error({ err }, 'Nostr pull failed');
+        closeAll();
         throw new Error(`Failed to pull from Nostr: ${err.message}`);
+    } finally {
+        closeAll();
     }
 }
 
@@ -505,7 +512,10 @@ export async function testRelay(url) {
 
         return { ok: true, latencyMs: latency };
     } catch (err) {
+        closeAll();
         return { ok: false, error: err.message };
+    } finally {
+        closeAll();
     }
 }
 

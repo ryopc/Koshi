@@ -1,5 +1,5 @@
 # Build output
-web/
+# NOTE: web/ must be INCLUDED (pre-built static files for the server)
 node_modules/
 client/node_modules/
 

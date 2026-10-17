@@ -9,7 +9,7 @@
 
 ## ✨ Features
 
-### v3.0.0 — Serverless P2P Mesh
+### v3.1.4 — Serverless P2P Mesh (with Account Self-Deletion & Nostr Relay Fix)
 
 - **🏠 Serverless Mode (Default)** — Runs locally on your machine with SQLite + P2P mesh. No PostgreSQL required, no server setup needed.
 - **🖧 P2P Gossip Network** — Posts, DMs, and profiles sync automatically across connected peers via hypercore + hyperswarm. No central server.
@@ -90,7 +90,7 @@ kb serve
 
 ```bash
 # Connect to a remote koshi server
-kb connect https://koshi-api.ryopc.f5.si
+kb connect https://koshi.ryopc.org
 kb register bob        # Now registers on the remote server
 kb post "Hello from remote!"
 kb realtime            # Live stream of posts from the network
@@ -162,6 +162,7 @@ The `kb` command is your gateway to the koshi board.
 | `kb accounts` | List all saved accounts |
 | `kb switch [username]` | Switch active account (interactive) |
 | `kb account remove <username>` | Delete a saved account from config |
+| `kb delete [--force]` | Permanently delete your own account |
 | `kb serve [--port=3000] [--daemon]` | Start local serverless node (REST+WS+Web+P2P) |
 | `kb serve --stop` | Stop a background server started with `--daemon` |
 | `kb connect <url>` | Connect to a remote server |
@@ -185,7 +186,7 @@ kb post "Just joined koshi! 🌊"
 kb serve
 
 # Connect to a remote server
-kb connect https://koshi-api.ryopc.f5.si
+kb connect https://koshi.ryopc.org
 
 # Live stream
 kb realtime
@@ -210,8 +211,8 @@ Environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `KOSHI_API_URL` | `https://koshi-api.ryopc.f5.si` | API base URL (overrides serverUrl config) |
-| `KOSHI_WS_URL` | `wss://koshi-api.ryopc.f5.si` | WebSocket URL (overrides serverUrl config) |
+| `KOSHI_API_URL` | `https://koshi.ryopc.org` | API base URL (overrides serverUrl config) |
+| `KOSHI_WS_URL` | `wss://koshi.ryopc.org` | WebSocket URL (overrides serverUrl config) |
 | `--local` | — | Force serverless mode flag |
 
 ---
@@ -252,7 +253,7 @@ Switch between your local serverless node and a remote koshi server.
 
 ```bash
 kb connect http://localhost:3000    # Connect to local kb serve
-kb connect https://koshi-api.ryopc.f5.si  # Connect to public server
+kb connect https://koshi.ryopc.org  # Connect to public server
 kb connect --reset                  # Return to serverless mode
 kb connect --status                 # Show current connection target
 ```
@@ -441,7 +442,7 @@ Events: `connected`, `post_created`, `dm_received`, `dm:sent`, `user_online`, `u
 
 ## ☁️ Deployment
 
-### Docker (Standalone — No External Dependencies)
+### Docker (Standalone — No External Dependencies) ✅ Recommended
 
 **Use the pre-built image from GitHub Container Registry:**
 
@@ -451,7 +452,7 @@ docker run -d \
   --name koshi \
   -p 3000:3000 \
   -v $HOME/.config/koshi:/home/koshi/.config/koshi \
-  ghcr.io/ryopc/koshi:standalone-v3.0.0
+  ghcr.io/ryopc/koshi:standalone-v3.1.4
 ```
 
 **Or build from source:**
@@ -474,19 +475,20 @@ The standalone server automatically creates a SQLite database at `~/.config/kosh
 
 ```bash
 # Pull the pre-built image from GHCR
-docker pull ghcr.io/ryopc/koshi:runner-v3.0.0
+docker pull ghcr.io/ryopc/koshi:runner-v3.1.4
 
 # Or build from source
 docker build --target runner -t koshi:full .
 
-# Run with PostgreSQL
+# Run with PostgreSQL (quote DATABASE_URL — & in query params breaks bash)
 docker run -d \
   --name koshi-api \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://user:pass@db:5432/koshi \
-  -e JWT_SECRET=$(openssl rand -base64 32) \
-  -e NODE_ENV=production \
-  ghcr.io/ryopc/koshi:runner-v3.0.0
+  -e 'DATABASE_URL=postgresql://user:pass@db:5432/koshi' \
+  -e 'JWT_SECRET=your-secret' \
+  -e 'ADMIN_USERNAME=alice' \
+  -e 'NODE_ENV=production' \
+  ghcr.io/ryopc/koshi:runner-v3.1.4
 ```
 
 ### Docker Compose (PostgreSQL + API)
@@ -646,9 +648,97 @@ koshi/
 
 ---
 
-## 📄 License
+## 📄 License & Copyright
 
-MIT — see [LICENSE](LICENSE).
+### koshi (this project)
+
+**Package:** `@ryopc/koshi`  
+**Version:** `3.1.3`  
+**Copyright:** © 2026 ryopc  
+**License:** MIT
+
+```
+MIT License
+
+Copyright (c) 2026 ryopc
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Third-Party Dependencies (copyright attribution)
+
+All runtime and development dependencies are under **permissive licenses**. No copyleft licenses (GPL, AGPL, LGPL, MPL, SSPL, BSL) were detected, so the project's MIT declaration is not compromised.
+
+License distribution across `node_modules` (scanned):
+
+| License | Packages | Nature |
+|---------|----------|--------|
+| MIT | ~306 | Permissive (highest compatibility) |
+| Apache-2.0 | ~62 | Permissive (express patent grant) |
+| ISC | ~31 | Permissive (MIT-like) |
+| BSD-2-Clause / BSD-3-Clause | ~13 | Permissive |
+| Unlicense | 3 | Public-domain-like (no copyright assertion) |
+| Python-2.0 | 1 | Permissive (attribution required) |
+| BlueOak-1.0.0 | 1 | Permissive (modern) |
+
+#### Direct runtime dependencies
+
+| Package | License | Copyright (c) |
+|---------|---------|---------------|
+| `@noble/ed25519` | MIT | 2019 Paul Miller |
+| `b4a` | Apache-2.0 | Holepunch |
+| `better-sqlite3` | MIT | 2017 Joshua Wise |
+| `chalk` | MIT | Sindre Sorhus |
+| `cors` | MIT | 2013 Troy Goode |
+| `corestore` | Apache-2.0 | Holepunch Inc |
+| `ed2curve` | Unlicense | Dmitry Chestnykh (public domain) |
+| `express` | MIT | 2009-2014 TJ Holowaychuk; 2013-2014 Roman Shtylman; 2014-2015 Douglas Christopher Wilson |
+| `helmet` | MIT | 2012-2024 Evan Hahn, Adam Baldwin |
+| `hypercore` | MIT | 2016 Mathias Buus |
+| `hyperswarm` | MIT | 2019 Mathias Buus, Paul Frazee, David Mark Clements and contributors |
+| `nostr-tools` | Unlicense | public domain (no copyright assertion) |
+| `ora` | MIT | Sindre Sorhus |
+| `tweetnacl` | Unlicense | TweetNaCl-js contributors (public domain) |
+| `ws` | MIT | 2011 Einar Otto Stangvik; 2013 Arnout Kazemier and contributors; 2016 Luigi Pinca and contributors |
+
+#### Direct development dependencies
+
+| Package | License | Copyright (c) |
+|---------|---------|---------------|
+| `dotenv` | BSD-like | 2015 Scott Motte |
+| `eslint` | MIT | OpenJS Foundation and other contributors |
+| `express-rate-limit` | MIT | 2023 Nathan Friedly, Vedant K |
+| `jsonwebtoken` | MIT | 2015 Auth0, Inc. |
+| `nodemon` | MIT | 2010-present Remy Sharp |
+| `pg` | MIT | 2010-2021 Brian Carlson |
+| `pino` | MIT | 2016-2024 Matteo Collina, David Mark Clements and Pino contributors |
+| `pino-pretty` | MIT | 2019 the Pino team |
+| `uuid` | MIT | 2010-2020 Robert Kieffer and other contributors |
+
+#### Notable transitive dependencies (license only)
+
+| Package | License | Notes |
+|---------|---------|-------|
+| `argparse` | Python-2.0 | Permissive, attribution required |
+| `minimatch` (under `nodemon`, dev-only) | ISC | Permissive, not bundled in production |
+
+> **Note:** `Unlicense` (`ed2curve`, `nostr-tools`, `tweetnacl`) is close to the public domain and may carry legal uncertainty in certain jurisdictions; it contains no copyright assertion. `Python-2.0` (`argparse`, transitive) requires attribution. Neither is copyleft and both are compatible with MIT. See each package's `LICENSE` file for exact terms.
 
 ---
 
