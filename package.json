@@ -4,10 +4,12 @@
   "description": "Terminal-native P2P decentralized SNS — serverless koshi board v3",
   "homepage": "https://koshi.js.org",
   "type": "module",
+  "main": "src/index.js",    
   "bin": {
     "kb": "bin/cli.js"
   },
   "scripts": {
+    "build": "node build.js",
     "dev:cli": "nodemon --exec node bin/cli.js",
     "start": "node bin/cli.js serve",
     "server": "node src/local/server-standalone.js",
