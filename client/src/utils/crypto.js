@@ -1,10 +1,13 @@
-// Load noble ed25519 via dynamic import for browser compatibility
+import * as ed from '@noble/ed25519';
+import { sha512 } from '@noble/hashes/sha512.js';
+
+// Load noble ed25519 from local npm package (bundled by Vite, no esm.sh fetch)
 let edModule = null;
 
 async function getEd() {
   if (!edModule) {
-    edModule = await import('https://esm.sh/@noble/ed25519@2.1.0');
-    const { sha512 } = await import('https://esm.sh/@noble/hashes@1.5.0/sha512.js');
+    edModule = ed;
+    edModule.etc = edModule.etc || {};
     edModule.etc.sha512Sync = (...m) => {
       const total = m.reduce((s, a) => s + a.length, 0);
       const merged = new Uint8Array(total);

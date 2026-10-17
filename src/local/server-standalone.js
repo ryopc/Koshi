@@ -213,7 +213,7 @@ app.use(express.json({ limit: '100kb' }));
 
 // ---- Health ----
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', service: 'koshi-standalone', version: '2.0.2', mode: 'standalone', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'koshi-standalone', version: '3.0.0', mode: 'serverless-p2p', timestamp: new Date().toISOString() });
 });
 
 // ---- Auth: Register ----
@@ -298,6 +298,23 @@ app.put('/api/users/me', requireAuth, (req, res) => {
         db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
         const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.userId);
         return res.json({ id: user.id, username: user.username, displayName: user.display_name, bio: user.bio, avatarUrl: user.avatar_url });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+// ---- Users: Self-delete account ----
+app.delete('/api/users/me', requireAuth, (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const username = req.user.username;
+        // Delete all associated data first (SQLite has limited CASCADE support)
+        db.prepare('DELETE FROM posts WHERE author_id = ?').run(userId);
+        db.prepare('DELETE FROM dms WHERE sender_id = ? OR recipient_id = ?').run(userId, userId);
+        db.prepare('DELETE FROM follows WHERE follower_id = ? OR following_id = ?').run(userId, userId);
+        // Delete the user
+        db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+        return res.json({ success: true, message: `Account @${username} has been permanently deleted.` });
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
@@ -469,6 +486,18 @@ app.put('/api/dms/:id/read', requireAuth, (req, res) => {
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
+});
+
+// ---- Config (Web UI reads runtime config) ----
+app.get('/api/config', (req, res) => {
+    res.json({
+        version: '3.0.0',
+        mode: 'serverless-p2p',
+        serverUrl: null,            // null = same-origin (serverless default)
+        apiBase: '',                // relative (same-origin)
+        p2p: { ready: false, peers: 0 },
+        timestamp: new Date().toISOString(),
+    });
 });
 
 // ---- Static Files (Web UI) ----

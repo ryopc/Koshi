@@ -406,8 +406,8 @@
         <div class="max-w-5xl mx-auto px-6 relative z-10">
             <div class="text-center mb-12">
                 <div class="version-badge mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider" style="background: rgba(52, 211, 153, 0.12); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.25);">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                    🎉 v2.0.2 — バグ修正・安定性向上リリース
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    🎉 v3.1.4 — Serverless P2P Mesh
                 </div>
                 <h1 class="hero-title text-6xl md:text-8xl font-black leading-[1.1] mb-6" style="color: #e2e8f0;">
                     The social network<br>
@@ -459,19 +459,19 @@
         <div class="max-w-5xl mx-auto px-6">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
                 <div class="fade-up">
-                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">2.0.2</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">3.0.0</div>
                     <div class="text-sm mt-1" style="color: #64748b;">Latest Version</div>
                 </div>
                 <div class="fade-up">
-                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">22</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">24</div>
                     <div class="text-sm mt-1" style="color: #64748b;">CLI Commands</div>
                 </div>
                 <div class="fade-up">
-                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">28</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">32</div>
                     <div class="text-sm mt-1" style="color: #64748b;">API Endpoints</div>
                 </div>
                 <div class="fade-up">
-                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">3</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">4</div>
                     <div class="text-sm mt-1" style="color: #64748b;">Protocols (REST + WS + P2P)</div>
                 </div>
             </div>
@@ -594,6 +594,13 @@
                     <div><span class="output">📡 Connecting to realtime feed...</span></div>
                     <div><span class="output">✓ Connected! Waiting for new posts...</span></div>
                 </div>
+
+                <div class="code-block fade-up">
+                    <div><span class="comment"># Start local server (Web UI + P2P mesh + WebSocket)</span></div>
+                    <div><span class="prompt">$ </span><span class="cmd">kb serve</span></div>
+                    <div><span class="output">🖥️  koshi server — serverless P2P node</span></div>
+                    <div><span class="output">Web UI:  http://127.0.0.1:3000</span></div>
+                </div>
             </div>
 
             <div class="text-center mt-10">
@@ -629,7 +636,7 @@
                         </div>
                         <div class="flex justify-between items-center py-2" style="border-bottom: 1px solid rgba(148, 163, 184, 0.05);">
                             <span>Database</span>
-                            <span class="font-mono text-emerald-400">PostgreSQL 15</span>
+                            <span class="font-mono text-emerald-400">SQLite (default) / PostgreSQL</span>
                         </div>
                         <div class="flex justify-between items-center py-2" style="border-bottom: 1px solid rgba(148, 163, 184, 0.05);">
                             <span>Auth</span>
@@ -654,14 +661,19 @@
                     <div class="font-mono text-xs leading-6" style="color: #94a3b8;">
                         <div style="color: #64748b;">koshi/</div>
                         <div class="pl-4">├── <span style="color: #34d399;">bin/</span></div>
-                        <div class="pl-7">├── cli.js<span style="color: #64748b;">  # CLI entry point</span></div>
-                        <div class="pl-7">└── server.js<span style="color: #64748b;">  # Express + WS server</span></div>
+                        <div class="pl-7">├── cli.js<span style="color: #64748b;">  # CLI entry point (kb command)</span></div>
+                        <div class="pl-7">└── server.js<span style="color: #64748b;">  # Express + WS server (PostgreSQL mode)</span></div>
                         <div class="pl-4">├── <span style="color: #34d399;">src/</span></div>
+                        <div class="pl-7">├── <span style="color: #fbbf24;">local/</span> db.js, api.js, server.js, p2p-bridge.js<span style="color: #64748b;">  # Serverless SQLite+P2P</span></div>
                         <div class="pl-7">├── <span style="color: #fbbf24;">api/</span> auth.js, users.js, posts.js, dms.js</div>
                         <div class="pl-7">├── <span style="color: #fbbf24;">auth/</span> ed25519.js, jwt.js, utils.js</div>
                         <div class="pl-7">├── <span style="color: #fbbf24;">db/</span> schema.sql, migrate.js, pool.js</div>
                         <div class="pl-7">├── <span style="color: #fbbf24;">ws/</span> index.js, handlers.js</div>
+                        <div class="pl-7">├── <span style="color: #fbbf24;">p2p/</span> hypercore + hyperswarm mesh</div>
+                        <div class="pl-7">├── <span style="color: #fbbf24;">nostr/</span> nsec/npub, relay push/pull</div>
                         <div class="pl-7">└── <span style="color: #fbbf24;">middleware/</span> auth.js, rateLimit.js</div>
+                        <div class="pl-4">├── <span style="color: #34d399;">client/</span><span style="color: #64748b;">  # React Web UI (Vite)</span></div>
+                        <div class="pl-4">├── <span style="color: #34d399;">web/</span><span style="color: #64748b;">  # Built static files for serving</span></div>
                         <div class="pl-4">├── Dockerfile</div>
                         <div class="pl-4">├── render.yaml<span style="color: #64748b;">  # Render Blueprint</span></div>
                         <div class="pl-4">└── package.json</div>
@@ -699,7 +711,11 @@
                         <tr><td class="cmd-name"><code>kb profile [username]</code></td><td style="color: #94a3b8;">View a user's profile</td><td><span class="badge badge-blue">Opt</span></td></tr>
                         <tr><td class="cmd-name"><code>kb search &lt;query&gt;</code></td><td style="color: #94a3b8;">Search users by username</td><td><span class="badge badge-blue">Opt</span></td></tr>
                         <tr><td class="cmd-name"><code>kb realtime</code></td><td style="color: #94a3b8;">Connect to the live event stream</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb serve [--port=N] [--daemon]</code></td><td style="color: #94a3b8;">Start local serverless node (SQLite+P2P+Web UI)</td><td><span class="badge badge-slate">No</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb connect &lt;url&gt;</code></td><td style="color: #94a3b8;">Connect to a remote server / --reset for local mode</td><td><span class="badge badge-slate">No</span></td></tr>
                         <tr><td class="cmd-name"><code>kb admin &lt;cmd&gt;</code></td><td style="color: #94a3b8;">Admin: users, delete-user, grant, revoke</td><td><span class="badge badge-pink">Admin</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb p2p &lt;cmd&gt;</code></td><td style="color: #94a3b8;">P2P node: status, sync, peers</td><td><span class="badge badge-slate">No</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb nostr &lt;cmd&gt;</code></td><td style="color: #94a3b8;">Nostr: key, relay, push, pull</td><td><span class="badge badge-green">Yes</span></td></tr>
                     </tbody>
                 </table>
             </div>

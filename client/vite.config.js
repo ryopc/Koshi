@@ -8,6 +8,8 @@ export default defineConfig({
   build: {
     outDir: '../web',
     emptyOutDir: true,
+    cssCodeSplit: true,
+    minify: 'esbuild',
   },
   server: {
     port: 5173,

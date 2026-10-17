@@ -278,6 +278,17 @@ export async function startLocalServer(options = {}) {
         }
     });
 
+    // ---- Users: Self-delete ----
+    app.delete('/api/users/me', async (req, res) => {
+        try {
+            const userId = extractUserId(req.headers.authorization);
+            await localAPI.deleteUser(userId);
+            return res.json({ success: true, message: 'Account permanently deleted.' });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    });
+
     // ---- Posts Routes ----
     app.get('/api/posts/feed', async (req, res) => {
         try {
@@ -399,6 +410,19 @@ export async function startLocalServer(options = {}) {
             version: '3.0.0',
             mode: 'serverless-p2p',
             p2p: p2p ? p2p.getP2PStatus() : { ready: false },
+            timestamp: new Date().toISOString(),
+        });
+    });
+
+    // ---- Config (Web UI reads runtime config) ----
+    app.get('/api/config', async (req, res) => {
+        const p2p = await import('../p2p/index.js').catch(() => null);
+        res.json({
+            version: '3.0.0',
+            mode: 'serverless-p2p',
+            serverUrl: null, // null = same-origin (serverless default)
+            apiBase: '',     // relative (same-origin)
+            p2p: p2p ? p2p.getP2PStatus() : { ready: false, peers: 0 },
             timestamp: new Date().toISOString(),
         });
     });
