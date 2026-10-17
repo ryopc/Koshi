@@ -47,7 +47,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 ENV NODE_ENV=production \
     PORT=3000 \
-    LOG_LEVEL=warn
+    LOG_LEVEL=error
 
 CMD ["node", "src/local/server-standalone.js"]
 
@@ -80,6 +80,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 ENV NODE_ENV=production \
-    LOG_LEVEL=warn
+    LOG_LEVEL=error
 
 CMD ["node", "bin/server.js"]
