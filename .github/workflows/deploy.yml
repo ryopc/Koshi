@@ -120,19 +120,3 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.repository }}
             org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
-
-  # ============================================================================
-  # Deploy job: trigger Render.com deploy via Deploy Hook
-  # Only runs on push to main (not PRs)
-  # ============================================================================
-  deploy:
-    name: Deploy to Render.com
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Trigger Render.com deploy
-        run: |
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
-        shell: bash
