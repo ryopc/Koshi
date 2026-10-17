@@ -16,11 +16,7 @@
     "@noble/hashes": "^1.5.0"
   },
   "devDependencies": {
-<<<<<<< HEAD
     "@vitejs/plugin-react": "^4.3.1",
-=======
-    "@vitejs/plugin-react": "^6.0.3",
->>>>>>> ab391a3 (chore(deps-dev): bump vite and @vitejs/plugin-react in /client)
     "vite": "^8.1.5"
   }
 }

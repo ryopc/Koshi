@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './store/AuthContext.jsx';
 import { useToast } from './components/Toast.jsx';
 import { api } from './utils/api.js';
+import { getLang, setLang, t } from './i18n.js';
 import Header from './components/Header.jsx';
 import MobileNav from './components/MobileNav.jsx';
 import FeedPage from './pages/FeedPage.jsx';
@@ -26,6 +27,7 @@ export default function App() {
   const [dmUnreadCount, setDmUnreadCount] = useState(0);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showPwaPrompt, setShowPwaPrompt] = useState(false);
+  const [lang, setLangState] = useState(() => getLang());
 
   // Load unread DM count
   const refreshUnreadCount = useCallback(async () => {
@@ -109,7 +111,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header />
+      <Header lang={lang} onLangChange={setLangState} />
       <main className="main-content">
         <Routes>
           <Route path="/" element={<FeedPage />} />
@@ -140,7 +142,7 @@ export default function App() {
       </main>
 
       {/* Mobile Navigation with DM badge */}
-      <MobileNav dmUnreadCount={dmUnreadCount} />
+      <MobileNav dmUnreadCount={dmUnreadCount} lang={lang} />
 
       {/* PWA Install Prompt */}
       {showPwaPrompt && (

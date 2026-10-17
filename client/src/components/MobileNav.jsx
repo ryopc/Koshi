@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { t, getLang } from '../i18n.js';
 
 const navItems = [
   {
     to: '/',
-    label: 'Feed',
+    key: 'navHome',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -14,7 +15,7 @@ const navItems = [
   },
   {
     to: '/dm',
-    label: 'DM',
+    key: 'navDMs',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
@@ -23,7 +24,7 @@ const navItems = [
   },
   {
     to: '/search',
-    label: 'Search',
+    key: 'navPosts',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="11" cy="11" r="8" />
@@ -33,7 +34,7 @@ const navItems = [
   },
   {
     to: '/profile',
-    label: 'Profile',
+    key: 'navSettings',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
@@ -43,8 +44,9 @@ const navItems = [
   },
 ];
 
-export default function MobileNav({ dmUnreadCount = 0 }) {
+export default function MobileNav({ dmUnreadCount = 0, lang }) {
   const location = useLocation();
+  const currentLang = lang || getLang();
 
   const isActive = (to) => {
     if (to === '/') return location.pathname === '/';
@@ -61,11 +63,11 @@ export default function MobileNav({ dmUnreadCount = 0 }) {
         >
           <div style={{ position: 'relative' }}>
             {item.icon}
-            {item.label === 'DM' && dmUnreadCount > 0 && (
+            {item.key === 'navDMs' && dmUnreadCount > 0 && (
               <span className="dm-badge">{dmUnreadCount > 99 ? '99+' : dmUnreadCount}</span>
             )}
           </div>
-          <span>{item.label}</span>
+          <span>{t(item.key, currentLang)}</span>
         </Link>
       ))}
     </nav>
