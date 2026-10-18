@@ -90,6 +90,20 @@ export default {
     // P2P
     p2p: {
         desc: 'P2P 同期（hypercore + hyperswarm）',
+        start: {
+            backgroundStarted: 'P2P ノードをバックグラウンドで起動しました (PID {pid})',
+            logFile: 'ログ:',
+            stopCmd: '停止:',
+            stopDaemonCmd: 'kb p2p start --stop',
+            statusCmd: 'kb p2p start --status',
+            startForeground: 'フォアグラウンド起動: kb p2p start --foreground',
+            shuttingDown: 'P2P ノードを停止しています...',
+            noBackground: '✖ バックグラウンドの P2P ノードが見つかりません。',
+            p2pStopped: 'P2P ノード (PID {pid}) を停止しました。',
+            p2pRunning: 'P2P ノードはバックグラウンドで実行中です (PID {pid})。',
+            stopped: 'P2P ノードは停止しています。',
+            p2pNotResponding: 'P2P ノード (PID {pid}) は応答しません。',
+        },
     },
     // Other commands
     cmd: {

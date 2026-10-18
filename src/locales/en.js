@@ -90,6 +90,20 @@ export default {
     // P2P
     p2p: {
         desc: 'P2P sync (hypercore + hyperswarm)',
+        start: {
+            backgroundStarted: 'P2P node started in background (PID {pid})',
+            logFile: 'Log:',
+            stopCmd: 'Stop:',
+            stopDaemonCmd: 'kb p2p start --stop',
+            statusCmd: 'kb p2p start --status',
+            startForeground: 'Start in foreground with: kb p2p start --foreground',
+            shuttingDown: 'Shutting down P2P node...',
+            noBackground: '✖ No background P2P node found.',
+            p2pStopped: 'P2P node (PID {pid}) stopped.',
+            p2pRunning: 'P2P node is running in background (PID {pid}).',
+            stopped: 'P2P node is stopped.',
+            p2pNotResponding: 'P2P node (PID {pid}) is not responding.',
+        },
     },
     // Other commands
     cmd: {

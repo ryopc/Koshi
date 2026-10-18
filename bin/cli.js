@@ -2025,10 +2025,10 @@ async function cmdP2P(args) {
             await cmdP2PStart(args.slice(1));
             break;
         case 'stop':
-            await cmdP2PStop();
+            await cmdP2PStart(['--stop']);
             break;
         case 'status':
-            await cmdP2PStatus();
+            await cmdP2PStart(['--status']);
             break;
         case 'sync':
         case 'posts':
@@ -2050,8 +2050,10 @@ function showP2PHelp() {
     console.log(`  ${chalk.dim('─'.repeat(50))}`);
     console.log();
     console.log(`  ${chalk.bold('🔄 ノード管理')}`);
-    console.log(`    ${chalk.cyan('kb p2p start')}            P2P ノードを起動`);
-    console.log(`    ${chalk.cyan('kb p2p stop')}             P2P ノードを停止`);
+    console.log(`    ${chalk.cyan('kb p2p start')}            P2P ノードを起動（標準でバックグラウンド常駐）`);
+    console.log(`    ${chalk.cyan('kb p2p start --foreground')} フォアグラウンドで起動（デバッグ用）`);
+    console.log(`    ${chalk.cyan('kb p2p start --stop')}       バックグラウンドの P2P ノードを停止`);
+    console.log(`    ${chalk.cyan('kb p2p start --status')}     バックグラウンドの P2P ノード状態を表示`);
     console.log(`    ${chalk.cyan('kb p2p status')}           P2P ノードの状態を表示`);
     console.log();
     console.log(`  ${chalk.bold('📦 データ')}`);
@@ -2060,6 +2062,8 @@ function showP2PHelp() {
     console.log();
     console.log(`  ${chalk.dim('設定ファイル: ~/.config/koshi/config.json')}`);
     console.log(`  ${chalk.dim('  "p2p": { "autoSync": true } で自動起動')}`);
+    console.log(`  ${chalk.dim('PIDファイル: ~/.config/koshi/p2p.pid')}`);
+    console.log(`  ${chalk.dim('ログファイル: ~/.config/koshi/p2p.log')}`);
     console.log();
 }
 
@@ -2070,23 +2074,101 @@ async function cmdP2PStart(args) {
         process.exit(1);
     }
 
+    const foreground = args.includes('--foreground');
+    const stop = args.includes('--stop');
+    const status = args.includes('--status');
+    const daemon = !foreground; // 標準はバックグラウンド（デーモン）
+
+    // ---- バックグラウンド P2P ノードを停止 ----
+    if (stop) {
+        try {
+            const pid = parseInt(readFileSync(P2P_PID_FILE, 'utf8').trim(), 10);
+            if (pid && Number.isFinite(pid)) {
+                process.kill(pid, 'SIGTERM');
+                try { unlinkSync(P2P_PID_FILE); } catch { /* ignore */ }
+                console.log(`\n  ${chalk.green('✓')} ${t('p2p.start.p2pStopped', { pid })}`);
+                return;
+            }
+        } catch {
+            // fall through
+        }
+        console.log(chalk.yellow(`\n  ✖ ${t('p2p.start.noBackground')}`));
+        console.log(chalk.dim(`  ${t('p2p.start.startForeground')}`));
+        return;
+    }
+
+    // ---- バックグラウンド P2P ノードの状態確認 ----
+    if (status) {
+        try {
+            const pid = parseInt(readFileSync(P2P_PID_FILE, 'utf8').trim(), 10);
+            if (pid && Number.isFinite(pid)) {
+                try {
+                    process.kill(pid, 0); // signal 0 = 生存確認のみ
+                    console.log(`\n  ${chalk.green('✓')} ${t('p2p.start.p2pRunning', { pid })}`);
+                    console.log(`  ${chalk.dim('  ログ:')} ${chalk.italic(P2P_LOG_FILE)}`);
+                    return;
+                } catch {
+                    console.log(chalk.yellow(`\n  ✖ ${t('p2p.start.p2pNotResponding', { pid })}`));
+                    try { unlinkSync(P2P_PID_FILE); } catch { /* ignore */ }
+                    return;
+                }
+            }
+        } catch {
+            // fall through
+        }
+        console.log(chalk.dim(`\n  ○ ${t('p2p.start.stopped')}`));
+        console.log(chalk.dim(`  ${t('p2p.start.startForeground')}`));
+        return;
+    }
+
+    // ---- デーモンモード：デタッチド子プロセスを spawn（標準） ----
+    if (daemon) {
+        const { spawn } = await import('node:child_process');
+        const { fileURLToPath } = await import('node:url');
+        const out = openSync(P2P_LOG_FILE, 'a');
+        const child = spawn(process.execPath, [fileURLToPath(import.meta.url), 'p2p', 'start', '--foreground'], {
+            detached: true,
+            stdio: ['ignore', out, out],
+            env: { ...process.env, KOSHI_DAEMON: '1', LOG_LEVEL: 'warn' },
+        });
+        child.unref();
+        try { writeFileSync(P2P_PID_FILE, String(child.pid)); } catch { /* best-effort */ }
+        console.log(`\n  ${chalk.green('✓')} ${t('p2p.start.backgroundStarted', { pid: child.pid })}`);
+        console.log(`  ${chalk.dim('  ログ:')}   ${chalk.italic(P2P_LOG_FILE)}`);
+        console.log(`  ${chalk.dim('  停止:')}  ${chalk.italic(t('p2p.start.stopDaemonCmd'))}`);
+        console.log(`  ${chalk.dim('  状態:')}  ${chalk.italic(t('p2p.start.statusCmd'))}`);
+        return;
+    }
+
+    // ---- フォアグラウンドモード（--foreground / デバッグ用） ----
     const spinner = ora('Starting P2P node...').start();
 
     try {
-        const { initP2PNode, getP2PStatus } = await import('../src/p2p/index.js');
+        const { initP2PNode, getP2PStatus, closeP2PNode } = await import('../src/p2p/index.js');
         const ok = await initP2PNode();
 
         if (ok) {
-            const status = getP2PStatus();
             spinner.succeed(chalk.green('P2P node started!'));
+            const p2pStatus = getP2PStatus();
             console.log(`\n  ${chalk.bold('Status:')}     ${chalk.green('Running')}`);
-            console.log(`  ${chalk.bold('Posts:')}      ${chalk.cyan(status.posts)}`);
-            console.log(`  ${chalk.bold('DMs:')}         ${chalk.cyan(status.dms)}`);
-            console.log(`  ${chalk.bold('Peers:')}       ${chalk.cyan(status.peers)}`);
-            console.log(`\n  ${chalk.dim('KB p2p status  で状態確認')}`);
-            console.log(`  ${chalk.dim('kb p2p stop    で停止')}`);
+            console.log(`  ${chalk.bold('Posts:')}      ${chalk.cyan(p2pStatus.posts)}`);
+            console.log(`  ${chalk.bold('DMs:')}         ${chalk.cyan(p2pStatus.dms)}`);
+            console.log(`  ${chalk.bold('Peers:')}       ${chalk.cyan(p2pStatus.peers)}`);
+            console.log(`\n  ${chalk.dim('Ctrl+C で停止')}`);
+
+            const shutdown = async () => {
+                console.log(chalk.dim(`\n  P2P ノードを停止しています...`));
+                try { await closeP2PNode(); } catch { /* ignore */ }
+                process.exit(0);
+            };
+            process.on('SIGINT', shutdown);
+            process.on('SIGTERM', shutdown);
+
+            // プロセスを維持（hyperswarm などのハンドルも保持される）
+            await new Promise(() => {});
         } else {
             spinner.fail(chalk.red('Failed to start P2P node. Is the database connected?'));
+            process.exit(1);
         }
     } catch (err) {
         spinner.fail(chalk.red(`Failed: ${err.message}`));
@@ -2195,6 +2277,8 @@ async function cmdP2PDMs(args) {
 // ============================================================================
 
 const SERVE_PID_FILE = join(CONFIG_DIR, 'serve.pid');
+const P2P_PID_FILE = join(CONFIG_DIR, 'p2p.pid');
+const P2P_LOG_FILE = join(CONFIG_DIR, 'p2p.log');
 
 function writeServePid() {
     try {
