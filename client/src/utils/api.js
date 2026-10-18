@@ -3,7 +3,7 @@ import { getToken } from './storage.js';
 // ---------------------------------------------------------------------------
 // Dynamic API base resolution
 //
-// In v3.0.0 the Web UI discovers its API base URL from `config.serverUrl`
+// In v3.1.6 the Web UI discovers its API base URL from `config.serverUrl`
 // exposed by the server's `/api/config` endpoint.  When `serverUrl` is absent
 // (serverless / same-origin mode), the client falls back to relative URLs so
 // that the API and Web UI always share the same origin.

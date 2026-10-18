@@ -83,7 +83,7 @@ server.listen(PORT, '0.0.0.0', () => {
         `🚀 koshi server running on port ${PORT}`
     );
     console.log(`\n  ╔══════════════════════════════════════════════╗`);
-    console.log(`  ║        🏄 koshi server v3.0.0             ║`);
+    console.log(`  ║        🏄 koshi server v3.1.6             ║`);
     console.log(`  ╠══════════════════════════════════════════════╣`);
     console.log(`  ║  REST API : http://localhost:${PORT}/api            ║`);
     console.log(`  ║  WebSocket: ws://localhost:${PORT}/ws               ║`);

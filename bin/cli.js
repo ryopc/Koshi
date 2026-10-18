@@ -71,7 +71,7 @@ const WS_URL = getWsBase();
 // ============================================================================
 // Local mode support (server-independent operation) — v3 serverless-first
 // ============================================================================
-// v3.0.0: P2P is the base infrastructure. Local mode is the DEFAULT:
+// v3.1.6: P2P is the base infrastructure. Local mode is the DEFAULT:
 //   - explicit `--local` flag, OR
 //   - no server URL configured (user never ran `kb connect <url>`)
 // Remote mode only applies when the user explicitly connected to a server.
@@ -2575,7 +2575,7 @@ function showHelp(command = null) {
         : `  ${chalk.red('○')} ${chalk.dim(t('help.notLoggedIn'))}`;
 
     console.log(`\n  ${chalk.bold.cyan('🏄 koshi — Terminal-Native Decentralized SNS')}`);
-    console.log(`  ${chalk.dim('Version 3.0.0 — Serverless P2P mesh')}`);
+    console.log(`  ${chalk.dim('Version 3.1.6 — Serverless P2P mesh')}`);
     console.log(`\n  ${activeInfo}`);
     console.log(`\n  ${chalk.bold('Usage:')} kb <command> [options]\n`);
 
@@ -2641,7 +2641,7 @@ function showHelp(command = null) {
 // Command: version
 // ============================================================================
 function showVersion() {
-    console.log('koshi v3.0.0' + (IS_LOCAL ? ' (serverless mode)' : ''));
+    console.log('koshi v3.1.6' + (IS_LOCAL ? ' (serverless mode)' : ''));
     console.log('Terminal-native decentralized SNS — serverless P2P mesh');
     console.log('License: MIT');
     console.log('Author: game_ryo');

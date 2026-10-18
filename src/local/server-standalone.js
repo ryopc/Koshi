@@ -213,7 +213,7 @@ app.use(express.json({ limit: '100kb' }));
 
 // ---- Health ----
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', service: 'koshi-standalone', version: '3.0.0', mode: 'serverless-p2p', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'koshi-standalone', version: '3.1.6', mode: 'serverless-p2p', timestamp: new Date().toISOString() });
 });
 
 // ---- Auth: Register ----
@@ -491,7 +491,7 @@ app.put('/api/dms/:id/read', requireAuth, (req, res) => {
 // ---- Config (Web UI reads runtime config) ----
 app.get('/api/config', (req, res) => {
     res.json({
-        version: '3.0.0',
+        version: '3.1.6',
         mode: 'serverless-p2p',
         serverUrl: null,            // null = same-origin (serverless default)
         apiBase: '',                // relative (same-origin)

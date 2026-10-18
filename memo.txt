@@ -3,7 +3,7 @@
 
 ## プロジェクト概要
 koshiは「ターミナルネイティブ分散型SNS」。ed25519暗号で認証するソーシャルネットワーク。
-- バージョン: 3.0.0 (serverless P2P mesh)
+- バージョン: 3.1.6 (serverless P2P mesh)
 - ライセンス: MIT
 - 作者: game_ryo (ryopc)
 
@@ -77,7 +77,7 @@ web/                - ビルド済み静的ファイル
 - Express REST API (全エンドポイント対応)
 - WebSocketリアルタイム通信用
 - 自動マイグレーション (起動時にテーブル作成)
-- 静的ファイル配信 (Web UI) — `/api/config` エンドポイント追加済み (v3.0.0)
+- 静的ファイル配信 (Web UI) — `/api/config` エンドポイント追加済み (v3.1.6)
 - JWT認証 (HMAC-SHA256、外部ライブラリ不要)
 - ed25519署名検証 (tweetnacl使用)
 - 使用方法: `node src/local/server-standalone.js`
@@ -90,7 +90,7 @@ web/                - ビルド済み静的ファイル
 8. hypercore/hyperswarmはCLI/サーバーで使用、Web UIはREST+WS経由
 
 ## 重要な設計判断
-- **Serverless P2P mesh (v3.0.0)**: SQLite + hypercore + hyperswarm でローカル実行。PostgreSQL不要
+- **Serverless P2P mesh (v3.1.6)**: SQLite + hypercore + hyperswarm でローカル実行。PostgreSQL不要
 - **standaloneサーバー**: SQLite使用、PostgreSQL不要、誰でもワンコマンド起動可能
 - **サーバーURL管理**: config.jsonのserverUrlフィールドで保存、CLIから切り替え可能
 - **API互換性**: standaloneサーバーは既存のkoshi APIと完全互換
@@ -116,15 +116,15 @@ kb connect --reset                    # serverlessモードに戻す
 - ~~package.jsonにserverスクリプトがない~~ → server/server:dev追加済み
 - ~~client/src/utils/api.jsはconfigのserverUrl未対応~~ → /api/configエンドポイント + 動的解決追加済み
 - ~~Dockerfile standaloneターゲットのwget欠落~~ → apk add --no-cache wget 追加
-- ~~server-standalone.jsヘルスチェックのversion 2.0.2~~ → 3.0.0修正
+- ~~server-standalone.jsヘルスチェックのversion 2.0.2~~ → 3.1.6修正
 - ~~server.js /api/configのp2pスコープ~~ → async + 動的import修正
 
 ## ファイル変更一覧 (Phase 0 完了 ✅)
 ```
-[修正] README.md                    - v3.0.0 rewrite (serverless-first, kb serve/connect docs)
-[修正] package.json                 - v3.0.0, server/server:devスクリプト確認済み
+[修正] README.md                    - v3.1.6 rewrite (serverless-first, kb serve/connect docs)
+[修正] package.json                 - v3.1.6, server/server:devスクリプト確認済み
 [修正] Dockerfile                   - standaloneターゲット修正 (apk add wget, build deps)
-[修正] src/local/server-standalone.js - /api/config追加, health version 3.0.0
+[修正] src/local/server-standalone.js - /api/config追加, health version 3.1.6
 [修正] src/local/server.js          - /api/config追加 (async, dynamic p2p import)
 [修正] client/src/utils/api.js       - 動的APIベースURL取得 (config.serverUrl対応)
 [修正] bin/cli.js                   - cmdServe/cmdConnect実装, getApiBase動的化

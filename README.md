@@ -1,6 +1,6 @@
 # 🏄 koshi — Terminal-Native Decentralized SNS
 
-**Version 3.0.0** · MIT License · by [game_ryo](https://github.com/ryopc)
+**Version 3.1.6** · MIT License · by [game_ryo](https://github.com/ryopc)
 
 > A terminal-native, decentralized social network powered by ed25519 cryptography.
 > **Serverless P2P mesh is the default** — no database or server setup needed. Just install and go.
@@ -9,7 +9,7 @@
 
 ## ✨ Features
 
-### v3.1.5 — Serverless P2P Mesh (with Account Self-Deletion & Nostr Relay Fix)
+### v3.1.6 — Serverless P2P Mesh (with Account Self-Deletion & Nostr Relay Fix)
 
 - **🏠 Serverless Mode (Default)** — Runs locally on your machine with SQLite + P2P mesh. No PostgreSQL required, no server setup needed.
 - **🖧 P2P Gossip Network** — Posts, DMs, and profiles sync automatically across connected peers via hypercore + hyperswarm. No central server.

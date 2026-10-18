@@ -1,5 +1,5 @@
 // ============================================================================
-// koshi – Terminal-Native Decentralized SNS v3.0.0
+// koshi – Terminal-Native Decentralized SNS v3.1.6
 // P2P Sync Module (hypercore + corestore + hyperswarm) — Serverless Mesh
 // License: MIT
 // ============================================================================

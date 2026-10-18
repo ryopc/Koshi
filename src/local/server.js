@@ -1,5 +1,5 @@
 // ============================================================================
-// koshi – Terminal-Native Decentralized SNS v3.0.0
+// koshi – Terminal-Native Decentralized SNS v3.1.6
 // Local Server (Standalone — REST + WebSocket + Static Web UI)
 // License: MIT
 // ============================================================================
@@ -407,7 +407,7 @@ export async function startLocalServer(options = {}) {
         res.json({
             status: 'ok',
             service: 'koshi-local',
-            version: '3.0.0',
+            version: '3.1.6',
             mode: 'serverless-p2p',
             p2p: p2p ? p2p.getP2PStatus() : { ready: false },
             timestamp: new Date().toISOString(),
@@ -418,7 +418,7 @@ export async function startLocalServer(options = {}) {
     app.get('/api/config', async (req, res) => {
         const p2p = await import('../p2p/index.js').catch(() => null);
         res.json({
-            version: '3.0.0',
+            version: '3.1.6',
             mode: 'serverless-p2p',
             serverUrl: null, // null = same-origin (serverless default)
             apiBase: '',     // relative (same-origin)

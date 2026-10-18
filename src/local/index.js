@@ -1,5 +1,5 @@
 // ============================================================================
-// koshi – Terminal-Native Decentralized SNS v3.0.0
+// koshi – Terminal-Native Decentralized SNS v3.1.6
 // Local Mode — Unified Entry Point (serverless)
 // License: MIT
 // ============================================================================

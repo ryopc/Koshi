@@ -52,7 +52,7 @@ export default {
     // Help
     help: {
         title: '🏄 koshi — Terminal-Native Decentralized SNS',
-        v3: 'Version 3.0.0 — Serverless P2P Mesh',
+        v3: 'Version 3.1.6 — Serverless P2P Mesh',
         usage: 'Usage:',
         commands: 'Commands:',
         options: 'Options:',

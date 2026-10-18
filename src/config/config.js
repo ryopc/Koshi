@@ -1,5 +1,5 @@
 // ============================================================================
-// koshi – Terminal-Native Decentralized SNS v3.0.0
+// koshi – Terminal-Native Decentralized SNS v3.1.6
 // Configuration Management (Multi-Account + Nostr + P2P)
 // License: MIT
 // ============================================================================
@@ -48,7 +48,7 @@ const CONFIG_DIR = join(homedir(), '.config', 'koshi');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 const SNSRC_FILE = join(homedir(), '.snsrc');
 const DEFAULT_CORESTORE_DIR = join(CONFIG_DIR, 'corestore');
-const KOSHI_VERSION = '3.0.0';
+const KOSHI_VERSION = '3.1.6';
 
 // ============================================================================
 // P2P discovery topics (v3: serverless global mesh)
