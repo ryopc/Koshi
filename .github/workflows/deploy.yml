@@ -54,9 +54,6 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: read
-      packages: write
 
     strategy:
       fail-fast: false
