@@ -62,8 +62,15 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        target: [standalone, runner]
-        platform: [linux/amd64, linux/arm64]
+        include:
+          - target: standalone
+            platform: linux/amd64
+          - target: standalone
+            platform: linux/arm64
+          - target: runner
+            platform: linux/amd64
+          - target: runner
+            platform: linux/arm64
 
     steps:
       - name: Checkout repository
