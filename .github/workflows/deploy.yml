@@ -49,18 +49,16 @@ jobs:
       - name: Run tests
         run: npm test
         continue-on-error: true
+        continue-on-error: true
 
   # ============================================================================
   # Docker Build & Push job
   # ============================================================================
   docker:
-    name: Build & Push Docker (${{ matrix.target }} / ${{ matrix.platform }})
+    name: Build & Push Docker
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: read
-      packages: write
 
     strategy:
       fail-fast: false
