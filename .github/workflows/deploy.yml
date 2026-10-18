@@ -175,4 +175,3 @@ jobs:
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:runner-latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:runner-linux-amd64 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:runner-linux-arm64
-  
