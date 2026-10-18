@@ -58,13 +58,6 @@ jobs:
       contents: read
       packages: write
 
-    strategy:
-      fail-fast: false
-      max-parallel: 4
-      matrix:
-        target: [standalone, runner]
-        platform: [linux/amd64, linux/arm64]
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -86,36 +79,16 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GHCR_PAT }}
 
-      - name: Extract version
-        id: version
-        run: |
-          if [[ "${GITHUB_REF#refs/tags/}" == v* ]]; then
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=v$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Determine image tags
-        id: tags
-        run: |
-          echo "IMAGE_TAGS=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-${{ matrix.platform | replace('/', '-') }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-${{ matrix.platform | replace('/', '-') }}-${{ steps.version.outputs.VERSION }}" >> $GITHUB_OUTPUT
-
-      - name: Build & push ${{ matrix.target }} (${{ matrix.platform }})
+      - name: Build & push standalone (linux/amd64)
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: ${{ matrix.platform }}
-          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          target: standalone
           push: true
-          tags: |
-            ${{ steps.tags.outputs.IMAGE_TAGS }}
-          labels: |
-            org.opencontainers.image.source=${{ github.repository }}
-            org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
-          cache-from: |
-            type=gha, mode=max
-          cache-to: |
-            type=gha, mode=max
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:standalone-test
+          cache-from: type=gha, mode=max
+          cache-to: type=gha, mode=max
 
   # ============================================================================
   # Manifest job: create multi-arch manifest lists
