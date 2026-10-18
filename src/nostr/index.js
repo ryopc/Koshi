@@ -237,8 +237,19 @@ export async function publishEvent(event, relayUrls) {
 
     const promises = relayUrls.map(async (url) => {
         try {
-            const reason = await pool.publish([url], event);
-            results.push({ url, ok: true, reason: reason?.[0] });
+            // SimplePool.publish は単一プロミスではなくプロミスの配列を返す。
+            // 各リレーへの publish プロミスを allSettled で待機し、接続タイムアウト等の
+            // リジェクトを未処理のままにしない（ERR_UNHANDLED_REJECTION 対策）。
+            const publishPromises = pool.publish([url], event);
+            const settled = await Promise.allSettled(publishPromises);
+            const first = settled[0];
+            if (first?.status === 'fulfilled') {
+                results.push({ url, ok: true, reason: first.value });
+            } else {
+                const reason = first?.reason ?? 'publish failed';
+                logger.warn({ url, err: String(reason) }, 'Nostr publish failed');
+                results.push({ url, ok: false, reason: String(reason) });
+            }
         } catch (err) {
             logger.warn({ url, err: err.message }, 'Nostr publish failed');
             results.push({ url, ok: false, reason: err.message });
