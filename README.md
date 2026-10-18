@@ -452,7 +452,7 @@ docker run -d \
   --name koshi \
   -p 3000:3000 \
   -v $HOME/.config/koshi:/home/koshi/.config/koshi \
-  ghcr.io/ryopc/koshi:standalone-v3.1.5
+  ghcr.io/ryopc/koshi:standalone-latest
 ```
 
 **Or build from source:**
@@ -475,7 +475,7 @@ The standalone server automatically creates a SQLite database at `~/.config/kosh
 
 ```bash
 # Pull the pre-built image from GHCR
-docker pull ghcr.io/ryopc/koshi:runner-v3.1.5
+docker pull ghcr.io/ryopc/koshi:runner-latest
 
 # Or build from source
 docker build --target runner -t koshi:full .
@@ -488,7 +488,7 @@ docker run -d \
   -e 'JWT_SECRET=your-secret' \
   -e 'ADMIN_USERNAME=alice' \
   -e 'NODE_ENV=production' \
-  ghcr.io/ryopc/koshi:runner-v3.1.5
+  ghcr.io/ryopc/koshi:runner-latest
 ```
 
 ### Docker Compose (PostgreSQL + API)

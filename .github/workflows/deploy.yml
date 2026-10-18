@@ -111,11 +111,7 @@ jobs:
       - name: Determine image tags
         id: tags
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "IMAGE_TAGS=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-${{ steps.version.outputs.VERSION }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}" >> $GITHUB_OUTPUT
-          else
-            echo "IMAGE_TAGS=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}" >> $GITHUB_OUTPUT
-          fi
+          echo "IMAGE_TAGS=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}" >> $GITHUB_OUTPUT
 
       - name: Build & push ${{ matrix.target }} (${{ matrix.platform }})
         uses: docker/build-push-action@v6
