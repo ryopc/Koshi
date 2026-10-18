@@ -54,12 +54,6 @@ jobs:
       contents: read
       packages: write
 
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [standalone, runner]
-        platform: [linux/amd64]
-
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -81,23 +75,29 @@ jobs:
           else
             echo "VERSION=v$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
           fi
-      - name: Determine image tags
-        id: tags
-        run: |
-          echo "IMAGE_TAGS=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-${{ matrix.platform | replace('/', '-') }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-${{ matrix.platform | replace('/', '-') }}-${{ steps.build_version.outputs.VERSION }}" >> $GITHUB_OUTPUT
-      - name: Build & push ${{ matrix.target }} (${{ matrix.platform }})
+      - name: Build & push standalone (linux/amd64)
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: ${{ matrix.platform }}
-          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          target: standalone
           push: true
-          tags: |
-            ${{ steps.tags.outputs.IMAGE_TAGS }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:standalone-linux-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:standalone-latest
           labels: |
             org.opencontainers.image.source=${{ github.repository }}
             org.opencontainers.image.version=${{ steps.build_version.outputs.VERSION }}
-          cache-from: |
-            type=gha, mode=max
-          cache-to: |
-            type=gha, mode=max
+          cache-from: type=gha, mode=max
+          cache-to: type=gha, mode=max
+      - name: Build & push runner (linux/amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          target: runner
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:runner-linux-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:runner-latest
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.build_version.outputs.VERSION }}
+          cache-from: type=gha, mode=max
+          cache-to: type=gha, mode=max
