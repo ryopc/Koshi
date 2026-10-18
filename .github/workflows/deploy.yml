@@ -98,8 +98,8 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GHCR_PAT }}
 
-      - name: Extract version
-        id: version
+      - name: Extract build version
+        id: build_version
         run: |
           if [[ "${GITHUB_REF#refs/tags/}" == v* ]]; then
             echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
@@ -110,7 +110,7 @@ jobs:
       - name: Determine image tags
         id: tags
         run: |
-          echo "IMAGE_TAGS=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-${{ matrix.platform | replace('/', '-') }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-${{ matrix.platform | replace('/', '-') }}-${{ steps.version.outputs.VERSION }}" >> $GITHUB_OUTPUT
+          echo "IMAGE_TAGS=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-${{ matrix.platform | replace('/', '-') }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.target }}-${{ matrix.platform | replace('/', '-') }}-${{ steps.build_version.outputs.VERSION }}" >> $GITHUB_OUTPUT
 
       - name: Build & push ${{ matrix.target }} (${{ matrix.platform }})
         uses: docker/build-push-action@v6
@@ -123,7 +123,7 @@ jobs:
             ${{ steps.tags.outputs.IMAGE_TAGS }}
           labels: |
             org.opencontainers.image.source=${{ github.repository }}
-            org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
+            org.opencontainers.image.version=${{ steps.build_version.outputs.VERSION }}
           cache-from: |
             type=gha, mode=max
           cache-to: |
@@ -151,8 +151,8 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GHCR_PAT }}
 
-      - name: Extract version
-        id: version
+      - name: Extract manifest version
+        id: manifest_version
         run: |
           if [[ "${GITHUB_REF#refs/tags/}" == v* ]]; then
             echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
@@ -163,7 +163,7 @@ jobs:
       - name: Create manifest for standalone
         run: |
           docker buildx imagetools create \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:standalone-${{ steps.version.outputs.VERSION }} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:standalone-${{ steps.manifest_version.outputs.VERSION }} \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:standalone-latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:standalone-linux-amd64 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:standalone-linux-arm64
@@ -171,7 +171,7 @@ jobs:
       - name: Create manifest for runner
         run: |
           docker buildx imagetools create \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:runner-${{ steps.version.outputs.VERSION }} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:runner-${{ steps.manifest_version.outputs.VERSION }} \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:runner-latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:runner-linux-amd64 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:runner-linux-arm64
