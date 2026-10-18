@@ -1,9 +1,39 @@
-node_modules/
-.git/
-.github/
+# Dependencies
+node_modules
+client/node_modules
+
+# Build outputs
+web/assets
+client/dist
+
+# Config & data
+.config/koshi
+*.db
+*.sqlite
+*.log
+
+# IDE / OS
+.vscode
+.idea
+.DS_Store
+
+# Git
+.git
+.gitignore
+
+# Tests / CI
+coverage
+*.test.js
+jest.config.js
+
+# Docs (not needed in container)
 docs/
-scripts/
 *.md
-.env*
-.env.*
-*.html
+!README.md
+
+# Misc
+memo.txt
+*.pdf
+build.js
+render.yaml
+scripts/

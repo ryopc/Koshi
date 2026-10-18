@@ -1,23 +1,11 @@
+import nacl from 'tweetnacl';
 import * as ed from '@noble/ed25519';
-import { sha512 } from '@noble/hashes/sha512.js';
+import { createHash } from 'node:crypto';
 
-// Load noble ed25519 from local npm package (bundled by Vite, no esm.sh fetch)
-let edModule = null;
-
-async function getEd() {
-  if (!edModule) {
-    edModule = ed;
-    edModule.etc = edModule.etc || {};
-    edModule.etc.sha512Sync = (...m) => {
-      const total = m.reduce((s, a) => s + a.length, 0);
-      const merged = new Uint8Array(total);
-      let o = 0;
-      for (const a of m) { merged.set(a, o); o += a.length; }
-      return sha512(merged);
-    };
-  }
-  return edModule;
-}
+// Fix for ESM read-only module namespace: pass etc to signAsync
+const etc = {
+    sha512Sync: (data) => createHash('sha512').update(data).digest(),
+};
 
 const enc = new TextEncoder();
 
@@ -30,14 +18,21 @@ export const dehex = (h) => {
   return b;
 };
 
+// Use tweetnacl for keypair generation (no etc needed)
 export async function generateKeypair() {
-  const ed = await getEd();
-  const sk = ed.utils.randomPrivateKey();
-  const pk = ed.getPublicKey(sk);
-  return { secretKey: hex(sk), publicKey: hex(pk), rawSecretKey: sk };
+  const keypair = nacl.sign.keyPair();
+  return {
+    secretKey: hex(keypair.secretKey),
+    publicKey: hex(keypair.publicKey),
+    rawSecretKey: keypair.secretKey,
+  };
 }
 
+// Use @noble/ed25519 signAsync with etc option
 export async function signMessage(message, secretKeyHex) {
-  const ed = await getEd();
-  return hex(ed.sign(enc.encode(message), dehex(secretKeyHex)));
+  const skBytes = dehex(secretKeyHex);
+  // tweetnacl secretKey is 64 bytes (seed + public), noble expects 32-byte seed
+  const seedBytes = skBytes.length === 64 ? skBytes.slice(0, 32) : skBytes;
+  const sig = await ed.signAsync(enc.encode(message), seedBytes, etc);
+  return hex(sig);
 }

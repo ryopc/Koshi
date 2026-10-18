@@ -10,9 +10,16 @@
 // All keys and signatures are hex-encoded strings for storage and transport.
 // ============================================================================
 
+import { createHash } from 'node:crypto';
 import * as ed from '@noble/ed25519';
 import nacl from 'tweetnacl';
 import { hexToBytes, bytesToHex } from './utils.js';
+
+// FIX: @noble/ed25519 v2.x in ESM has read-only module namespace.
+// Pass etc.sha512Sync directly to signAsync/verifyAsync as options.
+const etc = {
+    sha512Sync: (data) => createHash('sha512').update(data).digest(),
+};
 
 /**
  * Generate a new ed25519 keypair.
@@ -42,7 +49,7 @@ export async function signMessage(message, secretKey) {
     // 64-byte tweetnacl-format key. If given 64 bytes, take only the seed.
     const seedBytes = skBytes.length === 64 ? skBytes.slice(0, 32) : skBytes;
     const msgBytes = new TextEncoder().encode(message);
-    const signature = await ed.signAsync(msgBytes, seedBytes);
+    const signature = await ed.signAsync(msgBytes, seedBytes, etc);
     return bytesToHex(signature);
 }
 
@@ -59,8 +66,8 @@ export async function verifySignature(message, signature, publicKey) {
         const msgBytes = new TextEncoder().encode(message);
         const sigBytes = hexToBytes(signature);
         const pkBytes = hexToBytes(publicKey);
-        // Use verifyAsync to avoid needing etc.sha512Sync
-        return await ed.verifyAsync(sigBytes, msgBytes, pkBytes);
+        // Pass etc.sha512Sync via options to avoid read-only module namespace issue
+        return await ed.verifyAsync(sigBytes, msgBytes, pkBytes, etc);
     } catch (err) {
         // If any input is malformed (wrong length, invalid hex, etc.), return false
         return false;

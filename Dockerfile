@@ -12,10 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 make g++ sqlite3 libsqlite3-dev wget ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 
 # devDependencies をインストールしない → node_modules レイヤーを軽量化
-RUN npm install --no-audit --no-fund --omit=dev
+RUN npm ci --no-audit --no-fund --omit=dev
 
 # Stage 2: Standalone server image (SQLite)
 FROM node:20-bookworm AS standalone
@@ -37,6 +37,8 @@ COPY web/ ./web/
 
 RUN mkdir -p /home/koshi/.config/koshi && \
     chown -R koshi:koshi /app /home/koshi
+
+ENV HOME=/home/koshi
 
 USER koshi
 
@@ -71,6 +73,8 @@ COPY web/ ./web/
 
 RUN mkdir -p /home/koshi/.config/koshi && \
     chown -R koshi:koshi /app /home/koshi
+
+ENV HOME=/home/koshi
 
 USER koshi
 
