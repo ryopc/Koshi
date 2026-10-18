@@ -94,8 +94,10 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # 組織パッケージ ghcr.io/ryopc/* への書き込みには、
+          # write:packages スコープ付き PAT が必要です。
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_PAT }}
 
       - name: Extract version
         id: version
