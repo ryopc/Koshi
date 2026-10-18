@@ -9,7 +9,8 @@ name: CI/CD
 on:
   push:
     branches: [main]
-    tags: [ 'v*' ]
+    tags:
+      - 'v*'
 
 permissions:
   contents: read
