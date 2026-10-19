@@ -432,6 +432,8 @@
         <pre><code><span class="comment"># Pull and run the pre-built standalone image (GHCR)</span>
 <span class="prompt">$</span> docker run -d \
   --name koshi \
+  --user koshi \
+  -e HOME=/home/koshi \
   -p 3000:3000 \
   -v $HOME/.config/koshi:/home/koshi/.config/koshi \
   ghcr.io/ryopc/koshi:standalone-latest
@@ -1499,6 +1501,8 @@ wss://koshi.ryopc.org/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
         <pre><code><span class="comment"># Pull pre-built image from GitHub Container Registry (recommended)</span>
 <span class="prompt">$</span> docker run -d \
   --name koshi \
+  --user koshi \
+  -e HOME=/home/koshi \
   -p 3000:3000 \
   -v $HOME/.config/koshi:/home/koshi/.config/koshi \
   ghcr.io/ryopc/koshi:standalone-latest
@@ -1509,6 +1513,8 @@ wss://koshi.ryopc.org/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
 <span class="comment"># Run the container (data persists in volume)</span>
 <span class="prompt">$</span> docker run -d \
   --name koshi \
+  --user koshi \
+  -e HOME=/home/koshi \
   -p 3000:3000 \
   -v $HOME/.config/koshi:/home/koshi/.config/koshi \
   koshi:standalone</code></pre>
