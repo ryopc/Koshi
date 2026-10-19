@@ -767,6 +767,148 @@
         </div>
     </section>
 
+    <!-- CLI: Nostr Reference -->
+    <section class="py-16 relative section-padding" style="background: #0f172a;" id="cli-nostr">
+        <div class="max-w-4xl mx-auto px-6">
+            <div class="text-center mb-12 md:mb-16">
+                <span class="badge badge-purple mb-4">CLI Reference</span>
+                <h2 class="text-3xl md:text-4xl font-black" style="color: #e2e8f0;">Nostr Integration</h2>
+            </div>
+
+            <div class="space-y-8">
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb nostr key generate</h3>
+                <p style="color: #94a3b8;">Generate a new Nostr secp256k1 keypair (nsec/npub) and save to the active account config.</p>
+                <pre class="code-block"><code><span class="prompt">$</span> <span class="cmd">kb nostr key generate</span>
+<span class="output">✔ Nostr keypair generated and saved!</span>
+
+<span class="output">  npub: npub1...</span>
+<span class="output">  nsec: nsec1...</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb nostr key import <nsec></h3>
+                <p style="color: #94a3b8;">Import an existing Nostr secret key (nsec1... or 64-char hex).</p>
+                <pre class="code-block"><code><span class="prompt">$</span> <span class="cmd">kb nostr key import nsec1...</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb nostr key show</h3>
+                <p style="color: #94a3b8;">Display current Nostr keys, relay list, and sync timestamps.</p>
+                <pre class="code-block"><code><span class="prompt">$</span> <span class="cmd">kb nostr key show</span>
+<span class="output">  🔑 Nostr Keys</span>
+<span class="output">  npub: npub1...</span>
+<span class="output">  nsec: nsec1abc... (truncated)</span>
+<span class="output">  Relays: 4 件設定</span>
+<span class="output">  Last Push: 7/14/2026, 2:30:00 PM</span>
+<span class="output">  Last Pull: 7/14/2026, 2:35:00 PM</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb nostr npub</h3>
+                <p style="color: #94a3b8;">Output only the public key (npub) for sharing.</p>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb nostr relay list</h3>
+                <p style="color: #94a3b8;">List configured Nostr relays.</p>
+                <pre class="code-block"><code><span class="prompt">$</span> <span class="cmd">kb nostr relay list</span>
+<span class="output">  🌐 Nostr Relays (4件)</span>
+<span class="output">    1. wss://relay.damus.io</span>
+<span class="output">    2. wss://relay.nostr.band</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb nostr relay add <url></h3>
+                <p style="color: #94a3b8;">Add a relay URL to the active account.</p>
+                <pre class="code-block"><code><span class="prompt">$</span> <span class="cmd">kb nostr relay add wss://relay.example.com</span>
+<span class="output">✓ リレーを追加しました: wss://relay.example.com</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb nostr relay remove <url></h3>
+                <p style="color: #94a3b8;">Remove a relay from the active account.</p>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb nostr relay test [url]</h3>
+                <p style="color: #94a3b8;">Test relay connectivity and measure latency. Without URL, picks from configured relays interactively.</p>
+                <pre class="code-block"><code><span class="prompt">$</span> <span class="cmd">kb nostr relay test wss://relay.damus.io</span>
+<span class="output">✓ wss://relay.damus.io  Latency: 120ms</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb nostr push [--limit=20]</h3>
+                <p style="color: #94a3b8;">Publish recent koshi posts to Nostr relays as kind 1 events with <code>k: koshi</code> tag.</p>
+                <pre class="code-block"><code><span class="prompt">$</span> <span class="cmd">kb nostr push --limit=20</span>
+<span class="output">✔ 5/20 posts published to Nostr!</span>
+
+<span class="output">  📡 Relay Results:</span>
+<span class="output">    • wss://relay.damus.io ✓ 5 published</span>
+<span class="output">    • wss://relay.nostr.band ✓ 5 published</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb nostr pull [--limit=50]</h3>
+                <p style="color: #94a3b8;">Fetch Nostr events from relays (filtered by your pubkey) and display in koshi format.</p>
+                <pre class="code-block"><code><span class="prompt">$</span> <span class="cmd">kb nostr pull --limit=50</span>
+<span class="output">✔ Found 12 Nostr events!</span>
+
+<span class="output">  📡 Nostr Events (12件)</span>
+<span class="output">  ────────────────────────────────────────────</span>
+<span class="output">  nostr:a1b2c3d4 ...</span>
+<span class="output">  Hello from Nostr!</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb nostr status</h3>
+                <p style="color: #94a3b8;">Show Nostr configuration status (keys, relays, last sync times).</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CLI: P2P Reference -->
+    <section class="py-16 relative section-padding" style="background: #1a2332;" id="cli-p2p">
+        <div class="max-w-4xl mx-auto px-6">
+            <div class="text-center mb-12 md:mb-16">
+                <span class="badge badge-orange mb-4">CLI Reference</span>
+                <h2 class="text-3xl md:text-4xl font-black" style="color: #e2e8f0;">P2P Sync</h2>
+            </div>
+
+            <div class="space-y-8">
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb p2p start [--foreground] [--stop] [--status]</h3>
+                <p style="color: #94a3b8;">Start the P2P node. Runs as background daemon by default.</p>
+                <pre class="code-block"><code><span class="comment"># Background daemon (default)</span>
+<span class="prompt">$</span> <span class="cmd">kb p2p start</span>
+<span class="output">✔ P2P node started in background!</span>
+<span class="output">  PID: 12345</span>
+<span class="output">  Log: ~/.config/koshi/p2p.log</span>
+
+<span class="comment"># Foreground (debug)</span>
+<span class="prompt">$</span> <span class="cmd">kb p2p start --foreground</span>
+<span class="output">✔ P2P node started!</span>
+<span class="output">  Status: Running  Posts: 42  DMs: 12  Peers: 3</span>
+
+<span class="comment"># Check background status</span>
+<span class="prompt">$</span> <span class="cmd">kb p2p start --status</span>
+<span class="output">✓ P2P node running (PID: 12345)</span>
+
+<span class="comment"># Stop background node</span>
+<span class="prompt">$</span> <span class="cmd">kb p2p start --stop</span>
+<span class="output">✔ P2P node stopped (PID: 12345)</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb p2p status</h3>
+                <p style="color: #94a3b8;">Show P2P node status (running/stopped, posts, DMs, peers, discovery key, storage path).</p>
+                <pre class="code-block"><code><span class="prompt">$</span> <span class="cmd">kb p2p status</span>
+<span class="output">  Status:     Running</span>
+<span class="output">  Posts:      42</span>
+<span class="output">  DMs:        12</span>
+<span class="output">  Peers:      3</span>
+<span class="output">  Username:   alice</span>
+<span class="output">  Discovery:  0123456789abcdef...</span>
+<span class="output">  Storage:    ~/.config/koshi/corestore</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb p2p sync [--limit=20]</h3>
+                <p style="color: #94a3b8;">Display posts synced from the P2P mesh (aggregated from all peer cores).</p>
+                <pre class="code-block"><code><span class="prompt">$</span> <span class="cmd">kb p2p sync --limit=20</span>
+<span class="output">  📡 P2P Synced Posts (15 件)</span>
+<span class="output">  ────────────────────────────────────────────</span>
+<span class="output">  alice  2:30:00 PM</span>
+<span class="output">  Hello, koshi! 🌊</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb p2p dms [--limit=20]</h3>
+                <p style="color: #94a3b8;">Display DMs synced from the P2P mesh (decrypted where possible).</p>
+                <pre class="code-block"><code><span class="prompt">$</span> <span class="cmd">kb p2p dms --limit=20</span>
+<span class="output">  ✉️ P2P Synced DMs (3 件)</span>
+<span class="output">  ────────────────────────────────────────────</span>
+<span class="output">  alice → bob  2:35:00 PM</span>
+<span class="output">  Hey Bob!</span></code></pre>
+
+                <h3 class="text-xl font-bold" style="color: #e2e8f0;">kb p2p stop</h3>
+                <p style="color: #94a3b8;">Stop an in-process P2P node (foreground mode). For background daemon, use <code>kb p2p start --stop</code>.</p>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="py-16" style="background: #0c1325; border-top: 1px solid rgba(52, 211, 153, 0.05);">
         <div class="max-w-6xl mx-auto px-6">
