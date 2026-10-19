@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Documentation | Koshi</title>
-    <script src="https://keepandroidopen.org/banner.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" href="https://res.cloudinary.com/dt0zmgv8k/image/upload/v1782450296/KoShi_horboh.png"/>
     <style>
@@ -263,6 +262,7 @@
         }
 
         @media (max-width: 768px) {
+            #banner { margin-left: 0; }
             .sidebar {
                 transform: translateX(-100%);
                 transition: transform 0.3s;
@@ -408,6 +408,9 @@
     <button class="sidebar-toggle" id="sidebarToggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
+
+    <div id="banner" style="margin: 64px 0 0 260px;"></div>
+    <script src="https://keepandroidopen.org/banner.js?id=banner"></script>
 
     <!-- Main Content -->
     <main class="main-content content" id="mainContent">
