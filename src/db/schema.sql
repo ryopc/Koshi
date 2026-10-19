@@ -114,3 +114,93 @@ DROP TRIGGER IF EXISTS trg_posts_updated_at ON kb_posts;
 CREATE TRIGGER trg_posts_updated_at
     BEFORE UPDATE ON kb_posts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- Groups & Group Messages (Pito Requirements)
+-- ============================================
+
+-- groups
+CREATE TABLE IF NOT EXISTS groups (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(128) NOT NULL,
+    description TEXT,
+    avatar_url VARCHAR(512),
+    created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    is_e2ee BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_groups_created_by ON groups (created_by);
+
+-- group_members
+CREATE TABLE IF NOT EXISTS group_members (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(16) NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
+    joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (group_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_group_members_group_id ON group_members (group_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_user_id ON group_members (user_id);
+
+-- group_messages
+CREATE TABLE IF NOT EXISTS group_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL CHECK (char_length(content) > 0 AND char_length(content) <= 5000),
+    signature TEXT NOT NULL,
+    message_type VARCHAR(16) NOT NULL DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'file', 'system')),
+    reply_to UUID REFERENCES group_messages(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_group_messages_group_created ON group_messages (group_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_group_messages_sender_created ON group_messages (sender_id, created_at DESC);
+
+-- message_read_receipts (1:1 DM + グループ共通)
+CREATE TABLE IF NOT EXISTS message_read_receipts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    message_id UUID NOT NULL,
+    message_type VARCHAR(8) NOT NULL CHECK (message_type IN ('dm', 'group')),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (message_id, message_type, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_read_receipts_message ON message_read_receipts (message_id, message_type);
+CREATE INDEX IF NOT EXISTS idx_read_receipts_user ON message_read_receipts (user_id);
+
+-- ============================================
+-- E2E: Device & Key Management (X3DH / Signal)
+-- ============================================
+
+-- user_devices
+CREATE TABLE IF NOT EXISTS user_devices (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    device_name VARCHAR(64),
+    identity_key TEXT NOT NULL,           -- X25519 public key (base64)
+    signed_pre_key TEXT NOT NULL,         -- X25519 public key (base64)
+    pre_key_signature TEXT NOT NULL,      -- ed25519 signature of signed_pre_key (base64)
+    one_time_pre_keys TEXT[] NOT NULL DEFAULT '{}',  -- X25519 public keys (base64 array)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices (user_id);
+
+-- group_session_keys (Sender Keys for group E2E)
+CREATE TABLE IF NOT EXISTS group_session_keys (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sender_key TEXT NOT NULL,             -- Sender Key (base64)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (group_id, sender_id)
+);
+CREATE INDEX IF NOT EXISTS idx_group_session_keys_group ON group_session_keys (group_id);
+
+-- Apply updated_at trigger to groups
+DROP TRIGGER IF EXISTS trg_groups_updated_at ON groups;
+CREATE TRIGGER trg_groups_updated_at
+    BEFORE UPDATE ON groups
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

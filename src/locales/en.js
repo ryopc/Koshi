@@ -131,6 +131,148 @@ export default {
         nostr: 'Nostr integration (keys, relays, sync)',
         delete: 'Permanently delete your own account',
         p2p: 'P2P sync (hypercore + hyperswarm)',
+        // Groups
+        groups: 'Group management (list|create|delete|info)',
+        groupMembers: 'Group member management (add|remove|list)',
+        // Devices/E2E
+        devices: 'Device management (list|remove)',
+        keys: 'Key management (rotate|bundle)',
+        // Admin
+        adminPromote: 'Promote a user to admin',
+        // Config
+        config: 'Change configuration',
+    },
+    // Group command help
+    groups: {
+        title: '👥 Group Management',
+        usage: 'kb groups [list|create|delete|info] <name>',
+        subcommands: {
+            list: 'List joined groups',
+            create: 'Create a group',
+            delete: 'Delete a group',
+            info: 'Show group details',
+        },
+        create: {
+            title: '👥 Create Group',
+            namePrompt: 'Group name: ',
+            descriptionPrompt: 'Description (optional): ',
+            membersPrompt: 'Member usernames (comma-separated, include yourself): ',
+            nameEmpty: '✖ Group name is required.',
+            nameTooLong: '✖ Group name must be 128 characters or less.',
+            memberEmpty: '✖ At least one member (including yourself) is required.',
+            memberSelf: '✖ You must include yourself in members.',
+            memberLimit: '✖ Maximum 100 members allowed.',
+            userNotFound: '✖ User "{username}" not found.',
+            created: '✔ Group "{name}" created (ID: {id})',
+            membersAdded: '{count} member(s) added.',
+        },
+        delete: {
+            confirm: '🗑️ Delete group "{name}"? (y/N): ',
+            deleted: '✔ Group "{name}" deleted.',
+            notFound: '✖ Group not found.',
+            notAdmin: '✖ Only group admins can delete.',
+        },
+        info: {
+            title: '👥 Group Details: {name}',
+            id: 'ID:',
+            description: 'Description:',
+            avatar: 'Avatar:',
+            createdBy: 'Created by:',
+            e2ee: 'E2EE:',
+            createdAt: 'Created:',
+            updatedAt: 'Updated:',
+            memberCount: 'Members:',
+            myRole: 'Your role:',
+            members: 'Members:',
+            noDescription: '(no description)',
+            noAvatar: '(no avatar)',
+            yes: 'yes',
+            no: 'no',
+        },
+        list: {
+            title: '👥 Joined Groups ({count})',
+            noGroups: 'No groups joined.',
+            createHint: '💡 Create a group: kb groups create',
+        },
+    },
+    // Group members command help
+    groupMembers: {
+        title: '👥 Group "{name}" Member Management',
+        usage: 'kb group <name> members [add|remove|list] <userId>',
+        add: {
+            userIdPrompt: 'User ID to add: ',
+            userNotFound: '✖ User not found.',
+            alreadyMember: '✖ Already a member.',
+            added: '✔ User added to group.',
+            notAdmin: '✖ Only admins can add members.',
+        },
+        remove: {
+            userIdPrompt: 'User ID to remove: ',
+            confirm: '🗑️ Remove this user from group? (y/N): ',
+            removed: '✔ User removed from group.',
+            notMember: '✖ User is not a member.',
+            notAdmin: '✖ Only admins can remove members.',
+            onlyAdmin: '✖ Cannot remove the only admin. Promote another admin first.',
+        },
+        list: {
+            title: '👥 Members ({count})',
+            roleAdmin: 'Admin',
+            roleMember: 'Member',
+        },
+    },
+    // Devices command help
+    devices: {
+        title: '📱 Device Management',
+        usage: 'kb devices [list|remove] <deviceId>',
+        list: {
+            title: '📱 Registered Devices ({count})',
+            noDevices: 'No devices registered.',
+            createHint: '💡 Devices are registered automatically on first login.',
+            deviceInfo: '{name} | ID: {id} | Created: {created} | Last seen: {lastSeen}',
+        },
+        remove: {
+            deviceIdPrompt: 'Device ID to remove: ',
+            confirm: '🗑️ Remove this device? (y/N): ',
+            removed: '✔ Device removed.',
+            notFound: '✖ Device not found.',
+        },
+    },
+    // Keys command help
+    keys: {
+        title: '🔐 Key Management',
+        usage: 'kb keys [rotate|bundle] <userId>',
+        rotate: {
+            title: '🔐 Key Rotation',
+            notImplemented: '⚠ Key rotation not implemented yet.',
+        },
+        bundle: {
+            title: '🔐 Get Key Bundle',
+            userNotFound: '✖ User not found.',
+            noDevices: '✖ No devices found for user.',
+            bundle: 'Identity Key: {identityKey}\nSigned PreKey: {signedPreKey}\nPreKey Signature: {preKeySignature}\nOne-Time PreKeys: {oneTimePreKeys}',
+        },
+    },
+    // Admin command help
+    admin: {
+        title: '⚙️ Admin Commands',
+        usage: 'kb admin promote <username>',
+        promote: {
+            title: '⚙️ Promote User to Admin',
+            usernamePrompt: 'Username to promote: ',
+            userNotFound: '✖ User not found.',
+            alreadyAdmin: '✖ Already an admin.',
+            promoted: '✔ User "{username}" promoted to admin.',
+            notAdmin: '✖ Admin privileges required.',
+        },
+    },
+    // Config command help
+    config: {
+        title: '⚙️ Configuration',
+        usage: 'kb config set <key> <value>',
+        set: {
+            success: '✔ {key} = {value} set.',
+            invalidKey: '✖ Invalid config key.',
+        },
     },
     // Interactive prompts
     prompt: {

@@ -1,6 +1,6 @@
 {
   "name": "@ryopc/koshi",
-  "version": "3.1.7",
+  "version": "4.0.0",
   "description": "Terminal-native P2P decentralized SNS — serverless koshi board v3",
   "homepage": "https://koshi.js.org",
   "type": "module",
@@ -55,6 +55,16 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "exports": {
+    ".": "./src/index.js",
+    "./api": "./src/api/index.js",
+    "./ws": "./src/ws/index.js",
+    "./auth": "./src/auth/jwt.js",
+    "./crypto": "./src/auth/ed25519.js",
+    "./db": "./src/db/pool.js",
+    "./config": "./src/config/config.js",
+    "./types": "./src/types/index.ts"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -66,6 +76,7 @@
     "src/locales/",
     "src/nostr/",
     "src/p2p/",
+    "src/types/",
     "src/i18n.js",
     "src/logger.js",
     "package.json",

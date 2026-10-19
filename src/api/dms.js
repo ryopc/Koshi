@@ -233,7 +233,7 @@ router.put('/:id/read', requireAuth, async (req, res) => {
         const result = await query(
             `UPDATE dms SET is_read = TRUE
              WHERE id = $1 AND recipient_id = $2
-             RETURNING id`,
+             RETURNING id, sender_id`,
             [dmId, userId]
         );
 
@@ -241,6 +241,28 @@ router.put('/:id/read', requireAuth, async (req, res) => {
             return res.status(404).json({
                 error: 'DM not found or you are not the recipient.',
             });
+        }
+
+        const dm = result.rows[0];
+
+        // Also record in message_read_receipts for unified read tracking
+        await query(
+            `INSERT INTO message_read_receipts (message_id, message_type, user_id)
+             VALUES ($1, 'dm', $2)
+             ON CONFLICT (message_id, message_type, user_id) DO NOTHING`,
+            [dmId, userId]
+        );
+
+        // Broadcast dm_read to sender (and recipient for multi-device sync)
+        try {
+            const broadcast = getBroadcast();
+            if (broadcast) {
+                const readAt = new Date().toISOString();
+                broadcast('dm_read', { dmId, readAt }, dm.sender_id);
+                broadcast('dm_read', { dmId, readAt }, userId);
+            }
+        } catch (wsErr) {
+            logger.warn({ err: wsErr }, 'Failed to broadcast dm_read');
         }
 
         return res.json({ success: true });

@@ -407,7 +407,7 @@
             <div class="text-center mb-12">
                 <div class="version-badge mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider" style="background: rgba(52, 211, 153, 0.12); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.25);">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    🎉 v3.1.5 — Serverless P2P Mesh
+                    🎉 v4.0.0 — Serverless P2P Mesh
                 </div>
                 <h1 class="hero-title text-6xl md:text-8xl font-black leading-[1.1] mb-6" style="color: #e2e8f0;">
                     The social network<br>
@@ -459,7 +459,7 @@
         <div class="max-w-5xl mx-auto px-6">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
                 <div class="fade-up">
-                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">3.1.6</div>
+                    <div class="stat-number text-3xl font-black font-mono" style="color: #34d399;">4.0.0</div>
                     <div class="text-sm mt-1" style="color: #64748b;">Latest Version</div>
                 </div>
                 <div class="fade-up">
@@ -551,6 +551,36 @@
                     <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(244, 114, 182, 0.1);">👥</div>
                     <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Multi-Account</h3>
                     <p class="text-sm leading-relaxed" style="color: #94a3b8;">Manage multiple identities from a single CLI. Switch between accounts with <code>kb switch</code>, register or import Nostr keys per account. All credentials stored securely in ~/.config/koshi/config.json.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(52, 211, 153, 0.1);">👥</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Group Chats (E2EE)</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">End-to-end encrypted group messaging with Sender Keys. Create groups, invite members, share images/files. All groups are always E2EE — server never sees plaintext.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(96, 165, 250, 0.1);">🔐</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">X3DH Key Management</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Full X3DH protocol support for E2E encryption. Register devices, fetch key bundles, manage one-time prekeys. Ready for Signal-style double ratchet.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(251, 146, 60, 0.1);">📱</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">TypeScript SDK</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">First-class TypeScript types for client developers. <code>import { Group, DM, Device, WSEventMap } from '@ryopc/koshi/types'</code> — build your own client with full type safety.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(192, 132, 252, 0.1);">⌨️</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Typing Indicators</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Real-time typing start/stop events for both DMs and group chats. See when others are typing via WebSocket.</p>
+                </div>
+
+                <div class="feature-card p-8 rounded-2xl fade-up">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5 text-2xl" style="background: rgba(251, 191, 36, 0.1);">✅</div>
+                    <h3 class="text-lg font-bold mb-3" style="color: #e2e8f0;">Read Receipts</h3>
+                    <p class="text-sm leading-relaxed" style="color: #94a3b8;">Unified read receipts for DMs and group messages. Delivered via WebSocket for instant cross-device sync.</p>
                 </div>
             </div>
         </div>
@@ -697,25 +727,31 @@
                         <tr><th>Command</th><th>Description</th><th>Auth</th></tr>
                     </thead>
                     <tbody>
-                        <tr><td class="cmd-name"><code>kb register &lt;username&gt;</code></td><td style="color: #94a3b8;">Create a new account with ed25519 keypair</td><td><span class="badge badge-slate">No</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb login &lt;username&gt;</code></td><td style="color: #94a3b8;">Authenticate using existing keypair</td><td><span class="badge badge-slate">No</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb register <username></code></td><td style="color: #94a3b8;">Create a new account with ed25519 keypair</td><td><span class="badge badge-slate">No</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb login <username></code></td><td style="color: #94a3b8;">Authenticate using existing keypair</td><td><span class="badge badge-slate">No</span></td></tr>
                         <tr><td class="cmd-name"><code>kb whoami</code></td><td style="color: #94a3b8;">Show your profile information</td><td><span class="badge badge-green">Yes</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb post &lt;message&gt;</code></td><td style="color: #94a3b8;">Create a new post on the board</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb post <message></code></td><td style="color: #94a3b8;">Create a new post on the board</td><td><span class="badge badge-green">Yes</span></td></tr>
                         <tr><td class="cmd-name"><code>kb feed [--limit=N]</code></td><td style="color: #94a3b8;">Display your post feed</td><td><span class="badge badge-blue">Opt</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb follow &lt;username&gt;</code></td><td style="color: #94a3b8;">Follow a user</td><td><span class="badge badge-green">Yes</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb unfollow &lt;username&gt;</code></td><td style="color: #94a3b8;">Unfollow a user</td><td><span class="badge badge-green">Yes</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb dm &lt;user&gt; &lt;msg&gt;</code></td><td style="color: #94a3b8;">Send a direct message</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb follow <username></code></td><td style="color: #94a3b8;">Follow a user</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb unfollow <username></code></td><td style="color: #94a3b8;">Unfollow a user</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb dm <user> <msg></code></td><td style="color: #94a3b8;">Send a direct message</td><td><span class="badge badge-green">Yes</span></td></tr>
                         <tr><td class="cmd-name"><code>kb dms [--unread]</code></td><td style="color: #94a3b8;">View your direct messages</td><td><span class="badge badge-green">Yes</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb chat &lt;username&gt;</code></td><td style="color: #94a3b8;">Interactive real-time DM chat</td><td><span class="badge badge-green">Yes</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb edit-profile &lt;flags&gt;</code></td><td style="color: #94a3b8;">Update your display name, bio, avatar</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb chat <username></code></td><td style="color: #94a3b8;">Interactive real-time DM chat</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb edit-profile <flags></code></td><td style="color: #94a3b8;">Update your display name, bio, avatar</td><td><span class="badge badge-green">Yes</span></td></tr>
                         <tr><td class="cmd-name"><code>kb profile [username]</code></td><td style="color: #94a3b8;">View a user's profile</td><td><span class="badge badge-blue">Opt</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb search &lt;query&gt;</code></td><td style="color: #94a3b8;">Search users by username</td><td><span class="badge badge-blue">Opt</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb search <query></code></td><td style="color: #94a3b8;">Search users by username</td><td><span class="badge badge-blue">Opt</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb groups [list|create|delete|info]</code></td><td style="color: #94a3b8;">Manage groups (E2EE group chats)</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb group <name> members [add|remove|list]</code></td><td style="color: #94a3b8;">Manage group members</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb devices [list|remove]</code></td><td style="color: #94a3b8;">Device management for E2E (X3DH)</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb keys [rotate|bundle]</code></td><td style="color: #94a3b8;">Key management (X3DH bundles)</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb config set <key> <value></code></td><td style="color: #94a3b8;">Configuration management</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb admin promote <username></code></td><td style="color: #94a3b8;">Promote user to admin</td><td><span class="badge badge-pink">Admin</span></td></tr>
                         <tr><td class="cmd-name"><code>kb realtime</code></td><td style="color: #94a3b8;">Connect to the live event stream</td><td><span class="badge badge-green">Yes</span></td></tr>
                         <tr><td class="cmd-name"><code>kb serve [--port=N] [--daemon]</code></td><td style="color: #94a3b8;">Start local serverless node (SQLite+P2P+Web UI)</td><td><span class="badge badge-slate">No</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb connect &lt;url&gt;</code></td><td style="color: #94a3b8;">Connect to a remote server / --reset for local mode</td><td><span class="badge badge-slate">No</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb admin &lt;cmd&gt;</code></td><td style="color: #94a3b8;">Admin: users, delete-user, grant, revoke</td><td><span class="badge badge-pink">Admin</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb p2p &lt;cmd&gt;</code></td><td style="color: #94a3b8;">P2P node: status, sync, peers</td><td><span class="badge badge-slate">No</span></td></tr>
-                        <tr><td class="cmd-name"><code>kb nostr &lt;cmd&gt;</code></td><td style="color: #94a3b8;">Nostr: key, relay, push, pull</td><td><span class="badge badge-green">Yes</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb connect <url></code></td><td style="color: #94a3b8;">Connect to a remote server / --reset for local mode</td><td><span class="badge badge-slate">No</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb admin <cmd></code></td><td style="color: #94a3b8;">Admin: users, delete-user, grant, revoke</td><td><span class="badge badge-pink">Admin</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb p2p <cmd></code></td><td style="color: #94a3b8;">P2P node: status, sync, peers</td><td><span class="badge badge-slate">No</span></td></tr>
+                        <tr><td class="cmd-name"><code>kb nostr <cmd></code></td><td style="color: #94a3b8;">Nostr: key, relay, push, pull</td><td><span class="badge badge-green">Yes</span></td></tr>
                     </tbody>
                 </table>
             </div>

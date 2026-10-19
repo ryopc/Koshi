@@ -72,29 +72,9 @@ app.use(express.static(webPath, {
 // ============================================================================
 // Import and mount API routes
 // ============================================================================
-import authRouter from './api/auth.js';
-import usersRouter from './api/users.js';
-import postsRouter from './api/posts.js';
-import dmsRouter from './api/dms.js';
-import adminRouter from './api/admin.js';
-import p2pRouter from './api/p2p.js';
+import apiRouter from './api/index.js';
 
-app.use('/api/auth', authRouter);
-app.use('/api/users', usersRouter);
-app.use('/api/posts', postsRouter);
-app.use('/api/dms', dmsRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/p2p', p2pRouter);
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        service: 'koshi-api',
-        version: '2.0.2',
-        timestamp: new Date().toISOString(),
-    });
-});
+app.use('/api', apiRouter);
 
 // ============================================================================
 // SPA Fallback - serve index.html for non-API routes

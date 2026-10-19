@@ -418,7 +418,7 @@
         <p>Welcome to the Koshi documentation. This guide covers everything from installation to the full API reference. Koshi is a terminal-native, decentralized social network powered by ed25519 cryptography.</p>
 
         <div class="info-box info">
-            <p><strong>📦 Version:</strong> 3.1.6 · <strong>License:</strong> MIT · <strong>Author:</strong> game_ryo · <strong>Mode:</strong> Serverless P2P Mesh (SQLite)</p>
+            <p><strong>📦 Version:</strong> 4.0.0 · <strong>License:</strong> MIT · <strong>Author:</strong> game_ryo · <strong>Mode:</strong> Serverless P2P Mesh (SQLite)</p>
         </div>
 
         <!-- ============================================================ -->
@@ -561,7 +561,7 @@ NODE_ENV=production</code></pre>
         <pre><code><span class="prompt">$</span> kb --help
 
 <span class="cmd-out">  🏄 koshi — Terminal-Native Decentralized SNS</span>
-<span class="cmd-out">  Version 3.1.6 — Serverless P2P mesh</span>
+<span class="cmd-out">  Version 4.0.0 — Serverless P2P mesh</span>
 
 <span class="cmd-out">  Commands:</span>
 <span class="cmd-out">    register   Create a new account with ed25519 keypair</span>
@@ -721,7 +721,7 @@ NODE_ENV=production</code></pre>
         <p>Account credentials and settings are stored in <code>~/.config/koshi/config.json</code> in the following format:</p>
 
         <pre><code>{
-  "version": "3.1.6",
+  "version": "4.0.0",
   "activeUsername": "alice",
   "serverUrl": null,
   "p2p": {
@@ -1199,6 +1199,110 @@ NODE_ENV=production</code></pre>
         <h4>POST /api/dms/:userId</h4>
         <p>Send a signed direct message. Content max 5000 characters.</p>
         <pre><code><span class="prompt">$</span> curl -X POST https://koshi.ryopc.org/api/dms/TARGET_USER_ID \
+  -H <span class="string">"Authorization: Bearer <token>"</span> \
+  -H <span class="string">"Content-Type: application/json"</span> \
+  -d '{
+    <span class="string">"content"</span>: <span class="string">"Hey there!"</span>,
+    <span class="string">"signature"</span>: <span class="string">"abc123..."</span>
+  }'</code></pre>
+
+        <!-- ============================================================ -->
+        <!-- GROUP ENDPOINTS -->
+        <!-- ============================================================ -->
+        <h3 id="api-groups">Group Endpoints (E2EE)</h3>
+        <p>All groups are end-to-end encrypted (E2EE). Server only relays signed messages and verifies signatures — never decrypts content. Requires PostgreSQL mode.</p>
+
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/groups</code></td><td>Yes</td><td>List joined groups</td></tr>
+                    <tr><td><span class="method method-post">POST</span></td><td><code>/api/groups</code></td><td>Yes</td><td>Create a group</td></tr>
+                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/groups/:id</code></td><td>Yes</td><td>Get group details + members</td></tr>
+                    <tr><td><span class="method method-put">PATCH</span></td><td><code>/api/groups/:id</code></td><td>Yes (admin)</td><td>Update group info</td></tr>
+                    <tr><td><span class="method method-delete">DELETE</span></td><td><code>/api/groups/:id</code></td><td>Yes (admin)</td><td>Delete group</td></tr>
+                    <tr><td><span class="method method-post">POST</span></td><td><code>/api/groups/:id/members</code></td><td>Yes (admin)</td><td>Invite members</td></tr>
+                    <tr><td><span class="method method-delete">DELETE</span></td><td><code>/api/groups/:id/members/:userId</code></td><td>Yes (admin/self)</td><td>Remove member / leave</td></tr>
+                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/groups/:id/messages</code></td><td>Yes</td><td>Get message history</td></tr>
+                    <tr><td><span class="method method-post">POST</span></td><td><code>/api/groups/:id/messages</code></td><td>Yes</td><td>Send a group message</td></tr>
+                    <tr><td><span class="method method-put">PUT</span></td><td><code>/api/groups/:id/messages/:msgId/read</code></td><td>Yes</td><td>Mark group message as read</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h4>POST /api/groups</h4>
+        <p>Create a new E2EE group. At least one member (yourself) is required. Max 100 members.</p>
+        <pre><code><span class="prompt">$</span> curl -X POST https://koshi.ryopc.org/api/groups \
+  -H <span class="string">"Authorization: Bearer <token>"</span> \
+  -H <span class="string">"Content-Type: application/json"</span> \
+  -d '{
+    <span class="string">"name"</span>: <span class="string">"Team Pito"</span>,
+    <span class="string">"description"</span>: <span class="string">"Project discussion"</span>,
+    <span class="string">"memberUserIds"</span>: [<span class="string">"uuid1"</span>, <span class="string">"uuid2"</span>],
+    <span class="string">"avatarUrl"</span>: <span class="string">"https://..."</span>
+  }'</code></pre>
+
+        <h4>GET /api/groups/:id/messages</h4>
+        <p>Query params: <code>?limit=50</code> (max 100), <code>?offset=0</code>, <code>?before=<messageId></code></p>
+
+        <h4>POST /api/groups/:id/messages</h4>
+        <p>Send an encrypted group message. <code>messageType</code>: <code>text</code> | <code>image</code> | <code>file</code> | <code>system</code>. Group E2E uses Sender Keys — server verifies signature only.</p>
+
+        <!-- ============================================================ -->
+        <!-- DEVICES ENDPOINTS (E2E Key Management) -->
+        <!-- ============================================================ -->
+        <h3 id="api-devices">Device Endpoints (X3DH Key Management)</h3>
+        <p>Register and manage X3DH devices for end-to-end encryption. All keys are base64-encoded X25519 public keys.</p>
+
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/devices</code></td><td>Yes</td><td>List own devices</td></tr>
+                    <tr><td><span class="method method-post">POST</span></td><td><code>/api/devices</code></td><td>Yes</td><td>Register a device</td></tr>
+                    <tr><td><span class="method method-delete">DELETE</span></td><td><code>/api/devices/:deviceId</code></td><td>Yes</td><td>Remove a device</td></tr>
+                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/devices/user/:userId</code></td><td>Yes</td><td>Get user's device list (public keys)</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h4>POST /api/devices</h4>
+        <p>Register a new device with X3DH keys. <code>oneTimePreKeys</code> array (max 100) contains X25519 public keys.</p>
+        <pre><code><span class="prompt">$</span> curl -X POST https://koshi.ryopc.org/api/devices \
+  -H <span class="string">"Authorization: Bearer <token>"</span> \
+  -H <span class="string">"Content-Type: application/json"</span> \
+  -d '{
+    <span class="string">"deviceName"</span>: <span class="string">"iPhone 15"</span>,
+    <span class="string">"identityKey"</span>: <span class="string">"base64-X25519-public-key"</span>,
+    <span class="string">"signedPreKey"</span>: <span class="string">"base64-X25519-public-key"</span>,
+    <span class="string">"preKeySignature"</span>: <span class="string">"base64-ed25519-signature"</span>,
+    <span class="string">"oneTimePreKeys"</span>: [<span class="string">"base64-key1"</span>, <span class="string">"base64-key2"</span>, <span class="string">"..."</span>]
+  }'</code></pre>
+
+        <!-- ============================================================ -->
+        <!-- KEY BUNDLES (X3DH) -->
+        <!-- ============================================================ -->
+        <h3 id="api-keys">Key Bundle Endpoints (X3DH)</h3>
+        <p>Fetch X3DH key bundles for initiating E2E sessions. Consumes one one-time prekey per request.</p>
+
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="method method-get">GET</span></td><td><code>/api/keys/bundle/:userId</code></td><td>Yes</td><td>Get key bundle for target user</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h4>GET /api/keys/bundle/:userId</h4>
+        <p>Optional query: <code>?deviceId=<specific-device></code>. Returns identityKey, signedPreKey, preKeySignature, and one consumed one-time prekey.</p>
+
+        <h4>GET /api/dms</h4>
+        <p>Query params: <code>?limit=50</code>, <code>?offset=0</code>, <code>?unread=true</code></p>
+
+        <h4>POST /api/dms/:userId</h4>
+        <p>Send a signed direct message. Content max 5000 characters.</p>
+        <pre><code><span class="prompt">$</span> curl -X POST https://koshi.ryopc.org/api/dms/TARGET_USER_ID \
   -H <span class="string">"Authorization: Bearer &lt;token&gt;"</span> \
   -H <span class="string">"Content-Type: application/json"</span> \
   -d '{
@@ -1222,7 +1326,7 @@ NODE_ENV=production</code></pre>
 {
   <span class="string">"status"</span>: <span class="string">"ok"</span>,
   <span class="string">"service"</span>: <span class="string">"koshi-standalone"</span>,
-  <span class="string">"version"</span>: <span class="string">"3.1.6"</span>,
+  <span class="string">"version"</span>: <span class="string">"4.0.0"</span>,
   <span class="string">"mode"</span>: <span class="string">"serverless-p2p"</span>,
   <span class="string">"timestamp"</span>: <span class="string">"2026-10-14T..."</span>
 }</code></pre>
@@ -1318,13 +1422,26 @@ wss://koshi.ryopc.org/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
             <table>
                 <thead><tr><th>Event</th><th>Payload</th><th>Description</th></tr></thead>
                 <tbody>
-                    <tr><td><code>connected</code></td><td><code>{}</code></td><td>Initial connection confirmation</td></tr>
+                    <tr><td><code>connected</code></td><td><code>{ userId, username, message }</code></td><td>Initial connection confirmation</td></tr>
                     <tr><td><code>post_created</code></td><td><code>{ author, content, timestamp }</code></td><td>New post on the board</td></tr>
                     <tr><td><code>dm_received</code></td><td><code>{ from, content, timestamp }</code></td><td>New DM received (targeted to recipient)</td></tr>
+                    <tr><td><code>dm_sent</code></td><td><code>{ from, content, timestamp }</code></td><td>DM sent confirmation (to sender)</td></tr>
+                    <tr><td><code>dm_read</code></td><td><code>{ dmId, readAt }</code></td><td>DM read receipt</td></tr>
+                    <tr><td><code>group_created</code></td><td><code>{ group, members }</code></td><td>Group created (to all members)</td></tr>
+                    <tr><td><code>group_updated</code></td><td><code>{ groupId, changes }</code></td><td>Group info updated</td></tr>
+                    <tr><td><code>group_deleted</code></td><td><code>{ groupId }</code></td><td>Group deleted</td></tr>
+                    <tr><td><code>group_member_added</code></td><td><code>{ groupId, member, addedBy }</code></td><td>Member added to group</td></tr>
+                    <tr><td><code>group_member_removed</code></td><td><code>{ groupId, userId, removedBy }</code></td><td>Member removed from group</td></tr>
+                    <tr><td><code>group_message</code></td><td><code>{ message, groupId }</code></td><td>Group message received</td></tr>
+                    <tr><td><code>group_message_read</code></td><td><code>{ groupId, messageId, userId, readAt }</code></td><td>Group message read receipt</td></tr>
+                    <tr><td><code>typing_start</code></td><td><code>{ conversationId, conversationType, userId, username }</code></td><td>Typing indicator started</td></tr>
+                    <tr><td><code>typing_stop</code></td><td><code>{ conversationId, conversationType, userId, username }</code></td><td>Typing indicator stopped</td></tr>
+                    <tr><td><code>key_bundle_response</code></td><td><code>{ userId, bundle }</code></td><td>X3DH key bundle response</td></tr>
                     <tr><td><code>user_online</code></td><td><code>{ userId, username }</code></td><td>User came online</td></tr>
                     <tr><td><code>user_offline</code></td><td><code>{ userId }</code></td><td>User went offline</td></tr>
                     <tr><td><code>follow_notification</code></td><td><code>{ follower, following }</code></td><td>Someone followed you</td></tr>
                     <tr><td><code>pong</code></td><td><code>{ timestamp }</code></td><td>Heartbeat response</td></tr>
+                    <tr><td><code>error</code></td><td><code>{ message }</code></td><td>Error message</td></tr>
                 </tbody>
             </table>
         </div>
@@ -1338,6 +1455,16 @@ wss://koshi.ryopc.org/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
                     <tr><td><code>ping</code></td><td><code>{}</code></td><td>Heartbeat ping</td></tr>
                     <tr><td><code>post:create</code></td><td><code>{ content, signature }</code></td><td>Create a new post</td></tr>
                     <tr><td><code>dm:send</code></td><td><code>{ recipientId, content, signature }</code></td><td>Send a DM</td></tr>
+                    <tr><td><code>group:create</code></td><td><code>{ name, description?, memberUserIds[], avatarUrl? }</code></td><td>Create a group</td></tr>
+                    <tr><td><code>group:update</code></td><td><code>{ groupId, name?, description?, avatarUrl? }</code></td><td>Update group (admin)</td></tr>
+                    <tr><td><code>group:delete</code></td><td><code>{ groupId }</code></td><td>Delete group (admin)</td></tr>
+                    <tr><td><code>group:invite</code></td><td><code>{ groupId, userIds[] }</code></td><td>Invite members (admin)</td></tr>
+                    <tr><td><code>group:leave</code></td><td><code>{ groupId, userId? }</code></td><td>Leave/remove member</td></tr>
+                    <tr><td><code>group:message</code></td><td><code>{ groupId, content, signature, messageType?, replyTo? }</code></td><td>Send group message</td></tr>
+                    <tr><td><code>group:read</code></td><td><code>{ groupId, messageId }</code></td><td>Mark group message read</td></tr>
+                    <tr><td><code>typing:start</code></td><td><code>{ conversationId, conversationType: 'dm'|'group' }</code></td><td>Typing indicator start</td></tr>
+                    <tr><td><code>typing:stop</code></td><td><code>{ conversationId, conversationType: 'dm'|'group' }</code></td><td>Typing indicator stop</td></tr>
+                    <tr><td><code>key_bundle:request</code></td><td><code>{ targetUserId }</code></td><td>Request X3DH key bundle</td></tr>
                     <tr><td><code>follow</code></td><td><code>{ userId }</code></td><td>Follow a user</td></tr>
                     <tr><td><code>unfollow</code></td><td><code>{ userId }</code></td><td>Unfollow a user</td></tr>
                 </tbody>
@@ -1439,7 +1566,114 @@ wss://koshi.ryopc.org/ws?token=eyJhbGciOiJIUzI1NiIs...</code></pre>
             </table>
         </div>
 
-        <p>Indexes exist on <code>username</code>, <code>public_key</code>, follower/following IDs, post timestamps, and DM recipient inbox queries.</p>
+        <!-- ============================================================ -->
+        <!-- NEW TABLES (v4.0 Platform Extensions) -->
+        <!-- ============================================================ -->
+        
+        <h4>groups</h4>
+        <p>E2EE group chats. All groups are end-to-end encrypted (is_e2ee = TRUE).</p>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+                <tbody>
+                    <tr><td><code>id</code></td><td><code>UUID</code></td><td>PK, default <code>uuid_generate_v4()</code></td></tr>
+                    <tr><td><code>name</code></td><td><code>VARCHAR(128)</code></td><td>NOT NULL</td></tr>
+                    <tr><td><code>description</code></td><td><code>TEXT</code></td><td>Nullable</td></tr>
+                    <tr><td><code>avatar_url</code></td><td><code>VARCHAR(512)</code></td><td>Nullable</td></tr>
+                    <tr><td><code>created_by</code></td><td><code>UUID</code></td><td>FK → users(id), ON DELETE CASCADE</td></tr>
+                    <tr><td><code>is_e2ee</code></td><td><code>BOOLEAN</code></td><td>NOT NULL, DEFAULT TRUE</td></tr>
+                    <tr><td><code>created_at</code></td><td><code>TIMESTAMPTZ</code></td><td>NOT NULL</td></tr>
+                    <tr><td><code>updated_at</code></td><td><code>TIMESTAMPTZ</code></td><td>NOT NULL, auto-updated</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h4>group_members</h4>
+        <p>Group membership with roles (admin/member).</p>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+                <tbody>
+                    <tr><td><code>id</code></td><td><code>UUID</code></td><td>PK</td></tr>
+                    <tr><td><code>group_id</code></td><td><code>UUID</code></td><td>FK → groups(id), ON DELETE CASCADE</td></tr>
+                    <tr><td><code>user_id</code></td><td><code>UUID</code></td><td>FK → users(id), ON DELETE CASCADE</td></tr>
+                    <tr><td><code>role</code></td><td><code>VARCHAR(16)</code></td><td>NOT NULL, DEFAULT 'member', CHECK IN ('admin','member')</td></tr>
+                    <tr><td><code>joined_at</code></td><td><code>TIMESTAMPTZ</code></td><td>NOT NULL</td></tr>
+                    <tr><td colspan="2"><code>UNIQUE (group_id, user_id)</code></td><td></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h4>group_messages</h4>
+        <p>E2EE group messages. Content is encrypted (Sender Keys). Server only verifies signature.</p>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+                <tbody>
+                    <tr><td><code>id</code></td><td><code>UUID</code></td><td>PK</td></tr>
+                    <tr><td><code>group_id</code></td><td><code>UUID</code></td><td>FK → groups(id), ON DELETE CASCADE</td></tr>
+                    <tr><td><code>sender_id</code></td><td><code>UUID</code></td><td>FK → users(id), ON DELETE CASCADE</td></tr>
+                    <tr><td><code>content</code></td><td><code>TEXT</code></td><td>CHECK 1-5000 characters</td></tr>
+                    <tr><td><code>signature</code></td><td><code>TEXT</code></td><td>NOT NULL</td></tr>
+                    <tr><td><code>message_type</code></td><td><code>VARCHAR(16)</code></td><td>DEFAULT 'text', CHECK IN ('text','image','file','system')</td></tr>
+                    <tr><td><code>reply_to</code></td><td><code>UUID</code></td><td>FK → group_messages(id), ON DELETE SET NULL</td></tr>
+                    <tr><td><code>created_at</code></td><td><code>TIMESTAMPTZ</code></td><td>NOT NULL</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h4>message_read_receipts</h4>
+        <p>Unified read receipts for both DMs and group messages.</p>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+                <tbody>
+                    <tr><td><code>id</code></td><td><code>UUID</code></td><td>PK</td></tr>
+                    <tr><td><code>message_id</code></td><td><code>UUID</code></td><td>NOT NULL</td></tr>
+                    <tr><td><code>message_type</code></td><td><code>VARCHAR(8)</code></td><td>NOT NULL, CHECK IN ('dm','group')</td></tr>
+                    <tr><td><code>user_id</code></td><td><code>UUID</code></td><td>FK → users(id), ON DELETE CASCADE</td></tr>
+                    <tr><td><code>read_at</code></td><td><code>TIMESTAMPTZ</code></td><td>NOT NULL</td></tr>
+                    <tr><td colspan="2"><code>UNIQUE (message_id, message_type, user_id)</code></td><td></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h4>user_devices</h4>
+        <p>X3DH device registration for end-to-end encryption. Keys are base64-encoded.</p>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+                <tbody>
+                    <tr><td><code>id</code></td><td><code>UUID</code></td><td>PK</td></tr>
+                    <tr><td><code>user_id</code></td><td><code>UUID</code></td><td>FK → users(id), ON DELETE CASCADE</td></tr>
+                    <tr><td><code>device_name</code></td><td><code>VARCHAR(64)</code></td><td>Nullable</td></tr>
+                    <tr><td><code>identity_key</code></td><td><code>TEXT</code></td><td>NOT NULL (base64 X25519)</td></tr>
+                    <tr><td><code>signed_pre_key</code></td><td><code>TEXT</code></td><td>NOT NULL (base64 X25519)</td></tr>
+                    <tr><td><code>pre_key_signature</code></td><td><code>TEXT</code></td><td>NOT NULL (base64 ed25519)</td></tr>
+                    <tr><td><code>one_time_pre_keys</code></td><td><code>TEXT[]</code></td><td>NOT NULL DEFAULT '{}' (base64 X25519 array)</td></tr>
+                    <tr><td><code>created_at</code></td><td><code>TIMESTAMPTZ</code></td><td>NOT NULL</td></tr>
+                    <tr><td><code>last_seen_at</code></td><td><code>TIMESTAMPTZ</code></td><td>Nullable</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h4>group_session_keys</h4>
+        <p>Sender Keys for group E2E encryption.</p>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+                <tbody>
+                    <tr><td><code>id</code></td><td><code>UUID</code></td><td>PK</td></tr>
+                    <tr><td><code>group_id</code></td><td><code>UUID</code></td><td>FK → groups(id), ON DELETE CASCADE</td></tr>
+                    <tr><td><code>sender_id</code></td><td><code>UUID</code></td><td>FK → users(id), ON DELETE CASCADE</td></tr>
+                    <tr><td><code>sender_key</code></td><td><code>TEXT</code></td><td>NOT NULL (base64 Sender Key)</td></tr>
+                    <tr><td><code>created_at</code></td><td><code>TIMESTAMPTZ</code></td><td>NOT NULL</td></tr>
+                    <tr><td colspan="2"><code>UNIQUE (group_id, sender_id)</code></td><td></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <p>Indexes exist on <code>username</code>, <code>public_key</code>, follower/following IDs, post timestamps, DM recipient inbox queries, group membership, and message pagination.</p>
 
         <!-- ============================================================ -->
         <!-- DEPLOYMENT -->

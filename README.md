@@ -1,6 +1,6 @@
 # 🏄 koshi — Terminal-Native Decentralized SNS
 
-**Version 3.1.6** · MIT License · by [game_ryo](https://github.com/ryopc)
+**Version 4.0.0** · MIT License · by [game_ryo](https://github.com/ryopc)
 
 > A terminal-native, decentralized social network powered by ed25519 cryptography.
 > **Serverless P2P mesh is the default** — no database or server setup needed. Just install and go.
@@ -22,6 +22,8 @@
 - **💬 Interactive Chat** — LINE-style bubble chat UI in the terminal with real-time WebSocket
 - **✏️ Profile Editing** — Update display name, bio, and avatar
 - **🛠️ Admin Controls** — User management, account deletion, admin grants
+- **📱 Device & Key Management** — X3DH device registration, key bundles for E2E encryption
+- **👥 Group Chats** — E2EE group messaging with Sender Keys
 - **💻 Terminal-native** — Beautiful CLI with chalk colors and ora spinners
 - **🌐 Web UI** — React/Vite web frontend served by the local server
 - **👥 Multi-Account Support** — Manage multiple koshi identities from a single CLI
@@ -163,6 +165,11 @@ The `kb` command is your gateway to the koshi board.
 | `kb switch [username]` | Switch active account (interactive) |
 | `kb account remove <username>` | Delete a saved account from config |
 | `kb delete [--force]` | Permanently delete your own account |
+| `kb groups [list\|create\|delete\|info]` | Manage groups |
+| `kb group <name> members [add\|remove\|list]` | Manage group members |
+| `kb devices [list\|remove]` | Device management for E2E |
+| `kb keys [rotate\|bundle]` | Key management (X3DH) |
+| `kb config set <key> <value>` | Configuration management |
 | `kb serve [--port=3000] [--daemon]` | Start local serverless node (REST+WS+Web+P2P) |
 | `kb serve --stop` | Stop a background server started with `--daemon` |
 | `kb connect <url>` | Connect to a remote server |
@@ -349,9 +356,51 @@ kb p2p dms       # Show synced DMs from the mesh
 
 ---
 
-## 📡 API Reference
+## 📡 Platform API for Client Developers
 
-### Base URL
+koshi exposes a REST + WebSocket API that any client can use.
+See [API Reference](docs/api-reference.md) and [Client Development Guide](docs/client-guide.md).
+
+### Quick Start for Client Authors
+```bash
+npm install @ryopc/koshi
+import { api, ws, types } from '@ryopc/koshi';
+// types.DM, types.Group, types.WSEventMap 等が利用可能
+```
+
+### WebSocket Events
+Full event map in `src/types/index.ts` (`WSEventMap`).
+
+| Event | Direction | Payload |
+|-------|-----------|---------|
+| `connected` | Server → Client | `{ userId, username, message }` |
+| `post_created` | Server → All | `PostEvent` |
+| `dm_received` | Server → Recipient | `DMEvent` |
+| `dm_sent` | Server → Sender | `DMEvent` |
+| `dm_read` | Server → Sender+Recipient | `{ dmId, readAt }` |
+| `group_created` | Server → Members | `{ group, members }` |
+| `group_updated` | Server → Members | `{ groupId, changes }` |
+| `group_deleted` | Server → Members | `{ groupId }` |
+| `group_member_added` | Server → Members | `{ groupId, member, addedBy }` |
+| `group_member_removed` | Server → Members+Removed | `{ groupId, userId, removedBy }` |
+| `group_message` | Server → Members | `{ message: GroupMessage, groupId }` |
+| `group_message_read` | Server → Members | `{ groupId, messageId, userId, readAt }` |
+| `typing_start` | Server → Conversation | `{ conversationId, conversationType, userId, username }` |
+| `typing_stop` | Server → Conversation | `{ conversationId, conversationType, userId, username }` |
+| `key_bundle_request` | Client → Server | `{ targetUserId }` |
+| `key_bundle_response` | Server → Client | `{ userId, bundle: KeyBundle }` |
+
+### Key Concepts
+
+- **All groups are E2EE** (`isE2EE: true`) — Server never sees plaintext
+- **E2E is client responsibility** — Server only distributes public keys, verifies signatures, relays messages
+- **Group E2E uses Sender Keys** — MLS is out of scope; migration path exists
+- **PostgreSQL required for new features** — Groups, devices, keys, read receipts don't work in P2P/SQLite mode
+- **Existing APIs unchanged** — DMs, posts, follows, P2P continue to work as before
+
+---
+
+## 📡 API Reference
 
 - **Serverless (local)**: `http://localhost:3000/api` (when running `kb serve`)
 - **Remote**: Depends on `kb connect` target or `KOSHI_API_URL` env var
@@ -404,6 +453,36 @@ Tokens encode the `userId` and are signed with HMAC-SHA256 (24h expiry).
 | PUT | `/api/dms/:id/read` | Yes | Mark DM as read |
 | GET | `/api/dms/unread/count` | Yes | Count unread DMs |
 
+#### Groups
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/groups` | Yes | List joined groups |
+| POST | `/api/groups` | Yes | Create a group |
+| GET | `/api/groups/:id` | Yes | Get group details + members |
+| PATCH | `/api/groups/:id` | Yes (admin) | Update group info |
+| DELETE | `/api/groups/:id` | Yes (admin) | Delete group |
+| POST | `/api/groups/:id/members` | Yes (admin) | Invite members |
+| DELETE | `/api/groups/:id/members/:userId` | Yes (admin/self) | Remove member / leave |
+| GET | `/api/groups/:id/messages` | Yes | Get message history |
+| POST | `/api/groups/:id/messages` | Yes | Send a group message |
+| PUT | `/api/groups/:id/messages/:msgId/read` | Yes | Mark group message as read |
+
+#### Devices (E2E Key Management)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/devices` | Yes | List own devices |
+| POST | `/api/devices` | Yes | Register a device (X3DH keys) |
+| DELETE | `/api/devices/:deviceId` | Yes | Remove a device |
+| GET | `/api/devices/user/:userId` | Yes | Get user's device list (public keys) |
+
+#### Key Bundles (X3DH)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/keys/bundle/:userId` | Yes | Get key bundle (consumes one-time prekey) |
+
 #### Admin
 
 | Method | Path | Auth | Description |
@@ -430,7 +509,9 @@ Tokens encode the `userId` and are signed with HMAC-SHA256 (24h expiry).
 
 Connect: `ws://host:port/ws?token={jwt}`
 
-Events: `connected`, `post_created`, `dm_received`, `dm:sent`, `user_online`, `user_offline`, `post:created`, `error`
+Events: `connected`, `post_created`, `dm_received`, `dm:sent`, `dm_read`, `user_online`, `user_offline`, `post:created`, `error`,
+`group_created`, `group_updated`, `group_deleted`, `group_member_added`, `group_member_removed`,
+`group_message`, `group_message_read`, `typing_start`, `typing_stop`, `key_bundle_request`, `key_bundle_response`
 
 #### Health
 

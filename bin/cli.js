@@ -2521,6 +2521,24 @@ function showHelp(command = null) {
             usage: 'kb chat [username]',
             desc: t('cmd.chat'),
         },
+        // Groups
+        groups: {
+            usage: 'kb groups [list|create|delete|info] [name]',
+            desc: t('cmd.groups'),
+        },
+        group: {
+            usage: 'kb group <name> members [add|remove|list] [userId]',
+            desc: t('cmd.groupMembers'),
+        },
+        // Devices/E2E
+        devices: {
+            usage: 'kb devices [list|remove] [deviceId]',
+            desc: t('cmd.devices'),
+        },
+        keys: {
+            usage: 'kb keys [rotate|bundle] [userId]',
+            desc: t('cmd.keys'),
+        },
         // Nostr
         nostr: {
             usage: 'kb nostr <command>',
@@ -2551,6 +2569,10 @@ function showHelp(command = null) {
         admin: {
             usage: 'kb admin <command>',
             desc: t('cmd.admin'),
+        },
+        config: {
+            usage: 'kb config set <key> <value>',
+            desc: t('cmd.config'),
         },
         help: {
             usage: 'kb help [command]',
@@ -2598,6 +2620,14 @@ function showHelp(command = null) {
             keys: ['dm', 'dms', 'chat'],
         },
         {
+            title: '👥 Groups',
+            keys: ['groups', 'group'],
+        },
+        {
+            title: '🔐 Devices & Keys',
+            keys: ['devices', 'keys'],
+        },
+        {
             title: t('help.groupNostr'),
             keys: ['nostr'],
         },
@@ -2607,7 +2637,7 @@ function showHelp(command = null) {
         },
         {
             title: t('help.groupOther'),
-            keys: ['serve', 'connect', 'realtime', 'admin', 'help'],
+            keys: ['serve', 'connect', 'realtime', 'admin', 'config', 'help'],
         },
     ];
 
@@ -2690,6 +2720,9 @@ async function cmdAdmin(args) {
             break;
         case 'revoke':
             await cmdAdminSetAdmin(config, args.slice(1), false);
+            break;
+        case 'promote':
+            await cmdAdminPromote(config, args.slice(1));
             break;
         default:
             console.error(chalk.red(`✖ Unknown admin command: "${subcommand}"`));
@@ -2878,6 +2911,693 @@ async function cmdAdminSetAdmin(config, args, makeAdmin) {
         spinner.fail(chalk.red(`Failed: ${err.message}`));
         process.exit(1);
     }
+}
+
+// ============================================================================
+// Command: groups (group management)
+// ============================================================================
+async function cmdGroups(args) {
+    const config = getActiveConfig();
+    if (!config.token) {
+        console.error(chalk.red('✖ Not logged in.'));
+        process.exit(1);
+    }
+
+    const subcommand = args[0] || 'list';
+
+    if (subcommand === 'help') {
+        console.log(`\n  ${chalk.bold.cyan(t('groups.title'))}`);
+        console.log(`  ${chalk.dim('Usage:')} ${t('groups.usage')}`);
+        console.log();
+        console.log(`  ${chalk.bold('Subcommands:')}`);
+        console.log(`    ${chalk.cyan('list')}     ${t('groups.subcommands.list')}`);
+        console.log(`    ${chalk.cyan('create')}   ${t('groups.subcommands.create')}`);
+        console.log(`    ${chalk.cyan('info')}     ${t('groups.subcommands.info')}`);
+        console.log(`    ${chalk.cyan('delete')}   ${t('groups.subcommands.delete')}`);
+        return;
+    }
+
+    switch (subcommand) {
+        case 'list':
+            await cmdGroupsList(config);
+            break;
+        case 'create':
+            await cmdGroupsCreate(config, args.slice(1));
+            break;
+        case 'info':
+            await cmdGroupsInfo(config, args.slice(1));
+            break;
+        case 'delete':
+            await cmdGroupsDelete(config, args.slice(1));
+            break;
+        default:
+            console.error(chalk.red(`✖ Unknown subcommand: "${subcommand}"`));
+            console.log(chalk.dim(`  kb groups --help for usage`));
+            process.exit(1);
+    }
+}
+
+async function cmdGroupsList(config) {
+    const spinner = ora('Fetching groups...').start();
+    try {
+        const data = await apiRequest('GET', '/api/groups', null, config.token);
+        spinner.stop();
+
+        console.log(`\n  ${chalk.bold.cyan(t('groups.list.title', { count: data.length }))}`);
+        console.log(`  ${chalk.dim('─'.repeat(60))}`);
+
+        if (data.length === 0) {
+            console.log(chalk.dim(`\n  ${t('groups.list.noGroups')}`));
+            console.log(chalk.dim(`  ${t('groups.list.createHint')}`));
+            return;
+        }
+
+        for (let i = 0; i < data.length; i++) {
+            const g = data[i];
+            const roleBadge = g.myRole === 'admin' ? chalk.yellow(' [ADMIN]') : '';
+            console.log(`  ${chalk.cyan(`${i + 1}.`)} ${chalk.bold(g.name)}${roleBadge}`);
+            console.log(`    ${chalk.dim(`ID: ${g.id}  |  Members: ${g.memberCount}  |  ${g.isE2EE ? 'E2EE' : 'Plain'}  |  Updated: ${new Date(g.updatedAt).toLocaleDateString()}`)}`);
+            if (g.description) {
+                console.log(`    ${chalk.dim(g.description)}`);
+            }
+            console.log();
+        }
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed to fetch groups: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdGroupsCreate(config, args) {
+    // Parse flags or use interactive mode
+    let name = args.find(a => !a.startsWith('--')) || null;
+    let description = args.find(a => a.startsWith('--description='))?.split('=')[1] || null;
+    let memberUserIds = args.find(a => a.startsWith('--members='))?.split('=')[1]?.split(',').map(s => s.trim()) || null;
+    let avatarUrl = args.find(a => a.startsWith('--avatar-url='))?.split('=')[1] || null;
+
+    if (!name) {
+        console.log(`\n  ${chalk.bold.cyan(t('groups.create.title'))}`);
+        console.log(`  ${chalk.dim('─'.repeat(50))}\n`);
+
+        name = await askQuestion(`  ${chalk.bold(t('groups.create.namePrompt'))}`);
+        if (!name || name.trim().length === 0) {
+            console.error(chalk.red(`\n  ${t('groups.create.nameEmpty')}`));
+            process.exit(1);
+        }
+        if (name.trim().length > 128) {
+            console.error(chalk.red(`\n  ${t('groups.create.nameTooLong')}`));
+            process.exit(1);
+        }
+
+        description = await askQuestion(`  ${chalk.bold(t('groups.create.descriptionPrompt'))}`);
+        description = description?.trim() || null;
+
+        const membersInput = await askQuestion(`  ${chalk.bold(t('groups.create.membersPrompt'))}`);
+        if (membersInput) {
+            memberUserIds = membersInput.split(',').map(s => s.trim()).filter(Boolean);
+        }
+    }
+
+    // Resolve usernames to user IDs if needed
+    if (memberUserIds && memberUserIds.length > 0) {
+        const resolvedIds = [];
+        for (const username of memberUserIds) {
+            if (username.startsWith('@')) {
+                try {
+                    const userData = await apiRequest('GET', `/api/users/${username.substring(1)}`, null, config.token);
+                    resolvedIds.push(userData.id);
+                } catch {
+                    console.error(chalk.red(`\n  ${t('groups.create.userNotFound', { username })}`));
+                    process.exit(1);
+                }
+            } else {
+                resolvedIds.push(username);
+            }
+        }
+        memberUserIds = resolvedIds;
+    }
+
+    // Ensure current user is in member list
+    if (!memberUserIds || !memberUserIds.includes(config.userId)) {
+        if (memberUserIds) memberUserIds.push(config.userId);
+        else memberUserIds = [config.userId];
+    }
+
+    if (memberUserIds.length > 100) {
+        console.error(chalk.red(`\n  ${t('groups.create.memberLimit')}`));
+        process.exit(1);
+    }
+
+    const spinner = ora('Creating group...').start();
+    try {
+        const result = await apiRequest('POST', '/api/groups', {
+            name: name.trim(),
+            description,
+            memberUserIds,
+            avatarUrl,
+        }, config.token);
+
+        spinner.succeed(chalk.green(t('groups.create.created', { name: result.group.name, id: result.group.id })));
+        console.log(`\n  ${t('groups.create.membersAdded', { count: result.members.length })}`);
+        console.log(`\n  ${chalk.dim('Group ID:')} ${chalk.dim(result.group.id)}`);
+        console.log(`  ${chalk.dim('Use kb group <name> members list to see members.')}`);
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed to create group: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdGroupsInfo(config, args) {
+    let groupName = args[0];
+
+    if (!groupName) {
+        // Interactive: list groups and let user pick
+        const data = await apiRequest('GET', '/api/groups', null, config.token);
+        if (data.length === 0) {
+            console.log(chalk.dim('No groups to show.'));
+            return;
+        }
+
+        const selected = await selectFromList(
+            data,
+            (g) => `${chalk.bold(g.name)} ${chalk.dim(`(${g.memberCount} members)`)}`,
+            'グループを選択:'
+        );
+
+        if (!selected) return;
+        groupName = selected.name;
+    }
+
+    const spinner = ora(`Fetching group "${groupName}"...`).start();
+    try {
+        // First resolve group name to ID
+        const groups = await apiRequest('GET', '/api/groups', null, config.token);
+        const group = groups.find(g => g.name === groupName);
+        if (!group) {
+            spinner.fail(chalk.red('Group not found.'));
+            return;
+        }
+
+        const data = await apiRequest('GET', `/api/groups/${group.id}`, null, config.token);
+        spinner.stop();
+
+        console.log(`\n  ${chalk.bold.cyan(t('groups.info.title', { name: data.group.name }))}`);
+        console.log(`  ${chalk.dim('─'.repeat(50))}`);
+        console.log(`  ${chalk.bold(t('groups.info.id'))}          ${chalk.dim(data.group.id)}`);
+        if (data.group.description) console.log(`  ${chalk.bold(t('groups.info.description'))}   ${data.group.description}`);
+        else console.log(`  ${chalk.bold(t('groups.info.description'))}   ${chalk.dim(t('groups.info.noDescription'))}`);
+        if (data.group.avatarUrl) console.log(`  ${chalk.bold(t('groups.info.avatar'))}         ${chalk.dim(data.group.avatarUrl)}`);
+        else console.log(`  ${chalk.bold(t('groups.info.avatar'))}         ${chalk.dim(t('groups.info.noAvatar'))}`);
+        console.log(`  ${chalk.bold(t('groups.info.createdBy'))}      ${chalk.dim(data.group.createdBy)}`);
+        console.log(`  ${chalk.bold(t('groups.info.e2ee'))}             ${data.group.isE2EE ? chalk.green(t('groups.info.yes')) : chalk.dim(t('groups.info.no'))}`);
+        console.log(`  ${chalk.bold(t('groups.info.createdAt'))}      ${new Date(data.group.createdAt).toLocaleDateString()}`);
+        console.log(`  ${chalk.bold(t('groups.info.updatedAt'))}      ${new Date(data.group.updatedAt).toLocaleDateString()}`);
+        console.log(`  ${chalk.bold(t('groups.info.memberCount'))}      ${data.group.memberCount}`);
+        console.log(`  ${chalk.bold(t('groups.info.myRole'))}         ${data.group.myRole === 'admin' ? chalk.yellow(t('groups.info.roleAdmin')) : chalk.dim(t('groups.info.roleMember'))}`);
+
+        if (data.members && data.members.length > 0) {
+            console.log(`\n  ${chalk.bold(t('groups.info.members'))} ${chalk.dim(`(${data.members.length})`)}`);
+            console.log(`  ${chalk.dim('─'.repeat(50))}`);
+            for (const member of data.members) {
+                const role = member.role === 'admin' ? chalk.yellow(t('groups.info.roleAdmin')) : chalk.dim(t('groups.info.roleMember'));
+                console.log(`    ${chalk.bold(member.user.username)} ${chalk.dim(member.user.displayName ? `— ${member.user.displayName}` : '')} ${role}`);
+            }
+        }
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed to fetch group: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdGroupsDelete(config, args) {
+    let groupName = args[0];
+    const force = args.includes('--force');
+
+    if (!groupName) {
+        console.error(chalk.red('✖ Error: Group name is required. Usage: kb groups delete <name> [--force]'));
+        process.exit(1);
+    }
+
+    // Resolve group name to ID
+    const groups = await apiRequest('GET', '/api/groups', null, config.token);
+    const group = groups.find(g => g.name === groupName);
+    if (!group) {
+        console.error(chalk.red(`✖ Group "${groupName}" not found.`));
+        process.exit(1);
+    }
+
+    if (group.myRole !== 'admin') {
+        console.error(chalk.red(`✖ ${t('groups.delete.notAdmin')}`));
+        process.exit(1);
+    }
+
+    if (!force) {
+        const confirmed = await confirmPrompt(t('groups.delete.confirm', { name: groupName }));
+        if (!confirmed) {
+            console.log(chalk.yellow('\n  Cancelled.'));
+            return;
+        }
+    }
+
+    const spinner = ora(`Deleting group "${groupName}"...`).start();
+    try {
+        await apiRequest('DELETE', `/api/groups/${group.id}`, null, config.token);
+        spinner.succeed(chalk.green(t('groups.delete.deleted', { name: groupName })));
+    } catch (err) {
+        spinner.fail(chalk.red(`Delete failed: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+// ============================================================================
+// Command: group <name> members (member management)
+// ============================================================================
+async function cmdGroupMembers(args) {
+    const config = getActiveConfig();
+    if (!config.token) {
+        console.error(chalk.red('✖ Not logged in.'));
+        process.exit(1);
+    }
+
+    const groupName = args[0];
+    const subcommand = args[1] || 'list';
+    const targetArg = args[2];
+
+    if (!groupName) {
+        console.error(chalk.red('✖ Error: Group name is required.'));
+        console.error(chalk.dim(`  Usage: kb group <name> members [add|remove|list] [userId]`));
+        process.exit(1);
+    }
+
+    // Resolve group name to ID
+    const groups = await apiRequest('GET', '/api/groups', null, config.token);
+    const group = groups.find(g => g.name === groupName);
+    if (!group) {
+        console.error(chalk.red(`✖ Group "${groupName}" not found.`));
+        process.exit(1);
+    }
+
+    if (subcommand === 'help') {
+        console.log(`\n  ${chalk.bold.cyan(t('groupMembers.title', { name: groupName }))}`);
+        console.log(`  ${chalk.dim('Usage:')} ${t('groupMembers.usage')}`);
+        console.log();
+        console.log(`  ${chalk.bold('Subcommands:')}`);
+        console.log(`    ${chalk.cyan('list')}              ${t('groupMembers.subcommands.list')}`);
+        console.log(`    ${chalk.cyan('add <userId>')}      ${t('groupMembers.subcommands.add')}`);
+        console.log(`    ${chalk.cyan('remove <userId>')}   ${t('groupMembers.subcommands.remove')}`);
+        return;
+    }
+
+    switch (subcommand) {
+        case 'list':
+            await cmdGroupMembersList(config, group);
+            break;
+        case 'add':
+            await cmdGroupMembersAdd(config, group, targetArg, args.slice(3));
+            break;
+        case 'remove':
+        case 'rm':
+            await cmdGroupMembersRemove(config, group, targetArg, args.slice(3));
+            break;
+        default:
+            console.error(chalk.red(`✖ Unknown subcommand: "${subcommand}"`));
+            console.log(chalk.dim(`  kb group ${groupName} members --help for usage`));
+            process.exit(1);
+    }
+}
+
+async function cmdGroupMembersList(config, group) {
+    const spinner = ora('Fetching members...').start();
+    try {
+        const data = await apiRequest('GET', `/api/groups/${group.id}`, null, config.token);
+        spinner.stop();
+
+        const members = data.members || [];
+        console.log(`\n  ${chalk.bold.cyan(t('groupMembers.list.title', { count: members.length }))}`);
+        console.log(`  ${chalk.dim('─'.repeat(60))}`);
+
+        for (const member of members) {
+            const role = member.role === 'admin' ? chalk.yellow(t('groupMembers.list.roleAdmin')) : chalk.dim(t('groupMembers.list.roleMember'));
+            console.log(`  ${chalk.bold(member.user.username)} ${chalk.dim(member.user.displayName ? `— ${member.user.displayName}` : '')} ${role}`);
+        }
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed to fetch members: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdGroupMembersAdd(config, group, targetArg, remainingArgs) {
+    let targetUserId = targetArg;
+
+    // Check admin permission
+    if (group.myRole !== 'admin') {
+        console.error(chalk.red(`✖ ${t('groupMembers.add.notAdmin')}`));
+        process.exit(1);
+    }
+
+    if (!targetUserId) {
+        targetUserId = await askQuestion(`  ${chalk.bold(t('groupMembers.add.userIdPrompt'))}`);
+    }
+
+    if (!targetUserId) {
+        console.log(chalk.yellow('Cancelled.'));
+        return;
+    }
+
+    // If it's a username starting with @, resolve it
+    if (targetUserId.startsWith('@')) {
+        try {
+            const userData = await apiRequest('GET', `/api/users/${targetUserId.substring(1)}`, null, config.token);
+            targetUserId = userData.id;
+        } catch {
+            console.error(chalk.red(`✖ ${t('groupMembers.add.userNotFound')}`));
+            process.exit(1);
+        }
+    }
+
+    const spinner = ora('Adding member...').start();
+    try {
+        await apiRequest('POST', `/api/groups/${group.id}/members`, { userIds: [targetUserId] }, config.token);
+        spinner.succeed(chalk.green(t('groupMembers.add.added')));
+    } catch (err) {
+        if (err.message.includes('already')) {
+            spinner.fail(chalk.red(`✖ ${t('groupMembers.add.alreadyMember')}`));
+        } else {
+            spinner.fail(chalk.red(`Failed to add member: ${err.message}`));
+        }
+        process.exit(1);
+    }
+}
+
+async function cmdGroupMembersRemove(config, group, targetArg, remainingArgs) {
+    const force = remainingArgs.includes('--force');
+    let targetUserId = targetArg;
+
+    // Check admin permission
+    if (group.myRole !== 'admin' && targetUserId !== config.userId) {
+        console.error(chalk.red(`✖ ${t('groupMembers.remove.notAdmin')}`));
+        process.exit(1);
+    }
+
+    if (!targetUserId) {
+        targetUserId = await askQuestion(`  ${chalk.bold(t('groupMembers.remove.userIdPrompt'))}`);
+    }
+
+    if (!targetUserId) {
+        console.log(chalk.yellow('Cancelled.'));
+        return;
+    }
+
+    if (targetUserId.startsWith('@')) {
+        try {
+            const userData = await apiRequest('GET', `/api/users/${targetUserId.substring(1)}`, null, config.token);
+            targetUserId = userData.id;
+        } catch {
+            console.error(chalk.red(`✖ ${t('groupMembers.remove.notMember')}`));
+            process.exit(1);
+        }
+    }
+
+    // Prevent self-removal if only admin
+    if (targetUserId === config.userId) {
+        const memberData = await apiRequest('GET', `/api/groups/${group.id}`, null, config.token);
+        const adminCount = memberData.members?.filter(m => m.role === 'admin').length || 0;
+        if (adminCount <= 1) {
+            console.error(chalk.red(`✖ ${t('groupMembers.remove.onlyAdmin')}`));
+            process.exit(1);
+        }
+    }
+
+    if (!force) {
+        const confirmed = await confirmPrompt(t('groupMembers.remove.confirm'));
+        if (!confirmed) {
+            console.log(chalk.yellow('\n  Cancelled.'));
+            return;
+        }
+    }
+
+    const spinner = ora('Removing member...').start();
+    try {
+        await apiRequest('DELETE', `/api/groups/${group.id}/members/${targetUserId}`, null, config.token);
+        spinner.succeed(chalk.green(t('groupMembers.remove.removed')));
+    } catch (err) {
+        if (err.message.includes('not a member')) {
+            spinner.fail(chalk.red(`✖ ${t('groupMembers.remove.notMember')}`));
+        } else if (err.message.includes('only admin')) {
+            spinner.fail(chalk.red(`✖ ${t('groupMembers.remove.onlyAdmin')}`));
+        } else {
+            spinner.fail(chalk.red(`Failed to remove member: ${err.message}`));
+        }
+        process.exit(1);
+    }
+}
+
+// ============================================================================
+// Command: devices (device management for E2E)
+// ============================================================================
+async function cmdDevices(args) {
+    const config = getActiveConfig();
+    if (!config.token) {
+        console.error(chalk.red('✖ Not logged in.'));
+        process.exit(1);
+    }
+
+    const subcommand = args[0] || 'list';
+
+    if (subcommand === 'help') {
+        console.log(`\n  ${chalk.bold.cyan(t('devices.title'))}`);
+        console.log(`  ${chalk.dim('Usage:')} ${t('devices.usage')}`);
+        return;
+    }
+
+    switch (subcommand) {
+        case 'list':
+            await cmdDevicesList(config);
+            break;
+        case 'remove':
+        case 'rm':
+            await cmdDevicesRemove(config, args[1]);
+            break;
+        default:
+            console.error(chalk.red(`✖ Unknown subcommand: "${subcommand}"`));
+            console.log(chalk.dim(`  kb devices --help for usage`));
+            process.exit(1);
+    }
+}
+
+async function cmdDevicesList(config) {
+    const spinner = ora('Fetching devices...').start();
+    try {
+        const data = await apiRequest('GET', '/api/devices', null, config.token);
+        spinner.stop();
+
+        console.log(`\n  ${chalk.bold.cyan(t('devices.list.title', { count: data.length }))}`);
+        console.log(`  ${chalk.dim('─'.repeat(70))}`);
+
+        if (data.length === 0) {
+            console.log(chalk.dim(`\n  ${t('devices.list.noDevices')}`));
+            console.log(chalk.dim(`  ${t('devices.list.createHint')}`));
+            return;
+        }
+
+        for (const device of data) {
+            const name = device.deviceName ? chalk.bold(device.deviceName) : chalk.dim('(unnamed)');
+            const lastSeen = device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : t('devices.list.noLastSeen');
+            console.log(`  ${name} ${chalk.dim(`| ID: ${device.id.substring(0, 8)}...  |  Created: ${new Date(device.createdAt).toLocaleString()}  |  Last seen: ${lastSeen}`)}`);
+        }
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed to fetch devices: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+async function cmdDevicesRemove(config, deviceId) {
+    if (!deviceId) {
+        deviceId = await askQuestion(`  ${chalk.bold(t('devices.remove.deviceIdPrompt'))}`);
+    }
+
+    if (!deviceId) {
+        console.log(chalk.yellow('Cancelled.'));
+        return;
+    }
+
+    const confirmed = await confirmPrompt(t('devices.remove.confirm'));
+    if (!confirmed) {
+        console.log(chalk.yellow('\n  Cancelled.'));
+        return;
+    }
+
+    const spinner = ora('Removing device...').start();
+    try {
+        await apiRequest('DELETE', `/api/devices/${deviceId}`, null, config.token);
+        spinner.succeed(chalk.green(t('devices.remove.removed')));
+    } catch (err) {
+        spinner.fail(chalk.red(`Failed to remove device: ${err.message}`));
+        process.exit(1);
+    }
+}
+
+// ============================================================================
+// Command: keys (key management for X3DH)
+// ============================================================================
+async function cmdKeys(args) {
+    const config = getActiveConfig();
+    if (!config.token) {
+        console.error(chalk.red('✖ Not logged in.'));
+        process.exit(1);
+    }
+
+    const subcommand = args[0] || 'bundle';
+
+    if (subcommand === 'help') {
+        console.log(`\n  ${chalk.bold.cyan(t('keys.title'))}`);
+        console.log(`  ${chalk.dim('Usage:')} ${t('keys.usage')}`);
+        return;
+    }
+
+    switch (subcommand) {
+        case 'bundle':
+            await cmdKeysBundle(config, args[1]);
+            break;
+        case 'rotate':
+            await cmdKeysRotate(config);
+            break;
+        default:
+            console.error(chalk.red(`✖ Unknown subcommand: "${subcommand}"`));
+            console.log(chalk.dim(`  kb keys --help for usage`));
+            process.exit(1);
+    }
+}
+
+async function cmdKeysBundle(config, targetUserId) {
+    if (!targetUserId) {
+        console.error(chalk.red('✖ Error: User ID is required. Usage: kb keys bundle <userId>'));
+        process.exit(1);
+    }
+
+    // If it's a username starting with @, resolve it
+    if (targetUserId.startsWith('@')) {
+        try {
+            const userData = await apiRequest('GET', `/api/users/${targetUserId.substring(1)}`, null, config.token);
+            targetUserId = userData.id;
+        } catch {
+            console.error(chalk.red(`✖ ${t('keys.bundle.userNotFound')}`));
+            process.exit(1);
+        }
+    }
+
+    const spinner = ora('Requesting key bundle...').start();
+    try {
+        const data = await apiRequest('GET', `/api/keys/bundle/${targetUserId}`, null, config.token);
+        spinner.stop();
+
+        console.log(`\n  ${chalk.bold.cyan(t('keys.bundle.title'))}`);
+        console.log(`  ${chalk.dim('─'.repeat(60))}`);
+        console.log(`  ${chalk.bold('User ID:')} ${chalk.dim(data.userId)}`);
+        console.log(`  ${chalk.bold('Device ID:')} ${chalk.dim(data.deviceId)}`);
+        console.log(`\n  ${chalk.bold('Identity Key:')}      ${data.bundle.identityKey}`);
+        console.log(`  ${chalk.bold('Signed PreKey:')}     ${data.bundle.signedPreKey}`);
+        console.log(`  ${chalk.bold('PreKey Signature:')}  ${data.bundle.preKeySignature}`);
+        console.log(`  ${chalk.bold('One-Time PreKeys:')}  ${data.bundle.oneTimePreKeys.join(', ') || '(none)'}`);
+    } catch (err) {
+        if (err.message.includes('not found')) {
+            spinner.fail(chalk.red(`✖ ${t('keys.bundle.userNotFound')}`));
+        } else if (err.message.includes('devices')) {
+            spinner.fail(chalk.red(`✖ ${t('keys.bundle.noDevices')}`));
+        } else {
+            spinner.fail(chalk.red(`Failed to get key bundle: ${err.message}`));
+        }
+        process.exit(1);
+    }
+}
+
+async function cmdKeysRotate(config) {
+    console.log(`\n  ${chalk.bold.cyan(t('keys.rotate.title'))}`);
+    console.log(`  ${chalk.dim(t('keys.rotate.notImplemented'))}`);
+}
+
+// ============================================================================
+// Command: admin promote (promote user to admin)
+// ============================================================================
+async function cmdAdminPromote(config, args) {
+    let username = args[0];
+
+    // Check if current user is admin
+    const me = await apiRequest('GET', `/api/users/${config.username}`, null, config.token);
+    if (!me.isAdmin) {
+        console.error(chalk.red(`✖ ${t('admin.promote.notAdmin')}`));
+        process.exit(1);
+    }
+
+    if (!username) {
+        username = await askQuestion(`  ${chalk.bold(t('admin.promote.usernamePrompt'))}`);
+    }
+
+    if (!username) {
+        console.log(chalk.yellow('Cancelled.'));
+        return;
+    }
+
+    const spinner = ora(`Promoting @${username} to admin...`).start();
+    try {
+        const userData = await apiRequest('GET', `/api/users/${username}`, null, config.token);
+
+        if (userData.isAdmin) {
+            spinner.fail(chalk.red(`✖ ${t('admin.promote.alreadyAdmin')}`));
+            process.exit(1);
+        }
+
+        await apiRequest('PUT', `/api/admin/users/${userData.id}/admin`, { isAdmin: true }, config.token);
+
+        spinner.succeed(chalk.green(t('admin.promote.promoted', { username })));
+    } catch (err) {
+        if (err.message.includes('not found')) {
+            spinner.fail(chalk.red(`✖ ${t('admin.promote.userNotFound')}`));
+        } else {
+            spinner.fail(chalk.red(`Failed to promote: ${err.message}`));
+        }
+        process.exit(1);
+    }
+}
+
+// ============================================================================
+// Command: config (configuration management)
+// ============================================================================
+async function cmdConfig(args) {
+    const config = getActiveConfig();
+    const subcommand = args[0];
+
+    if (!subcommand || subcommand === 'help') {
+        console.log(`\n  ${chalk.bold.cyan(t('config.title'))}`);
+        console.log(`  ${chalk.dim('Usage:')} ${t('config.usage')}`);
+        return;
+    }
+
+    switch (subcommand) {
+        case 'set':
+            await cmdConfigSet(config, args.slice(1));
+            break;
+        default:
+            console.error(chalk.red(`✖ Unknown subcommand: "${subcommand}"`));
+            console.log(chalk.dim(`  kb config --help for usage`));
+            process.exit(1);
+    }
+}
+
+async function cmdConfigSet(config, args) {
+    const key = args[0];
+    const value = args.slice(1).join(' ');
+
+    if (!key || !value) {
+        console.error(chalk.red('✖ Error: Key and value are required. Usage: kb config set <key> <value>'));
+        process.exit(1);
+    }
+
+    const fullConfig = loadFullConfig();
+    fullConfig[key] = value;
+    await saveFullConfig(fullConfig);
+
+    console.log(`\n  ${chalk.green(t('config.set.success', { key, value }))}`);
 }
 
 // ============================================================================
@@ -3384,6 +4104,26 @@ async function main() {
 
         case 'chat':
             await cmdChat(args.slice(1));
+            break;
+
+        case 'groups':
+            await cmdGroups(args.slice(1));
+            break;
+
+        case 'group':
+            await cmdGroupMembers(args.slice(1));
+            break;
+
+        case 'devices':
+            await cmdDevices(args.slice(1));
+            break;
+
+        case 'keys':
+            await cmdKeys(args.slice(1));
+            break;
+
+        case 'config':
+            await cmdConfig(args.slice(1));
             break;
 
         case 'admin':

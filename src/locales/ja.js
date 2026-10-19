@@ -131,6 +131,148 @@ export default {
         nostr: 'Nostr 統合（鍵・リレー・同期）',
         delete: '自分のアカウントを永久削除',
         p2p: 'P2P 同期（hypercore + hyperswarm）',
+        // Groups
+        groups: 'グループ管理 (list|create|delete|info)',
+        groupMembers: 'グループメンバー管理 (add|remove|list)',
+        // Devices/E2E
+        devices: 'デバイス管理 (list|remove)',
+        keys: '鍵管理 (rotate|bundle)',
+        // Admin
+        adminPromote: 'ユーザーを管理者に昇格',
+        // Config
+        config: '設定変更',
+    },
+    // Group command help
+    groups: {
+        title: '👥 グループ管理',
+        usage: 'kb groups [list|create|delete|info] <name>',
+        subcommands: {
+            list: '参加グループ一覧',
+            create: 'グループ作成',
+            delete: 'グループ削除',
+            info: 'グループ詳細',
+        },
+        create: {
+            title: '👥 グループ作成',
+            namePrompt: 'グループ名: ',
+            descriptionPrompt: '説明 (任意): ',
+            membersPrompt: 'メンバーのユーザー名 (カンマ区切り、自分を含む): ',
+            nameEmpty: '✖ グループ名が入力されていません。',
+            nameTooLong: '✖ グループ名は128文字以内です。',
+            memberEmpty: '✖ メンバーは最低1人（自分）必要です。',
+            memberSelf: '✖ メンバーには自分を含めてください。',
+            memberLimit: '✖ メンバーは最大100人までです。',
+            userNotFound: '✖ ユーザー「{username}」が見つかりません。',
+            created: '✔ グループ「{name}」を作成しました (ID: {id})',
+            membersAdded: '{count}人のメンバーを追加しました。',
+        },
+        delete: {
+            confirm: '🗑️ グループ「{name}」を削除してもよろしいですか？ (y/N): ',
+            deleted: '✔ グループ「{name}」を削除しました。',
+            notFound: '✖ グループが見つかりません。',
+            notAdmin: '✖ グループ管理者のみ削除できます。',
+        },
+        info: {
+            title: '👥 グループ詳細: {name}',
+            id: 'ID:',
+            description: '説明:',
+            avatar: 'アバター:',
+            createdBy: '作成者:',
+            e2ee: 'E2EE:',
+            createdAt: '作成日:',
+            updatedAt: '更新日:',
+            memberCount: 'メンバー数:',
+            myRole: 'あなたの役割:',
+            members: 'メンバー一覧:',
+            noDescription: '(説明なし)',
+            noAvatar: '(アバターなし)',
+            yes: 'はい',
+            no: 'いいえ',
+        },
+        list: {
+            title: '👥 参加グループ一覧 ({count}件)',
+            noGroups: '参加しているグループはありません。',
+            createHint: '💡 グループを作成: kb groups create',
+        },
+    },
+    // Group members command help
+    groupMembers: {
+        title: '👥 グループ「{name}」のメンバー管理',
+        usage: 'kb group <name> members [add|remove|list] <userId>',
+        add: {
+            userIdPrompt: '追加するユーザーID: ',
+            userNotFound: '✖ ユーザーが見つかりません。',
+            alreadyMember: '✖ 既にメンバーです。',
+            added: '✔ ユーザーを追加しました。',
+            notAdmin: '✖ 管理者のみメンバーを追加できます。',
+        },
+        remove: {
+            userIdPrompt: '削除するユーザーID: ',
+            confirm: '🗑️ このユーザーをグループから削除してもよろしいですか？ (y/N): ',
+            removed: '✔ ユーザーを削除しました。',
+            notMember: '✖ このユーザーはメンバーではありません。',
+            notAdmin: '✖ 管理者のみメンバーを削除できます。',
+            onlyAdmin: '✖ 唯一の管理者は削除できません。先に別の管理者を任命してください。',
+        },
+        list: {
+            title: '👥 メンバー一覧 ({count}件)',
+            roleAdmin: '管理者',
+            roleMember: 'メンバー',
+        },
+    },
+    // Devices command help
+    devices: {
+        title: '📱 デバイス管理',
+        usage: 'kb devices [list|remove] <deviceId>',
+        list: {
+            title: '📱 登録デバイス一覧 ({count}件)',
+            noDevices: '登録されているデバイスはありません。',
+            createHint: '💡 デバイスは初回ログイン時に自動登録されます。',
+            deviceInfo: '{name} | ID: {id} | 作成: {created} | 最終接続: {lastSeen}',
+        },
+        remove: {
+            deviceIdPrompt: '削除するデバイスID: ',
+            confirm: '🗑️ このデバイスを削除してもよろしいですか？ (y/N): ',
+            removed: '✔ デバイスを削除しました。',
+            notFound: '✖ デバイスが見つかりません。',
+        },
+    },
+    // Keys command help
+    keys: {
+        title: '🔐 鍵管理',
+        usage: 'kb keys [rotate|bundle] <userId>',
+        rotate: {
+            title: '🔐 鍵のローテーション',
+            notImplemented: '⚠ 鍵ローテーションは未実装です。',
+        },
+        bundle: {
+            title: '🔐 鍵バンドル取得',
+            userNotFound: '✖ ユーザーが見つかりません。',
+            noDevices: '✖ 相手のデバイスが見つかりません。',
+            bundle: 'Identity Key: {identityKey}\nSigned PreKey: {signedPreKey}\nPreKey Signature: {preKeySignature}\nOne-Time PreKeys: {oneTimePreKeys}',
+        },
+    },
+    // Admin command help
+    admin: {
+        title: '⚙️ 管理者コマンド',
+        usage: 'kb admin promote <username>',
+        promote: {
+            title: '⚙️ ユーザーを管理者に昇格',
+            usernamePrompt: '昇格するユーザー名: ',
+            userNotFound: '✖ ユーザーが見つかりません。',
+            alreadyAdmin: '✖ 既に管理者です。',
+            promoted: '✔ ユーザー「{username}」を管理者に昇格しました。',
+            notAdmin: '✖ このコマンドは管理者のみ実行できます。',
+        },
+    },
+    // Config command help
+    config: {
+        title: '⚙️ 設定変更',
+        usage: 'kb config set <key> <value>',
+        set: {
+            success: '✔ {key} = {value} を設定しました。',
+            invalidKey: '✖ 無効な設定キーです。',
+        },
     },
     // Interactive prompts
     prompt: {

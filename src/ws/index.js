@@ -12,6 +12,7 @@ import { WebSocketServer } from 'ws';
 import { verifyToken } from '../auth/jwt.js';
 import { logger } from '../logger.js';
 import { handleMessage } from './handlers.js';
+import { query } from '../db/pool.js';
 
 /** @type {Map<string, Set<import('ws').WebSocket>>} */
 const userSockets = new Map();
@@ -216,4 +217,41 @@ export function getOnlineCount() {
  */
 export function getOnlineUsers() {
     return Array.from(userSockets.keys());
+}
+
+/**
+ * Broadcast an event to all members of a group.
+ *
+ * @param {string} groupId - Group ID
+ * @param {string} event - Event name (e.g., 'group_message', 'group_updated')
+ * @param {object} payload - Event data
+ * @param {string|null} [excludeUserId] - Optional user ID to exclude from broadcast
+ */
+export async function broadcastToGroup(groupId, event, payload, excludeUserId = null) {
+    if (!wss) return;
+
+    // Get all member user IDs for the group
+    try {
+        const membersResult = await query(
+            'SELECT user_id FROM group_members WHERE group_id = $1',
+            [groupId]
+        );
+
+        const message = JSON.stringify({ type: event, payload });
+
+        for (const member of membersResult.rows) {
+            if (member.user_id !== excludeUserId) {
+                const sockets = userSockets.get(member.user_id);
+                if (sockets) {
+                    sockets.forEach((ws) => {
+                        if (ws.readyState === ws.OPEN) {
+                            ws.send(message);
+                        }
+                    });
+                }
+            }
+        }
+    } catch (err) {
+        logger.error({ err, groupId, event }, 'Failed to broadcast to group');
+    }
 }

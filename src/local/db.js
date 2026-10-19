@@ -144,7 +144,101 @@ CREATE INDEX IF NOT EXISTS idx_local_dms_recipient ON dms (recipient_id, is_read
 CREATE INDEX IF NOT EXISTS idx_local_dms_sender ON dms (sender_id, created_at DESC);
 
 -- ============================================================================
--- 5. p2p_peers (track known peers for sync)
+-- 5. groups
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS groups (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT,
+    avatar_url  TEXT,
+    created_by  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    is_e2ee     INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_groups_created_by ON groups (created_by);
+
+-- ============================================================================
+-- 6. group_members
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS group_members (
+    id        TEXT PRIMARY KEY,
+    group_id  TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role      TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
+    joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (group_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_group_members_group_id ON group_members (group_id);
+CREATE INDEX IF NOT EXISTS idx_local_group_members_user_id ON group_members (user_id);
+
+-- ============================================================================
+-- 7. group_messages
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS group_messages (
+    id          TEXT PRIMARY KEY,
+    group_id    TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    sender_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content     TEXT NOT NULL CHECK (length(content) > 0 AND length(content) <= 5000),
+    signature   TEXT NOT NULL,
+    message_type TEXT NOT NULL DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'file', 'system')),
+    reply_to    TEXT REFERENCES group_messages(id) ON DELETE SET NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_group_messages_group_created ON group_messages (group_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_local_group_messages_sender_created ON group_messages (sender_id, created_at DESC);
+
+-- ============================================================================
+-- 8. message_read_receipts
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS message_read_receipts (
+    id            TEXT PRIMARY KEY,
+    message_id    TEXT NOT NULL,
+    message_type  TEXT NOT NULL CHECK (message_type IN ('dm', 'group')),
+    user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    read_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (message_id, message_type, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_read_receipts_message ON message_read_receipts (message_id, message_type);
+CREATE INDEX IF NOT EXISTS idx_local_read_receipts_user ON message_read_receipts (user_id);
+
+-- ============================================================================
+-- 9. user_devices
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS user_devices (
+    id                TEXT PRIMARY KEY,
+    user_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    device_name       TEXT,
+    identity_key      TEXT NOT NULL,
+    signed_pre_key    TEXT NOT NULL,
+    pre_key_signature TEXT NOT NULL,
+    one_time_pre_keys TEXT NOT NULL DEFAULT '[]',
+    created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+    last_seen_at      TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_user_devices_user_id ON user_devices (user_id);
+
+-- ============================================================================
+-- 10. group_session_keys
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS group_session_keys (
+    id         TEXT PRIMARY KEY,
+    group_id   TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    sender_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sender_key TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (group_id, sender_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_group_session_keys_group ON group_session_keys (group_id);
+
+-- ============================================================================
+-- 11. p2p_peers (track known peers for sync)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS p2p_peers (
     id          TEXT PRIMARY KEY,
