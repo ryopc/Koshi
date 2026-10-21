@@ -1,6 +1,6 @@
 # 🏄 koshi — Terminal-Native Decentralized SNS
 
-**Version 4.0.0** · MIT License · by [game_ryo](https://github.com/ryopc)
+**Version 5.0.0** · MIT License · by [game_ryo](https://github.com/ryopc)
 
 > A terminal-native, decentralized social network powered by ed25519 cryptography.
 > **Serverless P2P mesh is the default** — no database or server setup needed. Just install and go.
@@ -8,6 +8,19 @@
 ---
 
 ## ✨ Features
+
+### v5.0.0 — Signal Protocol (X3DH + Double Ratchet) 対応
+
+- **🔐 Signal Protocol 対応サーバ API** — X3DH 鍵交換（デバイス登録・PreKey Bundle）と Double Ratchet セッション確立に必要なサーバ API を追加。
+- **📱 デバイス登録** — `POST /api/devices` で identity key / signed prekey / one-time prekey（base64）を登録。ID はクライアント互換の文字列。
+- **🔑 PreKey Bundle** — `GET /api/keys/bundle/:userId` が未使用 one-time prekey を 1 つ消費して返す。prekey が無い場合は 404（`No prekeys available`）。
+- **🆔 安定した prekey ID** — one-time prekey は `{ id, publicKey }` として保持し、バンドル応答の `preKeyId` で使用済みの prekey を明示。
+- **🔄 アクセストークン更新** — `POST /api/auth/refresh` / `POST /api/auth/logout`。refresh token はローテーションされ、SHA-256 ハッシュのみ DB 保存。
+- **📣 Push 通知トークン** — `POST|DELETE /api/users/me/push-token`（Expo Push API）。レート制限付き。
+- **🪪 公開鍵の公開** — `GET /api/users/me` と `GET /api/users/:username` が ed25519 公開鍵（hex 64 文字）を返す（受信 DM の署名検証に使用）。
+- **🖧 Postgres 版 / SQLite 版の両実装を同一レスポンス形状に統一**。
+
+> 破壊的変更: package version は 4.0.0 → 5.0.0。access token に `exp` が入り（旧 token は `type` 無しのため引き続き有効）、JWT に `type` claim が追加されました。
 
 ### v3.1.6 — Serverless P2P Mesh (with Account Self-Deletion & Nostr Relay Fix)
 
@@ -423,12 +436,17 @@ Tokens encode the `userId` and are signed with HMAC-SHA256 (24h expiry).
 |--------|------|------|-------------|
 | POST | `/api/auth/register` | No | Register with ed25519 public key |
 | POST | `/api/auth/login` | No | Login with signed challenge |
+| POST | `/api/auth/refresh` | No | Exchange a refresh token for a new access token |
+| POST | `/api/auth/logout` | No | Revoke refresh tokens |
 
 #### Users
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/users/:username` | No | Get user profile |
+| GET | `/api/users/:username` | No | Get user profile (includes `publicKey`) |
+| GET | `/api/users/me` | Yes | Get own profile (includes `publicKey`) |
+| POST | `/api/users/me/push-token` | Yes | Register an Expo push token |
+| DELETE | `/api/users/me/push-token` | Yes | Unregister Expo push token(s) |
 | PUT | `/api/users/me` | Yes | Update own profile |
 | GET | `/api/users/:id/followers` | No | Get followers |
 | GET | `/api/users/:id/following` | No | Get following |
@@ -481,7 +499,7 @@ Tokens encode the `userId` and are signed with HMAC-SHA256 (24h expiry).
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/keys/bundle/:userId` | Yes | Get key bundle (consumes one-time prekey) |
+| GET | `/api/keys/bundle/:userId` | Yes | Get key bundle (consumes one-time prekey; 404 when none left) |
 
 #### Admin
 
@@ -621,6 +639,25 @@ For a personal node with no external services:
 # Just run the server (SQLite + P2P mesh, no config needed)
 npm run server
 # → http://localhost:3000
+```
+
+### Push Notifications (Expo)
+
+Push notification support is optional — the server runs fine without it. All
+variables have sensible defaults, so you only need to set them to override.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `EXPO_PUSH_API_URL` | Expo Push API endpoint | `https://exp.host/--/api/v2/push/send` |
+| `PUSH_RATE_LIMIT_MAX` | Max push-token requests per window per IP | `10` |
+| `PUSH_RATE_LIMIT_WINDOW` | Rate limit window in seconds | `60` |
+
+```bash
+# Example
+EXPO_PUSH_API_URL=https://exp.host/--/api/v2/push/send \
+PUSH_RATE_LIMIT_MAX=10 \
+PUSH_RATE_LIMIT_WINDOW=60 \
+npm run server
 ```
 
 ---

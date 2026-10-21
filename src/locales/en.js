@@ -17,7 +17,6 @@ export default {
         logFile: 'Log:',
         stopCmd: 'Stop:',
         stopDaemonCmd: 'kb serve --stop',
-        startForeground: 'Start one with: kb serve',
         shuttingDown: 'Shutting down...',
         noBackground: '✖ No background server found.',
         startForeground: 'Start one with: kb serve',
@@ -52,7 +51,7 @@ export default {
     // Help
     help: {
         title: '🏄 koshi — Terminal-Native Decentralized SNS',
-        v3: 'Version 3.1.6 — Serverless P2P Mesh',
+        v3: 'Version 5.0.0 — Serverless P2P Mesh',
         usage: 'Usage:',
         commands: 'Commands:',
         options: 'Options:',

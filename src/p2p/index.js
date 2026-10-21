@@ -528,7 +528,7 @@ async function cleanup() {
     try {
         if (_swarm) { await _swarm.destroy().catch(() => {}); _swarm = null; }
         if (_store) { await _store.close().catch(() => {}); _store = null; }
-    } catch {}
+    } catch { /* best-effort cleanup */ }
     _cores = {};
     _cachedPosts = [];
     _cachedDMs = [];

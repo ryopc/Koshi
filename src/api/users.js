@@ -10,6 +10,8 @@
 import { Router } from 'express';
 import { query } from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
+import { pushLimiter } from '../middleware/rateLimit.js';
+import { registerPushToken, deletePushToken, deleteAllUserPushTokens, isValidExpoPushToken, getUserPushTokens } from '../services/pushToken.service.js';
 import { logger } from '../logger.js';
 
 const router = Router();
@@ -56,6 +58,59 @@ router.get('/search/:query', async (req, res) => {
 });
 
 // ============================================================================
+// GET /api/users/me
+// ============================================================================
+// Fetch the authenticated user's own profile.
+// IMPORTANT: Must be defined BEFORE /:username so Express matches it first.
+//
+// Returns: { id, username, displayName, bio, avatarUrl, publicKey, isAdmin,
+//            followersCount, followingCount, createdAt }
+// ============================================================================
+router.get('/me', requireAuth, async (req, res) => {
+    try {
+        const result = await query(
+            `SELECT
+                u.id,
+                u.username,
+                u.display_name,
+                u.bio,
+                u.avatar_url,
+                u.public_key,
+                u.is_admin,
+                u.created_at,
+                (SELECT COUNT(*) FROM follows WHERE following_id = u.id)::int AS followers_count,
+                (SELECT COUNT(*) FROM follows WHERE follower_id = u.id)::int AS following_count
+            FROM users u
+            WHERE u.id = $1`,
+            [req.user.userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const user = result.rows[0];
+
+        return res.json({
+            id: user.id,
+            username: user.username,
+            displayName: user.display_name,
+            bio: user.bio,
+            avatarUrl: user.avatar_url,
+            // ed25519 public key (hex). Never expose the private key.
+            publicKey: user.public_key,
+            isAdmin: !!user.is_admin,
+            followersCount: user.followers_count,
+            followingCount: user.following_count,
+            createdAt: user.created_at,
+        });
+    } catch (err) {
+        logger.error({ err }, 'Failed to fetch own profile');
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ============================================================================
 // GET /api/users/:username
 // ============================================================================
 // Fetch a user's public profile.
@@ -77,6 +132,8 @@ router.get('/:username', async (req, res) => {
                 u.display_name,
                 u.bio,
                 u.avatar_url,
+                u.public_key,
+                u.is_admin,
                 u.created_at,
                 (SELECT COUNT(*) FROM follows WHERE following_id = u.id)::int AS followers_count,
                 (SELECT COUNT(*) FROM follows WHERE follower_id = u.id)::int AS following_count
@@ -97,6 +154,9 @@ router.get('/:username', async (req, res) => {
             displayName: user.display_name,
             bio: user.bio,
             avatarUrl: user.avatar_url,
+            // ed25519 public key (hex). Clients use it to verify DM signatures.
+            publicKey: user.public_key,
+            isAdmin: !!user.is_admin,
             followersCount: user.followers_count,
             followingCount: user.following_count,
             createdAt: user.created_at,
@@ -183,6 +243,93 @@ router.put('/me', requireAuth, async (req, res) => {
         });
     } catch (err) {
         logger.error({ err }, 'Failed to update profile');
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ============================================================================
+// POST /api/users/me/push-token
+// ============================================================================
+// Register or update an Expo push token for the authenticated user.
+//
+// Headers: Authorization: Bearer {token}
+// Body: { expoPushToken: string, deviceId?: string, platform?: 'ios'|'android' }
+// Returns: { success: boolean }
+// Rate limited: PUSH_RATE_LIMIT_MAX requests per PUSH_RATE_LIMIT_WINDOW seconds per IP
+// ============================================================================
+router.post('/me/push-token', requireAuth, pushLimiter, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { expoPushToken, deviceId, platform } = req.body;
+
+        // Validate required fields
+        if (!expoPushToken || typeof expoPushToken !== 'string') {
+            return res.status(400).json({
+                error: 'expoPushToken is required and must be a string.',
+            });
+        }
+
+        // Validate Expo push token format
+        if (!isValidExpoPushToken(expoPushToken)) {
+            return res.status(400).json({
+                error: 'Invalid Expo push token format.',
+                message: 'Token must look like "ExponentPushToken[<payload>]" with a payload of at least 8 characters.',
+            });
+        }
+
+        // Validate platform if provided
+        if (platform && !['ios', 'android'].includes(platform)) {
+            return res.status(400).json({
+                error: 'Invalid platform. Must be "ios" or "android".',
+            });
+        }
+
+        // Register/update the token
+        await registerPushToken(userId, expoPushToken, deviceId, platform);
+
+        return res.json({ success: true });
+    } catch (err) {
+        logger.error({ err, userId: req.user.userId }, 'Failed to register push token');
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ============================================================================
+// DELETE /api/users/me/push-token
+// ============================================================================
+// Delete an Expo push token for the authenticated user (e.g., on logout).
+//
+// Headers: Authorization: Bearer {token}
+// Body: { expoPushToken: string }
+// Returns: { success: boolean }
+// Rate limited: PUSH_RATE_LIMIT_MAX requests per PUSH_RATE_LIMIT_WINDOW seconds per IP
+// ============================================================================
+router.delete('/me/push-token', requireAuth, pushLimiter, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const body = req.body || {};
+
+        // The body is optional: clients call this without one on logout.
+        //   { expoPushToken } -> delete that single token
+        //   { deviceId }      -> delete the tokens of that device
+        //   (nothing)         -> delete every push token of this user
+        if (typeof body.expoPushToken === 'string' && body.expoPushToken.length > 0) {
+            await deletePushToken(userId, body.expoPushToken);
+            return res.json({ success: true });
+        }
+
+        if (body.deviceId !== undefined && body.deviceId !== null && body.deviceId !== '') {
+            await query(
+                'DELETE FROM push_tokens WHERE user_id = $1 AND device_id = $2',
+                [userId, String(body.deviceId)]
+            );
+            return res.json({ success: true });
+        }
+
+        await deleteAllUserPushTokens(userId);
+        return res.json({ success: true });
+    } catch (err) {
+        logger.error({ err, userId: req.user.userId }, 'Failed to delete push token');
         return res.status(500).json({ error: 'Internal server error' });
     }
 });

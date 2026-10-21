@@ -181,8 +181,8 @@ CREATE TABLE IF NOT EXISTS user_devices (
     device_name VARCHAR(64),
     identity_key TEXT NOT NULL,           -- X25519 public key (base64)
     signed_pre_key TEXT NOT NULL,         -- X25519 public key (base64)
-    pre_key_signature TEXT NOT NULL,      -- ed25519 signature of signed_pre_key (base64)
-    one_time_pre_keys TEXT[] NOT NULL DEFAULT '{}',  -- X25519 public keys (base64 array)
+    pre_key_signature TEXT NOT NULL,      -- XEdDSA signature of signed_pre_key (base64)
+    one_time_pre_keys JSONB NOT NULL DEFAULT '[]'::jsonb,  -- [{ id, publicKey }] (base64)
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_seen_at TIMESTAMPTZ
 );
@@ -204,3 +204,42 @@ DROP TRIGGER IF EXISTS trg_groups_updated_at ON groups;
 CREATE TRIGGER trg_groups_updated_at
     BEFORE UPDATE ON groups
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
+-- Push Notifications
+-- ============================================================================
+
+-- push_tokens
+CREATE TABLE IF NOT EXISTS push_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expo_push_token TEXT NOT NULL,
+    device_id TEXT,
+    platform TEXT CHECK (platform IN ('ios', 'android')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, expo_push_token)
+);
+CREATE INDEX IF NOT EXISTS idx_push_tokens_user_id ON push_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_push_tokens_expo_push_token ON push_tokens(expo_push_token);
+
+-- Apply updated_at trigger to push_tokens
+DROP TRIGGER IF EXISTS trg_push_tokens_updated_at ON push_tokens;
+CREATE TRIGGER trg_push_tokens_updated_at
+    BEFORE UPDATE ON push_tokens
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
+-- Refresh Tokens (access token rotation)
+-- ============================================================================
+
+-- refresh_tokens — only the SHA-256 hash of a refresh token is stored.
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    token_hash TEXT NOT NULL UNIQUE,      -- sha256 hex of the raw refresh token
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);

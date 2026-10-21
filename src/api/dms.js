@@ -11,6 +11,7 @@ import { Router } from 'express';
 import { query } from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getBroadcast } from '../ws/index.js';
+import { sendDMNotification } from '../services/notification.service.js';
 import { logger } from '../logger.js';
 
 const router = Router();
@@ -208,6 +209,17 @@ router.post('/:userId', requireAuth, async (req, res) => {
         }
 
         logger.info({ dmId: dm.id, senderId, recipientId }, 'DM sent');
+
+        // Send push notification to recipient (async, don't block response)
+        try {
+            await sendDMNotification(recipientId, {
+                id: sender.id,
+                username: sender.username,
+                displayName: sender.display_name,
+            }, dm.content, dm.id);
+        } catch (pushErr) {
+            logger.warn({ err: pushErr, dmId: dm.id, recipientId }, 'Failed to send push notification for DM');
+        }
 
         return res.status(201).json(dmResponse);
     } catch (err) {

@@ -41,6 +41,14 @@ export function requireAuth(req, res, next) {
         const token = parts[1];
         const decoded = verifyToken(token);
 
+        // A refresh token must never be usable as an access token.
+        if (decoded.type === 'refresh') {
+            return res.status(401).json({
+                error: 'Invalid token',
+                message: 'A refresh token cannot be used to authorize requests.',
+            });
+        }
+
         // Attach user info to request object
         req.user = {
             userId: decoded.userId,
@@ -68,6 +76,10 @@ export function optionalAuth(req, res, next) {
             const parts = authHeader.split(' ');
             if (parts.length === 2 && parts[0] === 'Bearer') {
                 const decoded = verifyToken(parts[1]);
+                // Refresh tokens are not access tokens — ignore them here too.
+                if (decoded.type === 'refresh') {
+                    return next();
+                }
                 req.user = {
                     userId: decoded.userId,
                     username: decoded.username,
@@ -107,6 +119,14 @@ export async function requireAdmin(req, res, next) {
 
         const token = parts[1];
         const decoded = verifyToken(token);
+
+        // A refresh token must never be usable as an access token.
+        if (decoded.type === 'refresh') {
+            return res.status(401).json({
+                error: 'Invalid token',
+                message: 'A refresh token cannot be used to authorize requests.',
+            });
+        }
 
         req.user = {
             userId: decoded.userId,

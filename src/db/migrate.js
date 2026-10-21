@@ -27,6 +27,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pkg from 'pg';
 import { logger } from '../logger.js';
+import { V5_TABLES_SQL, V5_UPGRADE_SQL } from './v5Schema.js';
 
 const { Pool } = pkg;
 
@@ -95,20 +96,6 @@ CREATE INDEX IF NOT EXISTS idx_read_receipts_user ON message_read_receipts (user
 -- E2E: Device & Key Management (X3DH / Signal)
 -- ============================================
 
--- user_devices
-CREATE TABLE IF NOT EXISTS user_devices (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    device_name VARCHAR(64),
-    identity_key TEXT NOT NULL,           -- X25519 public key (base64)
-    signed_pre_key TEXT NOT NULL,         -- X25519 public key (base64)
-    pre_key_signature TEXT NOT NULL,      -- ed25519 signature of signed_pre_key (base64)
-    one_time_pre_keys TEXT[] NOT NULL DEFAULT '{}',  -- X25519 public keys (base64 array)
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_seen_at TIMESTAMPTZ
-);
-CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices (user_id);
-
 -- group_session_keys (Sender Keys for group E2E)
 CREATE TABLE IF NOT EXISTS group_session_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -125,17 +112,22 @@ DROP TRIGGER IF EXISTS trg_groups_updated_at ON groups;
 CREATE TRIGGER trg_groups_updated_at
     BEFORE UPDATE ON groups
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+${V5_TABLES_SQL}
 `;
 
 const DOWN_SQL = `
 -- Drop in reverse dependency order
 DROP TRIGGER IF EXISTS trg_groups_updated_at ON groups;
+DROP TRIGGER IF EXISTS trg_push_tokens_updated_at ON push_tokens;
 DROP TABLE IF EXISTS group_session_keys;
 DROP TABLE IF EXISTS user_devices;
 DROP TABLE IF EXISTS message_read_receipts;
 DROP TABLE IF EXISTS group_messages;
 DROP TABLE IF EXISTS group_members;
 DROP TABLE IF EXISTS groups;
+DROP TABLE IF EXISTS push_tokens;
+DROP TABLE IF EXISTS refresh_tokens;
 `;
 
 // ============================================================================
@@ -168,6 +160,10 @@ export async function runMigration() {
         // Execute schema (pg allows multi-statement queries)
         await pool.query(schema);
 
+        // Apply the idempotent v5 upgrade blocks (TEXT[] -> JSONB prekeys,
+        // per-user push token uniqueness). No-op on an up-to-date database.
+        await pool.query(V5_UPGRADE_SQL);
+
         const msg = 'Database migration completed. All tables and indexes are up to date.';
         logger.info(msg);
         return { success: true, message: msg };
@@ -196,6 +192,7 @@ export async function up() {
     try {
         await pool.query('SELECT NOW()');
         await pool.query(UP_SQL);
+        await pool.query(V5_UPGRADE_SQL);
         const msg = 'Migration up completed: groups, group_members, group_messages, message_read_receipts, user_devices, group_session_keys created.';
         logger.info(msg);
         return { success: true, message: msg };

@@ -71,7 +71,7 @@ const WS_URL = getWsBase();
 // ============================================================================
 // Local mode support (server-independent operation) — v3 serverless-first
 // ============================================================================
-// v3.1.6: P2P is the base infrastructure. Local mode is the DEFAULT:
+// v5.0.0: P2P is the base infrastructure. Local mode is the DEFAULT:
 //   - explicit `--local` flag, OR
 //   - no server URL configured (user never ran `kb connect <url>`)
 // Remote mode only applies when the user explicitly connected to a server.
@@ -2597,7 +2597,7 @@ function showHelp(command = null) {
         : `  ${chalk.red('○')} ${chalk.dim(t('help.notLoggedIn'))}`;
 
     console.log(`\n  ${chalk.bold.cyan('🏄 koshi — Terminal-Native Decentralized SNS')}`);
-    console.log(`  ${chalk.dim('Version 3.1.6 — Serverless P2P mesh')}`);
+    console.log(`  ${chalk.dim('Version 5.0.0 — Serverless P2P mesh')}`);
     console.log(`\n  ${activeInfo}`);
     console.log(`\n  ${chalk.bold('Usage:')} kb <command> [options]\n`);
 
@@ -2671,7 +2671,7 @@ function showHelp(command = null) {
 // Command: version
 // ============================================================================
 function showVersion() {
-    console.log('koshi v3.1.6' + (IS_LOCAL ? ' (serverless mode)' : ''));
+    console.log('koshi v5.0.0' + (IS_LOCAL ? ' (serverless mode)' : ''));
     console.log('Terminal-native decentralized SNS — serverless P2P mesh');
     console.log('License: MIT');
     console.log('Author: game_ryo');
@@ -2700,8 +2700,6 @@ async function cmdAdmin(args) {
         console.log(`  ${chalk.cyan('kb admin revoke <username>')}    Revoke admin privileges`);
         console.log();
         console.log(`  ${chalk.cyan('kb delete')}                   Permanently delete your own account`);
-        return;
-        console.log(`  ${chalk.dim('─'.repeat(50))}\n`);
         return;
     }
 
@@ -2830,8 +2828,10 @@ async function cmdAdminDeleteUser(config, args) {
 // ============================================================================
 // Command: delete (self-account deletion)
 // ============================================================================
-async function cmdDeleteAccount(config, args) {
-    const { token, activeUsername } = config;
+async function cmdDeleteAccount(args) {
+    const account = getActiveConfig();
+    const token = account?.token;
+    const activeUsername = account?.username;
 
     if (!token) {
         console.error(chalk.red('✖ Not logged in.'));
@@ -4131,7 +4131,7 @@ async function main() {
             break;
 
         case 'delete':
-            await cmdDeleteAccount(config, args.slice(1));
+            await cmdDeleteAccount(args.slice(1));
             break;
 
         case 'nostr':

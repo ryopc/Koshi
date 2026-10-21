@@ -54,4 +54,21 @@ export const postLimiter = rateLimit({
     },
 });
 
-export default { authLimiter, apiLimiter, postLimiter };
+/**
+ * Rate limiter for push notification token endpoints.
+ * Configurable via environment variables:
+ *   PUSH_RATE_LIMIT_MAX    - max requests per window (default: 10)
+ *   PUSH_RATE_LIMIT_WINDOW - window size in seconds (default: 60)
+ */
+export const pushLimiter = rateLimit({
+    windowMs: (parseInt(process.env.PUSH_RATE_LIMIT_WINDOW, 10) || 60) * 1000,
+    max: parseInt(process.env.PUSH_RATE_LIMIT_MAX, 10) || 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: 'Too many requests',
+        message: 'Push token rate limit exceeded. Please wait before trying again.',
+    },
+});
+
+export default { authLimiter, apiLimiter, postLimiter, pushLimiter };
