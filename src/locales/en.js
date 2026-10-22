@@ -251,6 +251,68 @@ export default {
             bundle: 'Identity Key: {identityKey}\nSigned PreKey: {signedPreKey}\nPreKey Signature: {preKeySignature}\nOne-Time PreKeys: {oneTimePreKeys}',
         },
     },
+    // Agent command help
+    agent: {
+        title: '🤖 Agent Commands',
+        usage: 'kb agent <command>',
+        register: {
+            title: '🤖 Register as AI Agent',
+            kindPrompt: 'Agent kind (llm|bot|automation|service): ',
+            kindInvalid: '✖ Invalid kind. Must be: llm, bot, automation, or service.',
+            capabilitiesPrompt: 'Capabilities (comma-separated, e.g., posts:write,dms:read): ',
+            capabilitiesInvalid: '✖ Invalid capabilities: {invalid}',
+            descriptionPrompt: 'Description (optional): ',
+            versionPrompt: 'Version (optional): ',
+            metadataPrompt: 'Metadata JSON (optional): ',
+            endpointPrompt: 'Endpoint URL (optional): ',
+            callbackUrlPrompt: 'Callback URL (optional): ',
+            success: '✔ Agent registered successfully!',
+            apiKeyLabel: '🔑 API Key (save this - shown once!)',
+            apiKeyPrefix: 'Prefix:',
+            apiKeyScopes: 'Scopes:',
+            apiKeyTier: 'Tier:',
+            apiKeySaveWarning: '⚠️  Save the API key above. It will not be shown again.',
+            apiKeyUsage: 'Usage: Authorization: Bearer {key}',
+        },
+        key: {
+            title: '🔐 Agent Key Management',
+            create: {
+                scopesPrompt: 'Scopes (comma-separated): ',
+                labelPrompt: 'Label (optional): ',
+                tierPrompt: 'Tier (free|standard|trusted) [standard]: ',
+                expiresAtPrompt: 'Expiry ISO8601 (optional): ',
+                success: '✔ API key created!',
+                saveWarning: '⚠️  Save the API key above. It will not be shown again.',
+            },
+            list: {
+                title: '🔐 Your API Keys',
+                empty: 'No API keys yet. Create one with: kb agent key create --scopes=...',
+                item: '{prefix}... {status}',
+                detail: 'ID: {id} | Scopes: {scopes} | Tier: {tier} | Created: {createdAt} | Last used: {lastUsed}',
+                expires: 'Expires: {expiresAt}',
+            },
+            revoke: {
+                confirm: 'Revoke API key {identifier}?',
+                success: '✔ API key revoked.',
+                notFound: '✖ Key not found: {identifier}',
+            },
+        },
+        card: {
+            title: '🤖 Agent Card: @{username}',
+            name: 'Name:',
+            description: 'Description:',
+            url: 'URL:',
+            provider: 'Provider:',
+            version: 'Version:',
+            capabilities: 'Capabilities:',
+            skills: 'Skills:',
+            metadata: 'Koshi Metadata:',
+        },
+        list: {
+            title: '🤖 Agent Directory',
+            empty: 'No agents found',
+        },
+    },
     // Admin command help
     admin: {
         title: '⚙️ Admin Commands',
@@ -272,6 +334,19 @@ export default {
             success: '✔ {key} = {value} set.',
             invalidKey: '✖ Invalid config key.',
         },
+    },
+    // MCP command help
+    mcp: {
+        title: '🔌 MCP Server',
+        usage: 'kb mcp [--http] [--port=3000]',
+        start: {
+            title: '🔌 Start MCP Server',
+            httpMode: 'HTTP mode (--http)',
+            port: 'Port:',
+            started: '✔ MCP server started',
+            stdioMode: 'Started in stdio mode',
+            httpModeMsg: 'Started in HTTP mode (port {port})'
+        }
     },
     // Interactive prompts
     prompt: {

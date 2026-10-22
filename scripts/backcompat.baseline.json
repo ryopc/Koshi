@@ -1,0 +1,82 @@
+{
+  "/api/auth/register": {
+    "method": "POST",
+    "requiredKeys": ["userId", "token", "refreshToken"]
+  },
+  "/api/auth/login": {
+    "method": "POST",
+    "requiredKeys": ["userId", "token", "refreshToken"]
+  },
+  "/api/auth/refresh": {
+    "method": "POST",
+    "requiredKeys": ["userId", "token", "refreshToken"]
+  },
+  "/api/users/search": {
+    "method": "GET",
+    "requiredKeys": ["users"]
+  },
+  "/api/users/me": {
+    "method": "GET",
+    "requiredKeys": ["id", "username", "displayName", "bio", "avatarUrl", "publicKey", "isAdmin", "followersCount", "followingCount"]
+  },
+  "/api/users/{username}": {
+    "method": "GET",
+    "requiredKeys": ["id", "username", "displayName", "bio", "avatarUrl", "followersCount", "followingCount"]
+  },
+  "/api/posts/feed": {
+    "method": "GET",
+    "requiredKeys": ["posts"]
+  },
+  "/api/posts": {
+    "method": "POST",
+    "requiredKeys": ["id", "author", "content", "signature", "createdAt"]
+  },
+  "/api/dms": {
+    "method": "GET",
+    "requiredKeys": ["dms"]
+  },
+  "/api/dms/unread/count": {
+    "method": "GET",
+    "requiredKeys": ["count"]
+  },
+  "/api/dms/{userId}": {
+    "method": "POST",
+    "requiredKeys": ["id", "from", "to", "content", "signature", "isRead", "createdAt"]
+  },
+  "/api/groups": {
+    "method": "GET",
+    "requiredKeys": ["groups"]
+  },
+  "/api/groups": {
+    "method": "POST",
+    "requiredKeys": ["id", "name", "createdBy", "isE2EE", "createdAt", "updatedAt"]
+  },
+  "/api/groups/{id}": {
+    "method": "GET",
+    "requiredKeys": ["id", "name", "createdBy", "isE2EE", "createdAt", "updatedAt"]
+  },
+  "/api/groups/{id}/members": {
+    "method": "GET",
+    "requiredKeys": ["members"]
+  },
+  "/api/groups/{id}/messages": {
+    "method": "GET",
+    "requiredKeys": ["messages"]
+  },
+  "/api/devices": {
+    "method": "GET",
+    "requiredKeys": ["devices"]
+  },
+  "/api/keys/bundle/{userId}": {
+    "method": "GET",
+    "requiredKeys": ["identityKey", "signedPreKey", "preKeySignature", "oneTimePreKeys"]
+  },
+  "/api/admin/users": {
+    "method": "GET",
+    "requiredKeys": ["users"]
+  },
+  "/health": {
+    "method": "GET",
+    "requiredKeys": ["status", "timestamp"]
+  }
+}

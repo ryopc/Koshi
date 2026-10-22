@@ -34,7 +34,105 @@ const { Pool } = pkg;
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ============================================================================
-// SQL for creating new tables (Phase 1 additions)
+// SQL for v6 Agent Platform additions
+// ============================================================================
+const V6_TABLES_SQL = `
+-- ============================================
+-- v6: AI Agent Platform Extensions
+-- ============================================
+
+-- Index for agent filtering
+CREATE INDEX IF NOT EXISTS idx_users_is_agent ON users (is_agent) WHERE is_agent;
+
+-- ============================================
+-- Agent API Keys (hash stored, raw key shown once)
+-- ============================================
+CREATE TABLE IF NOT EXISTS agent_api_keys (
+    id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agent_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key_hash     TEXT NOT NULL UNIQUE,          -- sha256 hex
+    key_prefix   VARCHAR(16) NOT NULL,          -- display prefix "ak_live_9f2a"
+    scopes       JSONB NOT NULL DEFAULT '[]'::jsonb,
+    label        VARCHAR(64),
+    tier         VARCHAR(16) NOT NULL DEFAULT 'standard',  -- free | standard | trusted
+    last_used_at TIMESTAMPTZ,
+    expires_at   TIMESTAMPTZ,
+    revoked      BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agent_api_keys_agent ON agent_api_keys (agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_api_keys_prefix ON agent_api_keys (key_prefix);
+
+-- ============================================
+-- Agent Events (SSE cursor resume + polling fallback)
+-- ============================================
+CREATE TABLE IF NOT EXISTS agent_events (
+    id         BIGSERIAL PRIMARY KEY,
+    type       VARCHAR(48) NOT NULL,
+    actor_id   UUID REFERENCES users(id) ON DELETE SET NULL,
+    target_id  UUID,
+    payload    JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agent_events_type_id ON agent_events (type, id DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_events_created  ON agent_events (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_events_actor    ON agent_events (actor_id);
+
+-- ============================================
+-- Agent Subscriptions (Webhook delivery)
+-- ============================================
+CREATE TABLE IF NOT EXISTS agent_subscriptions (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agent_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    event_type  VARCHAR(48) NOT NULL,
+    endpoint    VARCHAR(512) NOT NULL,
+    secret_hash TEXT,
+    enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (agent_id, event_type, endpoint)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_subscriptions_agent ON agent_subscriptions (agent_id);
+
+-- ============================================
+-- Mentions (for mention.received events)
+-- ============================================
+CREATE TABLE IF NOT EXISTS mentions (
+    id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    post_id          UUID NOT NULL REFERENCES kb_posts(id) ON DELETE CASCADE,
+    mentioned_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (post_id, mentioned_user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_mentions_user ON mentions (mentioned_user_id);
+`;
+
+// Idempotent upgrade: ensure agent columns exist on users (for existing DBs)
+const V6_UPGRADE_SQL = `
+-- Add agent columns to users if not present (idempotent)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_agent           BOOLEAN     NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_kind         VARCHAR(32);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_version      VARCHAR(32);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_description  TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_capabilities JSONB       NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_metadata     JSONB       NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_endpoint     VARCHAR(512);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_callback_url VARCHAR(512);
+CREATE INDEX IF NOT EXISTS idx_users_is_agent ON users (is_agent) WHERE is_agent;
+`;
+
+const V6_DOWN_SQL = `
+-- Drop in reverse dependency order
+DROP TABLE IF EXISTS mentions;
+DROP TABLE IF EXISTS agent_subscriptions;
+DROP TABLE IF EXISTS agent_events;
+DROP TABLE IF EXISTS agent_api_keys;
+DROP INDEX IF EXISTS idx_users_is_agent;
+-- Note: users columns are NOT dropped to avoid data loss.
+-- To fully revert, manual ALTER TABLE ... DROP COLUMN would be needed.
+`;
+
+// ============================================================================
+// SQL for creating new tables (Phase 1 additions + v6)
 // ============================================================================
 const UP_SQL = `
 -- ============================================
@@ -114,6 +212,7 @@ CREATE TRIGGER trg_groups_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 ${V5_TABLES_SQL}
+${V6_TABLES_SQL}
 `;
 
 const DOWN_SQL = `
@@ -128,6 +227,7 @@ DROP TABLE IF EXISTS group_members;
 DROP TABLE IF EXISTS groups;
 DROP TABLE IF EXISTS push_tokens;
 DROP TABLE IF EXISTS refresh_tokens;
+${V6_DOWN_SQL}
 `;
 
 // ============================================================================
@@ -164,6 +264,9 @@ export async function runMigration() {
         // per-user push token uniqueness). No-op on an up-to-date database.
         await pool.query(V5_UPGRADE_SQL);
 
+        // Apply v6 agent platform upgrades (agent columns, new tables)
+        await pool.query(V6_UPGRADE_SQL);
+
         const msg = 'Database migration completed. All tables and indexes are up to date.';
         logger.info(msg);
         return { success: true, message: msg };
@@ -193,7 +296,8 @@ export async function up() {
         await pool.query('SELECT NOW()');
         await pool.query(UP_SQL);
         await pool.query(V5_UPGRADE_SQL);
-        const msg = 'Migration up completed: groups, group_members, group_messages, message_read_receipts, user_devices, group_session_keys created.';
+        await pool.query(V6_UPGRADE_SQL);
+        const msg = 'Migration up completed: groups, group_members, group_messages, message_read_receipts, user_devices, group_session_keys, agent_api_keys, agent_events, agent_subscriptions, mentions created; agent columns added to users.';
         logger.info(msg);
         return { success: true, message: msg };
     } catch (err) {
@@ -270,8 +374,8 @@ async function main() {
     if (result.success) {
         console.log(`   ${result.message}`);
         if (command !== 'down') {
-            console.log('   Tables created: users, follows, kb_posts, dms, groups, group_members, group_messages, message_read_receipts, user_devices, group_session_keys');
-            console.log('   Indexes created: username, public_key, follower/following, posts, dms, groups, devices, keys');
+            console.log('   Tables created: users, follows, kb_posts, dms, groups, group_members, group_messages, message_read_receipts, user_devices, group_session_keys, agent_api_keys, agent_events, agent_subscriptions, mentions');
+            console.log('   Indexes created: username, public_key, follower/following, posts, dms, groups, devices, keys, agent filtering, agent_events, agent_subscriptions, mentions');
         }
         process.exit(0);
     } else {

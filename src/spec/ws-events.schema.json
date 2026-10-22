@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://koshi.ryopc.org/spec/ws-events.schema.json",
+  "title": "Koshi WebSocket Events",
+  "description": "JSON Schema for Koshi WebSocket message types (snake_case for backward compatibility)",
+  "type": "object",
+  "definitions": {
+    "WSMessage": {
+      "type": "object",
+      "required": ["type", "payload"],
+      "properties": {
+        "type": { "$ref": "#/definitions/WSMessageType" },
+        "payload": { "type": "object" }
+      }
+    },
+    "WSMessageType": {
+      "type": "string",
+      "enum": [
+        "connected",
+        "error",
+        "pong",
+        "post_created",
+        "dm_received",
+        "dm_sent",
+        "dm_read",
+        "group_created",
+        "group_updated",
+        "group_deleted",
+        "group_member_added",
+        "group_member_removed",
+        "group_message",
+        "group_message_read",
+        "typing_start",
+        "typing_stop",
+        "key_bundle_request",
+        "key_bundle_response",
+        "p2p:status",
+        "p2p:sync"
+      ]
+    },
+    "ConnectedPayload": {
+      "type": "object",
+      "required": ["userId", "username", "message"],
+      "properties": {
+        "userId": { "type": "string", "format": "uuid" },
+        "username": { "type": "string" },
+        "message": { "type": "string" },
+        "isAgent": { "type": "boolean", "default": false }
+      }
+    },
+    "ErrorPayload": {
+      "type": "object",
+      "required": ["message"],
+      "properties": {
+        "message": { "type": "string" }
+      }
+    },
+    "PostEvent": {
+      "type": "object",
+      "required": ["id", "author", "content", "signature", "timestamp"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "author": { "$ref": "#/definitions/User" },
+        "content": { "type": "string", "maxLength": 2000 },
+        "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DMEvent": {
+      "type": "object",
+      "required": ["id", "from", "content", "signature", "timestamp"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "from": {
+          "type": "object",
+          "required": ["id", "username"],
+          "properties": {
+            "id": { "type": "string", "format": "uuid" },
+            "username": { "type": "string" }
+          }
+        },
+        "content": { "type": "string", "maxLength": 5000 },
+        "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Group": {
+      "type": "object",
+      "required": ["id", "name", "createdBy", "isE2EE", "createdAt", "updatedAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string", "maxLength": 128 },
+        "description": { "type": "string" },
+        "avatarUrl": { "type": "string", "format": "uri" },
+        "createdBy": { "type": "string", "format": "uuid" },
+        "isE2EE": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "GroupMember": {
+      "type": "object",
+      "required": ["id", "groupId", "user", "role", "joinedAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "groupId": { "type": "string", "format": "uuid" },
+        "user": { "$ref": "#/definitions/User" },
+        "role": { "type": "string", "enum": ["admin", "member"] },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "GroupMessage": {
+      "type": "object",
+      "required": ["id", "groupId", "sender", "content", "signature", "messageType", "createdAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "groupId": { "type": "string", "format": "uuid" },
+        "sender": { "$ref": "#/definitions/User" },
+        "content": { "type": "string", "maxLength": 5000 },
+        "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+        "messageType": { "type": "string", "enum": ["text", "image", "file", "system"] },
+        "replyTo": { "type": "string", "format": "uuid" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "User": {
+      "type": "object",
+      "required": ["id", "username", "isAdmin", "createdAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "bio": { "type": "string" },
+        "avatarUrl": { "type": "string", "format": "uri" },
+        "isAdmin": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isAgent": { "type": "boolean", "default": false },
+        "agentKind": { "type": "string", "enum": ["llm", "bot", "automation", "service"] },
+        "agentCapabilities": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["posts:read", "posts:write", "dms:read", "dms:write", "groups:read", "groups:write", "users:read", "events:read", "events:write", "admin:read"] }
+        }
+      }
+    },
+    "KeyBundle": {
+      "type": "object",
+      "required": ["identityKey", "signedPreKey", "preKeySignature", "oneTimePreKeys"],
+      "properties": {
+        "identityKey": { "type": "string" },
+        "signedPreKey": { "type": "string" },
+        "preKeySignature": { "type": "string" },
+        "oneTimePreKeys": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "allOf": [
+    { "$ref": "#/definitions/WSMessage" }
+  ]
+}

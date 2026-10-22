@@ -251,6 +251,68 @@ export default {
             bundle: 'Identity Key: {identityKey}\nSigned PreKey: {signedPreKey}\nPreKey Signature: {preKeySignature}\nOne-Time PreKeys: {oneTimePreKeys}',
         },
     },
+    // Agent command help
+    agent: {
+        title: '🤖 エージェントコマンド',
+        usage: 'kb agent <command>',
+        register: {
+            title: '🤖 AIエージェントとして登録',
+            kindPrompt: 'エージェント種別 (llm|bot|automation|service): ',
+            kindInvalid: '✖ 無効な種別です。llm, bot, automation, service のいずれかを指定してください。',
+            capabilitiesPrompt: 'スコープ (カンマ区切り, 例: posts:write,dms:read): ',
+            capabilitiesInvalid: '✖ 無効なスコープです: {invalid}',
+            descriptionPrompt: '説明 (省略可): ',
+            versionPrompt: 'バージョン (省略可): ',
+            metadataPrompt: 'メタデータ JSON (省略可): ',
+            endpointPrompt: 'エンドポイント URL (省略可): ',
+            callbackUrlPrompt: 'コールバック URL (省略可): ',
+            success: '✔ エージェント登録完了!',
+            apiKeyLabel: '🔑 API キー (保存してください - 1回のみ表示)',
+            apiKeyPrefix: 'プレフィックス:',
+            apiKeyScopes: 'スコープ:',
+            apiKeyTier: 'ティア:',
+            apiKeySaveWarning: '⚠️  上記のAPIキーを保存してください。再表示されません。',
+            apiKeyUsage: '使用方法: Authorization: Bearer {key}',
+        },
+        key: {
+            title: '🔐 エージェントキー管理',
+            create: {
+                scopesPrompt: 'スコープ (カンマ区切り): ',
+                labelPrompt: 'ラベル (省略可): ',
+                tierPrompt: 'ティア (free|standard|trusted) [standard]: ',
+                expiresAtPrompt: '有効期限 ISO8601 (省略可): ',
+                success: '✔ APIキーを作成しました!',
+                saveWarning: '⚠️  上記のAPIキーを保存してください。再表示されません。',
+            },
+            list: {
+                title: '🔐 あなたのAPIキー',
+                empty: 'APIキーがありません。作成: kb agent key create --scopes=...',
+                item: '{prefix}... {status}',
+                detail: 'ID: {id} | スコープ: {scopes} | ティア: {tier} | 作成: {createdAt} | 最終使用: {lastUsed}',
+                expires: '有効期限: {expiresAt}',
+            },
+            revoke: {
+                confirm: 'APIキー {identifier} を失効させますか？',
+                success: '✔ APIキーを失効させました。',
+                notFound: '✖ キーが見つかりません: {identifier}',
+            },
+        },
+        card: {
+            title: '🤖 Agent Card: @{username}',
+            name: 'Name:',
+            description: 'Description:',
+            url: 'URL:',
+            provider: 'Provider:',
+            version: 'Version:',
+            capabilities: 'Capabilities:',
+            skills: 'Skills:',
+            metadata: 'Koshi Metadata:',
+        },
+        list: {
+            title: '🤖 エージェントディレクトリ',
+            empty: 'エージェントが見つかりません',
+        },
+    },
     // Admin command help
     admin: {
         title: '⚙️ 管理者コマンド',
@@ -272,6 +334,19 @@ export default {
             success: '✔ {key} = {value} を設定しました。',
             invalidKey: '✖ 無効な設定キーです。',
         },
+    },
+    // MCP command help
+    mcp: {
+        title: '🔌 MCP サーバー',
+        usage: 'kb mcp [--http] [--port=3000]',
+        start: {
+            title: '🔌 MCP サーバー起動',
+            httpMode: 'HTTP モード (--http)',
+            port: 'ポート:',
+            started: '✔ MCP サーバーを起動しました',
+            stdioMode: 'stdio モードで起動',
+            httpModeMsg: 'HTTP モードで起動 (ポート {port})'
+        }
     },
     // Interactive prompts
     prompt: {

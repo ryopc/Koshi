@@ -42,7 +42,10 @@ import {
     SNSRC_FILE,
 } from '../src/config/config.js';
 
-// ============================================================================
+// CLI utilities (Phase 6)
+import { ExitCode, exit, mapErrorToExitCode, setupSignalHandlers, withExit } from '../src/cli/exit.js';
+import { parseCommandArgs, requirePositionals, handleHelp, mergeConfig } from '../src/cli/args.js';
+import { printJson, printError, ok, fail, setOutputMode, isJsonMode } from '../src/cli/output.js';
 // Constants — resolve server URL from env > config > default
 // ============================================================================
 const DEFAULT_API = 'https://koshi-api.ryopc.f5.si';
@@ -555,33 +558,37 @@ async function cmdWhoami() {
 // ============================================================================
 // Command: post
 // ============================================================================
-async function cmdPost(args) {
-    let content = args.join(' ');
+async function cmdPost(args, commandContext) {
+    const globalFlags = commandContext?.global || {};
 
-    // Interactive input if no content provided
-    if (!content) {
-        console.log(`\n  ${chalk.bold.cyan('📝 新規投稿')}`);
-        console.log(`  ${chalk.dim('Ctrl+D または空行でキャンセル')}\n`);
-        const rl = createInterface({ input, output });
-        content = (await rl.question(`  ${chalk.bold('本文:')} `)).trim();
-        rl.close();
+    const { values, positionals, global: localGlobal } = parseCommandArgs(args, {});
 
-        if (!content) {
-            console.log(chalk.yellow('\n  キャンセルしました。'));
-            return;
-        }
-    }
+    // Merge global flags from commandContext with locally parsed flags
+    const mergedGlobal = { ...localGlobal, ...globalFlags };
 
-    if (content.length > 2000) {
-        console.error(chalk.red(`✖ Error: Content exceeds 2000 characters (${content.length}).`));
-        process.exit(1);
-    }
+    handleHelp(mergedGlobal, 'kb post [message]', t('cmd.post'), {});
+
+    setOutputMode({
+        json: mergedGlobal.json,
+        quiet: mergedGlobal.quiet,
+        noColor: mergedGlobal.noColor
+    });
 
     const config = getActiveConfig();
 
+    // Content from positionals
+    const content = args.join(' ');
+
+    if (!content) {
+        fail(ExitCode.USAGE, 'Post content required.');
+    }
+
+    if (content.length > 2000) {
+        fail(ExitCode.VALIDATION, 'Post content exceeds 2000 characters.');
+    }
+
     if (!config.token || !config.secretKey) {
-        console.error(chalk.red('✖ Not logged in. Use "kb login" or "kb register".'));
-        process.exit(1);
+        fail(ExitCode.AUTH, 'Not logged in. Use "kb login" or "kb register".');
     }
 
     const spinner = ora('Signing and posting...').start();
@@ -597,22 +604,48 @@ async function cmdPost(args) {
             signature,
         }, config.token);
 
-        spinner.succeed(chalk.green('Post created!'));
+        spinner.stop();
 
-        console.log(`\n  ${chalk.dim('ID:')}      ${chalk.dim(result.id)}`);
-        console.log(`  ${chalk.dim('Posted:')}  ${new Date(result.createdAt).toLocaleString()}`);
+        if (isJsonMode()) {
+            ok({ id: result.id, createdAt: result.createdAt }, 'Post created!');
+        } else {
+            ok(null, 'Post created!');
+            console.log(`\n  ${chalk.dim('ID:')}      ${chalk.dim(result.id)}`);
+            console.log(`  ${chalk.dim('Posted:')}  ${new Date(result.createdAt).toLocaleString()}`);
+        }
     } catch (err) {
-        spinner.fail(chalk.red(`Failed to post: ${err.message}`));
-        process.exit(1);
+        spinner.stop();
+        exit(mapErrorToExitCode(err), err.message);
     }
 }
 
 // ============================================================================
 // Command: feed
 // ============================================================================
-async function cmdFeed(args) {
+async function cmdFeed(args, commandContext) {
+    const globalFlags = commandContext?.global || {};
+
+    const { values, positionals, global: localGlobal } = parseCommandArgs(args, {
+        limit: { type: 'string', description: 'Number of posts to fetch (max 100)' }
+    });
+
+    // Merge global flags from commandContext with locally parsed flags
+    // Global flags from commandContext take precedence over locally parsed defaults
+    const mergedGlobal = { ...localGlobal, ...globalFlags };
+
+    handleHelp(mergedGlobal, 'kb feed [--limit=20]', t('cmd.feed'), {
+        limit: { type: 'string', description: 'Number of posts to fetch (max 100)' }
+    });
+
+    setOutputMode({
+        json: mergedGlobal.json,
+        quiet: mergedGlobal.quiet,
+        noColor: mergedGlobal.noColor
+    });
+
     const config = getActiveConfig();
-    const limit = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1]) || 20;
+
+    const limit = parseInt(values.limit || '20', 10);
 
     const spinner = ora('Fetching feed...').start();
 
@@ -621,29 +654,37 @@ async function cmdFeed(args) {
         spinner.stop();
 
         if (data.length === 0) {
-            console.log(chalk.dim('\n  No posts in your feed. Follow some users or be the first to post!'));
-            console.log(chalk.dim('  Try: kb post "Hello, koshi!"'));
+            if (isJsonMode()) {
+                ok({ posts: [] });
+            } else {
+                console.log(chalk.dim('\n  No posts in your feed. Follow some users or be the first to post!'));
+                console.log(chalk.dim('  Try: kb post "Hello, koshi!"'));
+            }
             return;
         }
 
-        console.log(`\n  ${chalk.bold.cyan('📋 Koshi Board Feed')} ${chalk.dim(`(${data.length} posts)`)}`);
-        if (config.username) {
-            console.log(`  ${chalk.dim(`👤 @${config.username}`)}`);
-        }
-        console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
-
-        for (const post of data) {
-            const displayName = post.author.displayName || post.author.username;
-            const time = new Date(post.createdAt).toLocaleString();
-
-            console.log(`  ${chalk.bold(displayName)} ${chalk.dim(`@${post.author.username}`)}`);
-            console.log(`  ${chalk.dim(time)}`);
-            console.log(`  ${post.content}`);
+        if (isJsonMode()) {
+            ok({ posts: data });
+        } else {
+            console.log(`\n  ${chalk.bold.cyan('📋 Koshi Board Feed')} ${chalk.dim(`(${data.length} posts)`)}`);
+            if (config.username) {
+                console.log(`  ${chalk.dim(`👤 @${config.username}`)}`);
+            }
             console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
-        }
 
-        if (data.length === limit) {
-            console.log(chalk.dim(`  Use kb feed --limit=${limit + 20} to see more.`));
+            for (const post of data) {
+                const displayName = post.author.displayName || post.author.username;
+                const time = new Date(post.createdAt).toLocaleString();
+
+                console.log(`  ${chalk.bold(displayName)} ${chalk.dim(`@${post.author.username}`)}`);
+                console.log(`  ${chalk.dim(time)}`);
+                console.log(`  ${post.content}`);
+                console.log(`  ${chalk.dim('─'.repeat(60))}\n`);
+            }
+
+            if (data.length === limit) {
+                console.log(chalk.dim(`  Use kb feed --limit=${limit + 20} to see more.`));
+            }
         }
     } catch (err) {
         spinner.fail(chalk.red(`Failed to fetch feed: ${err.message}`));
@@ -654,39 +695,58 @@ async function cmdFeed(args) {
 // ============================================================================
 // Command: follow (interactive search mode)
 // ============================================================================
-async function cmdFollow(args) {
-    let username = args[0];
+async function cmdFollow(args, commandContext) {
+    const globalFlags = commandContext?.global || {};
+
+    const { values, positionals, global: localGlobal } = parseCommandArgs(args, {
+        username: { type: 'string', description: 'Username to follow (interactive if omitted)' }
+    });
+
+    // Merge global flags from commandContext with locally parsed flags
+    const mergedGlobal = { ...localGlobal, ...globalFlags };
+
+    handleHelp(mergedGlobal, 'kb follow [username]', t('cmd.follow'), {
+        username: { type: 'string', description: 'Username to follow (interactive if omitted)' }
+    });
+
+    setOutputMode({
+        json: mergedGlobal.json,
+        quiet: mergedGlobal.quiet,
+        noColor: mergedGlobal.noColor
+    });
+
     const config = getActiveConfig();
 
     if (!config.token) {
-        console.error(chalk.red('✖ Not logged in.'));
-        process.exit(1);
+        fail(ExitCode.AUTH, 'Not logged in.');
     }
+
+    let username = values.username || args[0];
 
     // Interactive mode: search and select user to follow
     if (!username) {
-        console.log(`\n  ${chalk.bold.cyan('🔍 フォローするユーザーを検索')}`);
-        console.log(`  ${chalk.dim('ユーザー名の一部を入力して検索できます')}`);
+        console.log('\n  ' + chalk.bold.cyan('🔍 フォローするユーザーを検索'));
+        console.log('  ' + chalk.dim('ユーザー名の一部を入力して検索できます'));
 
-        const query = await askQuestion(`  ${chalk.bold('検索クエリ:')} `);
+        const query = await askQuestion('  ' + chalk.bold('検索クエリ:') + ' ');
         if (!query || query.length < 2) {
             console.error(chalk.red('✖ 検索クエリは2文字以上必要です。'));
             process.exit(1);
         }
 
-        const spinner = ora(`Searching for "${query}"...`).start();
+        const spinner = ora('Searching for "' + query + '"...').start();
         try {
-            const users = await apiRequest('GET', `/api/users/search/${encodeURIComponent(query)}`, null, config.token);
+            const users = await apiRequest('GET', '/api/users/search/' + encodeURIComponent(query), null, config.token);
             spinner.stop();
 
             if (users.length === 0) {
-                console.log(chalk.dim(`\n  「${query}」に一致するユーザーが見つかりませんでした。`));
+                console.log(chalk.dim('\n  「' + query + '」に一致するユーザーが見つかりませんでした。'));
                 return;
             }
 
             const selected = await selectFromList(
                 users,
-                (u) => `${chalk.bold(u.username)} ${chalk.dim(u.displayName ? `— ${u.displayName}` : '')}`,
+                (u) => chalk.bold(u.username) + ' ' + chalk.dim(u.displayName ? ' - ' + u.displayName : ''),
                 'フォローするユーザーを選択:'
             );
 
@@ -696,62 +756,84 @@ async function cmdFollow(args) {
             }
 
             username = selected.username;
-            console.log(`  → ${chalk.cyan(username)} を選択\n`);
+            console.log('  → ' + chalk.cyan(username) + ' を選択\n');
         } catch (err) {
-            spinner.fail(chalk.red(`Search failed: ${err.message}`));
+            spinner.fail(chalk.red('Search failed: ' + err.message));
             process.exit(1);
         }
     }
 
-    const spinner = ora(`Resolving @${username}...`).start();
+    const spinner = ora('Resolving @' + username + '...').start();
 
     try {
-        const userData = await apiRequest('GET', `/api/users/${username}`, null, config.token);
-        spinner.text = `Following @${username}...`;
+        const userData = await apiRequest('GET', '/api/users/' + username, null, config.token);
+        spinner.text = 'Following @' + username + '...';
 
-        await apiRequest('POST', `/api/users/${userData.id}/follow`, {}, config.token);
+        await apiRequest('POST', '/api/users/' + userData.id + '/follow', {}, config.token);
 
-        spinner.succeed(chalk.green(`You are now following @${username}!`));
+        if (isJsonMode()) {
+            ok({ username, followed: true });
+        } else {
+            spinner.succeed(chalk.green('You are now following @' + username + '!'));
+        }
     } catch (err) {
-        spinner.fail(chalk.red(`Failed to follow: ${err.message}`));
-        process.exit(1);
+        spinner.stop();
+        exit(mapErrorToExitCode(err), err.message);
     }
 }
 
 // ============================================================================
 // Command: unfollow
 // ============================================================================
-async function cmdUnfollow(args) {
-    let username = args[0];
+async function cmdUnfollow(args, commandContext) {
+    const globalFlags = commandContext?.global || {};
+
+    const { values, positionals, global: localGlobal } = parseCommandArgs(args, {
+        username: { type: 'string', description: 'Username to unfollow (interactive if omitted)' }
+    });
+
+    // Merge global flags from commandContext with locally parsed flags
+    const mergedGlobal = { ...localGlobal, ...globalFlags };
+
+    handleHelp(mergedGlobal, 'kb unfollow [username]', t('cmd.unfollow'), {
+        username: { type: 'string', description: 'Username to unfollow (interactive if omitted)' }
+    });
+
+    setOutputMode({
+        json: mergedGlobal.json,
+        quiet: mergedGlobal.quiet,
+        noColor: mergedGlobal.noColor
+    });
+
     const config = getActiveConfig();
 
     if (!config.token) {
-        console.error(chalk.red('✖ Not logged in.'));
-        process.exit(1);
+        fail(ExitCode.AUTH, 'Not logged in.');
     }
+
+    let username = values.username || args[0];
 
     // Interactive mode
     if (!username) {
-        console.log(`\n  ${chalk.bold.cyan('🔍 アンフォローするユーザーを検索')}`);
-        const query = await askQuestion(`  ${chalk.bold('検索クエリ:')} `);
+        console.log('\n  ' + chalk.bold.cyan('🔍 アンフォローするユーザーを検索'));
+        const query = await askQuestion('  ' + chalk.bold('検索クエリ:') + ' ');
         if (!query || query.length < 2) {
-            console.error(chalk.red('✖ 検索クエリは2文字以上必要です。'));
-            process.exit(1);
+            fail(ExitCode.VALIDATION, '検索クエリは2文字以上必要です。');
         }
 
-        const spinner = ora(`Searching for "${query}"...`).start();
+        const spinner = ora('Searching for "' + query + '"...').start();
         try {
-            const users = await apiRequest('GET', `/api/users/search/${encodeURIComponent(query)}`, null, config.token);
+            const users = await apiRequest('GET', '/api/users/search/' + encodeURIComponent(query), null, config.token);
             spinner.stop();
 
             if (users.length === 0) {
-                console.log(chalk.dim(`\n  「${query}」に一致するユーザーが見つかりませんでした。`));
+                console.log(chalk.dim('\n  「' + query + '」に一致するユーザーが見つかりませんでした。'));
                 return;
             }
 
             const selected = await selectFromList(
                 users,
-                (u) => `${chalk.bold(u.username)} ${chalk.dim(u.displayName ? `— ${u.displayName}` : '')}`,
+                (u) => chalk.bold(u.username) + ' ' + chalk.dim(u.displayName ? ' - ' + u.displayName : ''),
                 'アンフォローするユーザーを選択:'
             );
 
@@ -761,65 +843,88 @@ async function cmdUnfollow(args) {
             }
 
             username = selected.username;
-            console.log(`  → ${chalk.cyan(username)} を選択\n`);
+            console.log('  → ' + chalk.cyan(username) + ' を選択\n');
         } catch (err) {
-            spinner.fail(chalk.red(`Search failed: ${err.message}`));
-            process.exit(1);
+            fail(mapErrorToExitCode(err), 'Search failed: ' + err.message);
         }
     }
 
-    const spinner = ora(`Resolving @${username}...`).start();
+    const spinner = ora('Resolving @' + username + '...').start();
 
     try {
-        const userData = await apiRequest('GET', `/api/users/${username}`, null, config.token);
-        spinner.text = `Unfollowing @${username}...`;
+        const userData = await apiRequest('GET', '/api/users/' + username, null, config.token);
+        spinner.text = 'Unfollowing @' + username + '...';
 
-        await apiRequest('DELETE', `/api/users/${userData.id}/follow`, {}, config.token);
+        await apiRequest('DELETE', '/api/users/' + userData.id + '/follow', {}, config.token);
 
-        spinner.succeed(chalk.yellow(`Unfollowed @${username}.`));
+        if (isJsonMode()) {
+            ok({ username, unfollowed: true });
+        } else {
+            spinner.succeed(chalk.yellow('Unfollowed @' + username + '.'));
+        }
     } catch (err) {
-        spinner.fail(chalk.red(`Failed to unfollow: ${err.message}`));
-        process.exit(1);
+        spinner.stop();
+        exit(mapErrorToExitCode(err), err.message);
     }
 }
 
 // ============================================================================
 // Command: dm (interactive with user search)
 // ============================================================================
-async function cmdDm(args) {
-    let username = args[0];
-    let message = args.slice(1).join(' ');
+async function cmdDm(args, commandContext) {
+    const globalFlags = commandContext?.global || {};
+
+    const { values, positionals, global: localGlobal } = parseCommandArgs(args, {
+        username: { type: 'string', description: 'Recipient username' },
+        message: { type: 'string', description: 'Message content' }
+    });
+
+    // Merge global flags from commandContext with locally parsed flags
+    const mergedGlobal = { ...localGlobal, ...globalFlags };
+
+    handleHelp(mergedGlobal, 'kb dm [username] [message]', t('cmd.dm'), {
+        username: { type: 'string', description: 'Recipient username' },
+        message: { type: 'string', description: 'Message content' }
+    });
+
+    setOutputMode({
+        json: mergedGlobal.json,
+        quiet: mergedGlobal.quiet,
+        noColor: mergedGlobal.noColor
+    });
+
     const config = getActiveConfig();
 
     if (!config.token || !config.secretKey) {
-        console.error(chalk.red('✖ Not logged in.'));
-        process.exit(1);
+        fail(ExitCode.AUTH, 'Not logged in. Use "kb login" or "kb register".');
     }
+
+    let username = values.username || args[0];
+    let message = values.message || args.slice(1).join(' ');
 
     // Interactive mode: search user first if no username provided
     if (!username) {
-        console.log(`\n  ${chalk.bold.cyan('✉️ DMを送信')}`);
-        console.log(`  ${chalk.dim('送信先のユーザーを検索して選択します')}\n`);
+        console.log('\n  ' + chalk.bold.cyan('✉️ DMを送信'));
+        console.log('  ' + chalk.dim('送信先のユーザーを検索して選択します') + '\n');
 
-        const query = await askQuestion(`  ${chalk.bold('ユーザー検索:')} `);
+        const query = await askQuestion('  ' + chalk.bold('ユーザー検索:') + ' ');
         if (!query || query.length < 2) {
-            console.error(chalk.red('✖ 検索クエリは2文字以上必要です。'));
-            process.exit(1);
+            fail(ExitCode.VALIDATION, '検索クエリは2文字以上必要です。');
         }
 
-        const spinner = ora(`Searching for "${query}"...`).start();
+        const spinner = ora('Searching for "' + query + '"...').start();
         try {
-            const users = await apiRequest('GET', `/api/users/search/${encodeURIComponent(query)}`, null, config.token);
+            const users = await apiRequest('GET', '/api/users/search/' + encodeURIComponent(query), null, config.token);
             spinner.stop();
 
             if (users.length === 0) {
-                console.log(chalk.dim(`\n  「${query}」に一致するユーザーが見つかりませんでした。`));
+                console.log(chalk.dim('\n  「' + query + '「' + 'に一致するユーザーが見つかりませんでした。'));
                 return;
             }
 
             const selected = await selectFromList(
                 users,
-                (u) => `${chalk.bold(u.username)} ${chalk.dim(u.displayName ? `— ${u.displayName}` : '')}`,
+                (u) => chalk.bold(u.username) + ' ' + chalk.dim(u.displayName ? ' - ' + u.displayName : ''),
                 'DMを送信する相手を選択:'
             );
 
@@ -829,18 +934,17 @@ async function cmdDm(args) {
             }
 
             username = selected.username;
-            console.log(`  → ${chalk.cyan(username)} を選択\n`);
+            console.log('  → ' + chalk.cyan(username) + ' を選択\n');
         } catch (err) {
-            spinner.fail(chalk.red(`Search failed: ${err.message}`));
-            process.exit(1);
+            fail(mapErrorToExitCode(err), 'Search failed: ' + err.message);
         }
     }
 
     // If message not provided, prompt interactively
     if (!message) {
-        console.log(`  ${chalk.dim(`送信先: @${username}`)}`);
+        console.log('  ' + chalk.dim('送信先: @' + username));
         const rl = createInterface({ input, output });
-        message = (await rl.question(`  ${chalk.bold('メッセージ:')} `)).trim();
+        message = (await rl.question('  ' + chalk.bold('メッセージ:') + ' ')).trim();
         rl.close();
 
         if (!message) {
@@ -849,11 +953,11 @@ async function cmdDm(args) {
         }
     }
 
-    const spinner = ora(`Sending DM to @${username}...`).start();
+    const spinner = ora('Sending DM to @' + username + '...').start();
 
     try {
         // Resolve recipient
-        const userData = await apiRequest('GET', `/api/users/${username}`, null, config.token);
+        const userData = await apiRequest('GET', '/api/users/' + username, null, config.token);
 
         // Sign message
         const { signMessage } = await import('../src/auth/ed25519.js');
@@ -861,25 +965,48 @@ async function cmdDm(args) {
 
         spinner.text = 'Encrypting and sending...';
 
-        const result = await apiRequest('POST', `/api/dms/${userData.id}`, {
+        const result = await apiRequest('POST', '/api/dms/' + userData.id, {
             content: message,
             signature,
         }, config.token);
 
-        spinner.succeed(chalk.green(`DM sent to @${username}!`));
-        console.log(`  ${chalk.dim('ID:')} ${chalk.dim(result.id)}`);
-        console.log(`  ${chalk.dim('💡 リアルタイムチャット:')} ${chalk.italic(`kb chat ${username}`)}`);
+        spinner.stop();
+
+        if (isJsonMode()) {
+            ok({ id: result.id });
+        } else {
+            spinner.succeed(chalk.green('DM sent!'));
+        }
     } catch (err) {
-        spinner.fail(chalk.red(`Failed to send DM: ${err.message}`));
-        process.exit(1);
+        spinner.stop();
+        exit(mapErrorToExitCode(err), err.message);
     }
 }
 
 // ============================================================================
 // Command: dms
 // ============================================================================
-async function cmdDms(args) {
+async function cmdDms(args, commandContext) {
+    const globalFlags = commandContext?.global || {};
+
+    const { values, positionals, global: localGlobal } = parseCommandArgs(args, {
+        unread: { type: 'boolean', description: 'Show only unread' },
+        limit: { type: 'string', description: 'Max DMs to return' }
+    });
+
+    handleHelp(localGlobal, 'kb dms ...', t('cmd.dms'), {
+        unread: { type: 'boolean', description: 'Show only unread' },
+        limit: { type: 'string', description: 'Max DMs to return' }
+    });
+
+    setOutputMode({
+        json: localGlobal.json,
+        quiet: localGlobal.quiet,
+        noColor: localGlobal.noColor
+    });
+
     const config = getActiveConfig();
+
     if (!config.token) {
         console.error(chalk.red('✖ Not logged in.'));
         process.exit(1);
@@ -1042,8 +1169,25 @@ async function cmdDms(args) {
     }
 }
 
-async function cmdProfile(args) {
+async function cmdProfile(args, commandContext) {
+    const globalFlags = commandContext?.global || {};
+
+    const { values, positionals, global: localGlobal } = parseCommandArgs(args, {
+        username: { type: 'string', description: 'Username to view (defaults to self)' }
+    });
+
+    handleHelp(localGlobal, 'kb profile ...', t('cmd.profile'), {
+        username: { type: 'string', description: 'Username to view (defaults to self)' }
+    });
+
+    setOutputMode({
+        json: localGlobal.json,
+        quiet: localGlobal.quiet,
+        noColor: localGlobal.noColor
+    });
+
     const config = getActiveConfig();
+
     let targetUsername = args[0];
 
     // Interactive mode: search user if not specified
@@ -1122,8 +1266,29 @@ async function cmdProfile(args) {
 // ============================================================================
 // Command: edit-profile (interactive mode)
 // ============================================================================
-async function cmdEditProfile(args) {
+async function cmdEditProfile(args, commandContext) {
+    const globalFlags = commandContext?.global || {};
+
+    const { values, positionals, global: localGlobal } = parseCommandArgs(args, {
+        displayName: { type: 'string', description: 'Display name' },
+        bio: { type: 'string', description: 'Bio' },
+        avatarUrl: { type: 'string', description: 'Avatar URL' }
+    });
+
+    handleHelp(localGlobal, 'kb editprofile ...', t('cmd.editprofile'), {
+        displayName: { type: 'string', description: 'Display name' },
+        bio: { type: 'string', description: 'Bio' },
+        avatarUrl: { type: 'string', description: 'Avatar URL' }
+    });
+
+    setOutputMode({
+        json: localGlobal.json,
+        quiet: localGlobal.quiet,
+        noColor: localGlobal.noColor
+    });
+
     const config = getActiveConfig();
+
     if (!config.token) {
         console.error(chalk.red('✖ Not logged in.'));
         process.exit(1);
@@ -1201,9 +1366,25 @@ async function cmdEditProfile(args) {
 // ============================================================================
 // Command: search (interactive mode)
 // ============================================================================
-async function cmdSearch(args) {
-    let query = args.join(' ');
+async function cmdSearch(args, commandContext) {
+    const globalFlags = commandContext?.global || {};
+
+    const { values, positionals, global: localGlobal } = parseCommandArgs(args, {
+        query: { type: 'string', description: 'Search query' }
+    });
+
+    handleHelp(localGlobal, 'kb search ...', t('cmd.search'), {
+        query: { type: 'string', description: 'Search query' }
+    });
+
+    setOutputMode({
+        json: localGlobal.json,
+        quiet: localGlobal.quiet,
+        noColor: localGlobal.noColor
+    });
+
     const config = getActiveConfig();
+
 
     // Interactive mode
     if (!query || query.length < 2) {
@@ -1282,309 +1463,25 @@ async function cmdAccounts() {
 // ============================================================================
 // Command: switch (switch active account)
 // ============================================================================
-async function cmdSwitch(args) {
-    const { full, activeUsername } = getConfigBundle();
-    const names = listAccountNames();
+async function cmdSwitch(args, commandContext) {
+    const globalFlags = commandContext?.global || {};
 
-    if (names.length === 0) {
-        console.error(chalk.red('✖ 保存されたアカウントがありません。'));
-        console.error(chalk.dim('  kb register <username>  でアカウントを作成してください。'));
-        process.exit(1);
-    }
+    const { values, positionals, global: localGlobal } = parseCommandArgs(args, {
+        username: { type: 'string', description: 'Username to switch to (interactive if omitted)' }
+    });
 
-    let target = args[0];
+    handleHelp(localGlobal, 'kb switch ...', t('cmd.switch'), {
+        username: { type: 'string', description: 'Username to switch to (interactive if omitted)' }
+    });
 
-    // Interactive mode: select from list
-    if (!target) {
-        console.log(`\n  ${chalk.bold.cyan('🔄 アカウント切り替え')}`);
-        console.log(`  ${chalk.dim('使用するアカウントを選択してください')}\n`);
+    setOutputMode({
+        json: localGlobal.json,
+        quiet: localGlobal.quiet,
+        noColor: localGlobal.noColor
+    });
 
-        for (let i = 0; i < names.length; i++) {
-            const uname = names[i];
-            const isActive = uname === activeUsername;
-            const hasToken = full.accounts[uname]?.token ? chalk.green('✓') : chalk.dim('○');
-            const activeMark = isActive ? chalk.cyan(' ← 現在') : '';
-            console.log(`  ${chalk.cyan(`${i + 1}.`)} ${chalk.bold(isActive ? uname : uname)} ${hasToken}${activeMark}`);
-        }
-        console.log(`  ${chalk.dim('  0.')} ${chalk.dim('キャンセル')}`);
-        console.log();
-
-        const rl = createInterface({ input, output });
-        let selected = null;
-
-        while (selected === null) {
-            const answer = await rl.question(`  ${chalk.bold('番号を選択 (1-' + names.length + '):')} `);
-            const num = parseInt(answer.trim(), 10);
-
-            if (answer.trim() === '0') {
-                rl.close();
-                console.log(chalk.yellow('\n  キャンセルしました。'));
-                return;
-            }
-
-            if (isNaN(num) || num < 1 || num > names.length) {
-                console.log(`  ${chalk.red(`✖ 無効な番号です。1〜${names.length} の番号を入力してください。`)}`);
-                continue;
-            }
-
-            selected = names[num - 1];
-        }
-        rl.close();
-
-        target = selected;
-    }
-
-    // Check if the target account exists
-    if (!full.accounts[target]) {
-        console.error(chalk.red(`✖ アカウント「${target}」が見つかりません。`));
-        console.error(chalk.dim('  kb accounts  で保存済みアカウントを確認できます。'));
-        process.exit(1);
-    }
-
-    if (target === activeUsername) {
-        console.log(`\n  ${chalk.dim(`すでに @${target} がアクティブです。`)}`);
-        return;
-    }
-
-    // Switch
-    full.activeUsername = target;
-    await saveFullConfig(full);
-
-    const acct = full.accounts[target];
-    const hasToken = acct && acct.token;
-
-    console.log(`\n  ${chalk.green('✓')} ${chalk.bold.cyan(`@${target}`)} ${chalk.dim('に切り替えました。')}`);
-
-    if (!hasToken) {
-        console.log(`  ${chalk.yellow('⚠️  このアカウントはまだログインしていません。')}`);
-        console.log(`  ${chalk.dim('  kb login     でログイン')}`);
-    }
-    console.log(`  ${chalk.dim('  kb whoami    で現在のアカウント確認')}`);
-    console.log(`  ${chalk.dim('  kb accounts  でアカウント一覧')}`);
-}
-
-// ============================================================================
-// Command: account (subcommands: remove)
-// ============================================================================
-async function cmdAccount(args) {
-    const sub = args[0];
-
-    if (!sub || sub === 'help') {
-        console.log(`\n  ${chalk.bold.cyan('👤 アカウント管理')}`);
-        console.log(`  ${chalk.dim('─'.repeat(40))}`);
-        console.log(`  ${chalk.cyan('kb account remove <username>')}   アカウントを削除`);
-        console.log(`  ${chalk.cyan('kb account list')}                アカウント一覧 (kb accounts)`);
-        console.log();
-        return;
-    }
-
-    switch (sub) {
-        case 'remove':
-        case 'rm':
-        case 'delete':
-            await cmdAccountRemove(args.slice(1));
-            break;
-        case 'list':
-        case 'ls':
-            await cmdAccounts();
-            break;
-        default:
-            console.error(chalk.red(`✖ 不明なサブコマンド: "${sub}"`));
-            process.exit(1);
-    }
-}
-
-// ============================================================================
-// Command: account remove (delete a saved account from config)
-// ============================================================================
-async function cmdAccountRemove(args) {
-    const { full, activeUsername } = getConfigBundle();
-    const names = listAccountNames();
-
-    if (names.length === 0) {
-        console.error(chalk.red('✖ 保存されたアカウントがありません。'));
-        process.exit(1);
-    }
-
-    let target = args[0];
-
-    // Interactive mode
-    if (!target) {
-        console.log(`\n  ${chalk.bold.cyan('🗑️ 削除するアカウントを選択')}`);
-        console.log(`  ${chalk.red('⚠️  ローカル設定からのみ削除され、サーバーのデータは残ります。')}\n`);
-
-        for (let i = 0; i < names.length; i++) {
-            const uname = names[i];
-            const isActive = uname === activeUsername;
-            const activeMark = isActive ? chalk.cyan(' ← 現在') : '';
-            console.log(`  ${chalk.cyan(`${i + 1}.`)} ${uname}${activeMark}`);
-        }
-        console.log(`  ${chalk.dim('  0.')} ${chalk.dim('キャンセル')}`);
-        console.log();
-
-        const rl = createInterface({ input, output });
-        let selected = null;
-
-        while (selected === null) {
-            const answer = await rl.question(`  ${chalk.bold('番号を選択 (1-' + names.length + '):')} `);
-            const num = parseInt(answer.trim(), 10);
-
-            if (answer.trim() === '0') {
-                rl.close();
-                console.log(chalk.yellow('\n  キャンセルしました。'));
-                return;
-            }
-
-            if (isNaN(num) || num < 1 || num > names.length) {
-                console.log(`  ${chalk.red(`✖ 無効な番号です。1〜${names.length} の番号を入力してください。`)}`);
-                continue;
-            }
-
-            selected = names[num - 1];
-        }
-        rl.close();
-
-        target = selected;
-    }
-
-    if (!full.accounts[target]) {
-        console.error(chalk.red(`✖ アカウント「${target}」が見つかりません。`));
-        process.exit(1);
-    }
-
-    // Confirm
-    const confirmed = await confirmPrompt(`@${target} をローカル設定から削除してもよろしいですか？`);
-    if (!confirmed) {
-        console.log(chalk.yellow('\n  キャンセルしました。'));
-        return;
-    }
-
-    delete full.accounts[target];
-
-    // If we removed the active account, switch to another
-    if (activeUsername === target) {
-        const remaining = Object.keys(full.accounts);
-        full.activeUsername = remaining.length > 0 ? remaining[0] : null;
-    }
-
-    await saveFullConfig(full);
-
-    console.log(`\n  ${chalk.green('✓')} @${target} ${chalk.dim('をローカル設定から削除しました。')}`);
-
-    if (full.activeUsername && full.activeUsername !== target) {
-        console.log(`  ${chalk.dim(`現在のアカウント: @${full.activeUsername}`)}`);
-    }
-}
-
-// ============================================================================
-// Nostr command system
-// ============================================================================
-
-async function cmdNostr(args) {
-    const sub = args[0];
-
-    if (!sub || sub === 'help' || sub === '--help') {
-        showNostrHelp();
-        return;
-    }
-
-    switch (sub) {
-        case 'key':
-        case 'keys':
-            await cmdNostrKey(args.slice(1));
-            break;
-        case 'relay':
-        case 'relays':
-            await cmdNostrRelay(args.slice(1));
-            break;
-        case 'push':
-            await cmdNostrPush(args.slice(1));
-            break;
-        case 'pull':
-            await cmdNostrPull(args.slice(1));
-            break;
-        case 'pubkey':
-        case 'npub':
-            cmdNostrPubkey();
-            break;
-        case 'test':
-            await cmdNostrTestRelay(args.slice(1));
-            break;
-        case 'status':
-            cmdNostrStatus();
-            break;
-        default:
-            console.error(chalk.red(`✖ 不明な Nostr サブコマンド: "${sub}"`));
-            console.log(chalk.dim('  kb nostr help  で使い方を表示'));
-            process.exit(1);
-    }
-}
-
-function showNostrHelp() {
-    console.log(`\n  ${chalk.bold.cyan('🔑 Nostr 統合 (v2.0.1)')}`);
-    console.log(`  ${chalk.dim('koshi を Nostr プロトコルと連携')}`);
-    console.log(`  ${chalk.dim('─'.repeat(50))}`);
-    console.log();
-    console.log(`  ${chalk.bold('🔐 鍵管理')}`);
-    console.log(`    ${chalk.cyan('kb nostr key generate')}     新規 Nostr 鍵ペアを生成`);
-    console.log(`    ${chalk.cyan('kb nostr key show')}          現在の Nostr 公開鍵を表示`);
-    console.log(`    ${chalk.cyan('kb nostr key import <nsec>')} 既存の nsec 秘密鍵をインポート`);
-    console.log();
-    console.log(`  ${chalk.bold('🌐 リレー管理')}`);
-    console.log(`    ${chalk.cyan('kb nostr relay list')}        リレー一覧`);
-    console.log(`    ${chalk.cyan('kb nostr relay add <url>')}   リレーを追加`);
-    console.log(`    ${chalk.cyan('kb nostr relay remove <url>')} リレーを削除`);
-    console.log(`    ${chalk.cyan('kb nostr relay test <url>')}  リレーの接続をテスト`);
-    console.log();
-    console.log(`  ${chalk.bold('📡 同期')}`);
-    console.log(`    ${chalk.cyan('kb nostr push [--limit=20]')} 投稿を Nostr に公開`);
-    console.log(`    ${chalk.cyan('kb nostr pull [--limit=50]')} Nostr から投稿を取得`);
-    console.log();
-    console.log(`  ${chalk.bold('ℹ️  情報')}`);
-    console.log(`    ${chalk.cyan('kb nostr status')}           Nostr 設定状況を表示`);
-    console.log(`    ${chalk.cyan('kb nostr npub')}             公開鍵 (npub) を表示`);
-    console.log();
-}
-
-// ---------------------------------------------------------------------------
-// kb nostr key generate | show | import
-// ---------------------------------------------------------------------------
-
-async function cmdNostrKey(args) {
-    const sub = args[0];
-
-    if (!sub || sub === 'help') {
-        console.log(`\n  ${chalk.bold.cyan('🔐 Nostr 鍵管理')}`);
-        console.log(`  ${chalk.dim('─'.repeat(40))}`);
-        console.log(`  ${chalk.cyan('kb nostr key generate')}     新規鍵ペアを生成`);
-        console.log(`  ${chalk.cyan('kb nostr key show')}          現在の鍵を表示`);
-        console.log(`  ${chalk.cyan('kb nostr key import <nsec>')} 既存鍵をインポート`);
-        console.log();
-        return;
-    }
-
-    switch (sub) {
-        case 'generate':
-        case 'gen':
-        case 'new':
-            await cmdNostrKeyGenerate();
-            break;
-        case 'show':
-        case 'info':
-            await cmdNostrKeyShow();
-            break;
-        case 'import':
-        case 'restore':
-            await cmdNostrKeyImport(args.slice(1));
-            break;
-        default:
-            console.error(chalk.red(`✖ 不明な鍵サブコマンド: "${sub}"`));
-            process.exit(1);
-    }
-}
-
-async function cmdNostrKeyGenerate() {
     const config = getActiveConfig();
+
     if (!config.username) {
         console.error(chalk.red('✖ ログインしていません。先に kb register または kb login してください。'));
         process.exit(1);
@@ -4019,148 +3916,155 @@ async function cmdRealtime() {
 // Main CLI dispatcher
 // ============================================================================
 async function main() {
-    const args = process.argv.slice(2);
-    const command = args[0];
+    // Parse global flags first
+    const { values: globalFlags, positionals, global } = parseCommandArgs(process.argv.slice(2));
 
-    // Auto-initialize local mode if --local flag is present
-    if (IS_LOCAL) {
+    // Auto-initialize local mode if --local flag is present or config indicates local mode
+    if (global.local || IS_LOCAL) {
         await autoInitLocalMode();
     }
 
     // No args — show help with active account context
-    if (!command || command === '--help' || command === '-h') {
-        showHelp(args[1]);
+    if (global.help || !positionals.length) {
+        showHelp();
         return;
     }
 
-    if (command === '--version' || command === '-v') {
+    if (global.version) {
         showVersion();
         return;
     }
 
+    // Get command from positionals
+    const parsedCommand = positionals[0];
+    const args = positionals.slice(1);
+
+    // Create command context with global flags
+    const commandContext = { global };
+
     // Dispatch commands
-    switch (command) {
+    switch (parsedCommand) {
         case 'register':
-            await cmdRegister(args.slice(1));
+            await cmdRegister(args, commandContext);
             break;
 
         case 'login':
-            await cmdLogin(args.slice(1));
+            await cmdLogin(args, commandContext);
             break;
 
         case 'whoami':
-            await cmdWhoami();
+            await cmdWhoami(commandContext);
             break;
 
         case 'accounts':
         case 'account':
             // 'account remove <username>' or 'accounts' (list)
-            if (command === 'account') {
-                await cmdAccount(args.slice(1));
+            if (parsedCommand === 'account') {
+                await cmdAccount(args, commandContext);
             } else {
-                await cmdAccounts();
+                await cmdAccounts(commandContext);
             }
             break;
 
         case 'switch':
-            await cmdSwitch(args.slice(1));
+            await cmdSwitch(args, commandContext);
             break;
 
         case 'post':
-            await cmdPost(args.slice(1));
+            await cmdPost(args, commandContext);
             break;
 
         case 'feed':
-            await cmdFeed(args.slice(1));
+            await cmdFeed(args, commandContext);
             break;
 
         case 'follow':
-            await cmdFollow(args.slice(1));
+            await cmdFollow(args, commandContext);
             break;
 
         case 'unfollow':
-            await cmdUnfollow(args.slice(1));
+            await cmdUnfollow(args, commandContext);
             break;
 
         case 'dm':
-            await cmdDm(args.slice(1));
+            await cmdDm(args, commandContext);
             break;
 
         case 'dms':
-            await cmdDms(args.slice(1));
+            await cmdDms(args, commandContext);
             break;
 
         case 'profile':
-            await cmdProfile(args.slice(1));
+            await cmdProfile(args, commandContext);
             break;
 
         case 'search':
-            await cmdSearch(args.slice(1));
+            await cmdSearch(args, commandContext);
             break;
 
         case 'edit-profile':
-            await cmdEditProfile(args.slice(1));
+            await cmdEditProfile(args, commandContext);
             break;
 
         case 'chat':
-            await cmdChat(args.slice(1));
+            await cmdChat(args, commandContext);
             break;
 
         case 'groups':
-            await cmdGroups(args.slice(1));
+            await cmdGroups(args, commandContext);
             break;
 
         case 'group':
-            await cmdGroupMembers(args.slice(1));
+            await cmdGroupMembers(args, commandContext);
             break;
 
         case 'devices':
-            await cmdDevices(args.slice(1));
+            await cmdDevices(args, commandContext);
             break;
 
         case 'keys':
-            await cmdKeys(args.slice(1));
+            await cmdKeys(args, commandContext);
             break;
 
         case 'config':
-            await cmdConfig(args.slice(1));
+            await cmdConfig(args, commandContext);
             break;
 
         case 'admin':
-            await cmdAdmin(args.slice(1));
+            await cmdAdmin(args, commandContext);
             break;
 
         case 'delete':
-            await cmdDeleteAccount(args.slice(1));
+            await cmdDeleteAccount(args, commandContext);
             break;
 
         case 'nostr':
-            await cmdNostr(args.slice(1));
+            await cmdNostr(args, commandContext);
             break;
         case 'serve':
         case 'server':
-            await cmdServe(args.slice(1));
+            await cmdServe(args, commandContext);
             break;
 
         case 'connect':
-            await cmdConnect(args.slice(1));
+            await cmdConnect(args, commandContext);
             break;
 
         case 'p2p':
-            await cmdP2P(args.slice(1));
+            await cmdP2P(args, commandContext);
             break;
 
         case 'realtime':
         case 'stream':
-            await cmdRealtime();
+            await cmdRealtime(commandContext);
             break;
 
         case 'help':
-            showHelp(args[1]);
+            showHelp(args[0]);
             break;
 
         default:
-            console.error(chalk.red(`✖ Unknown command: "${command}"`));
+            console.error(chalk.red(`✖ Unknown command: "${parsedCommand}"`));
             console.error(chalk.dim('  Run "kb help" to see available commands.'));
             process.exit(1);
     }
@@ -4169,8 +4073,8 @@ async function main() {
     // The in-process P2P node keeps the event loop alive (hyperswarm handles),
     // which would otherwise prevent `kb register` / `kb post` / etc. from
     // ever exiting. Give in-flight P2P writes a short grace, then exit.
-    if (IS_LOCAL && !_LONG_RUNNING_COMMANDS.has(command)) {
-        setTimeout(() => process.exit(0), 2000);
+    if (IS_LOCAL && !_LONG_RUNNING_COMMANDS.has(parsedCommand)) {
+        setTimeout(() => exit(ExitCode.OK), 2000);
     }
 }
 

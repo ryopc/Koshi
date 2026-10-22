@@ -16,8 +16,14 @@ import devicesRoutes from './devices.js';
 import keysRoutes from './keys.js';
 import adminRoutes from './admin.js';
 import p2pRoutes from './p2p.js';
+import discoveryRoutes from './discovery.js';
+import agentsRoutes from './agents.js';
+import eventsRoutes from './events.js';
 
 const router = Router();
+
+// Discovery routes (mounted at root level for /.well-known/*, /openapi.json, /llms.txt, etc.)
+router.use(discoveryRoutes);
 
 // Health check
 router.get('/health', (req, res) => {
@@ -26,6 +32,12 @@ router.get('/health', (req, res) => {
 
 // Auth routes
 router.use('/auth', authRoutes);
+
+// Agent routes (includes /auth/agent/*, /api/agents/*, /admin/agent-tier)
+router.use(agentsRoutes);
+
+// Events routes (SSE + polling + webhooks)
+router.use(eventsRoutes);
 
 // User routes
 router.use('/users', usersRoutes);

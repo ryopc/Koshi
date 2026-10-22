@@ -1,12 +1,13 @@
 {
   "name": "@ryopc/koshi",
-  "version": "5.0.0",
-  "description": "Terminal-native P2P decentralized SNS — serverless koshi board v3",
+  "version": "6.0.0",
+  "description": "Terminal-native decentralized SNS with AI Agent Platform — serverless P2P mesh + MCP + Agent Platform",
   "homepage": "https://koshi.js.org",
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "kb": "bin/cli.js"
+    "kb": "bin/cli.js",
+    "kb-mcp": "bin/kb-mcp.js"
   },
   "scripts": {
     "build": "node build.js",
@@ -16,22 +17,28 @@
     "server:dev": "nodemon --exec node src/local/server-standalone.js",
     "test": "node --experimental-vm-modules node_modules/.bin/jest || true",
     "lint": "eslint . --ext .js || true",
+    "check:spec": "node scripts/check-spec-parity.mjs",
+    "check:schema": "node scripts/check-schema-valid.mjs",
+    "check:agent-card": "node scripts/check-agent-card.mjs",
+    "check:backcompat": "node scripts/check-backcompat.mjs",
+    "test:mcp": "node scripts/test-mcp.mjs",
     "postinstall": "echo '🍄 Thank you for installing koshi! Type kb --help to get started.'"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@noble/ed25519": "^2.0.0",
     "b4a": "^1.8.1",
     "better-sqlite3": "^12.11.1",
     "chalk": "^5.3.0",
-    "cors": "^2.8.5",
     "corestore": "^7.11.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
     "ed2curve": "^0.3.0",
     "express": "^4.18.2",
+    "express-rate-limit": "^7.1.1",
     "helmet": "^7.0.0",
     "hypercore": "^10.38.2",
     "hyperswarm": "^4.17.0",
-    "dotenv": "^16.3.1",
-    "express-rate-limit": "^7.1.1",
     "jsonwebtoken": "^9.0.2",
     "nostr-tools": "^2.23.12",
     "ora": "^7.0.1",
@@ -39,7 +46,8 @@
     "pino": "^8.14.1",
     "tweetnacl": "^1.0.3",
     "uuid": "^14.0.0",
-    "ws": "^8.14.2"
+    "ws": "^8.14.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "eslint": "^8.50.0",
@@ -63,7 +71,8 @@
     "./crypto": "./src/auth/ed25519.js",
     "./db": "./src/db/pool.js",
     "./config": "./src/config/config.js",
-    "./types": "./src/types/index.ts"
+    "./types": "./src/types/index.ts",
+    "./mcp": "./src/mcp/index.js"
   },
   "publishConfig": {
     "access": "public"
@@ -74,6 +83,7 @@
     "src/config/",
     "src/local/",
     "src/locales/",
+    "src/mcp/",
     "src/nostr/",
     "src/p2p/",
     "src/types/",
@@ -89,7 +99,11 @@
     "terminal",
     "cli",
     "ed25519",
-    "nostr"
+    "nostr",
+    "agent",
+    "mcp",
+    "ai",
+    "p2p"
   ],
   "allowScripts": {
     "better-sqlite3@12.11.1": true

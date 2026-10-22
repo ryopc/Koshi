@@ -1112,6 +1112,94 @@ if (existsSync(webPath)) {
 }
 
 // ============================================================================
+// SSE (Server-Sent Events) Endpoint
+// ============================================================================
+app.get('/api/events', requireAuth, (req, res) => {
+    const accept = req.headers.accept || '';
+    const isSSE = accept.includes('text/event-stream');
+
+    if (isSSE) {
+        // SSE streaming
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+        });
+
+        res.write('retry: 3000\n\n');
+        res.write(': connected\n\n');
+
+        const userId = req.user.userId;
+        const types = req.query.types ? req.query.types.split(',') : null;
+        const since = req.query.since ? parseInt(req.query.since, 10) : null;
+        const limit = req.query.limit ? Math.min(parseInt(req.query.limit, 10), 500) : 100;
+
+        // Send backlog
+        if (since || limit > 0) {
+            let where = 'WHERE 1=1';
+            const params = [];
+            if (since) {
+                params.push(since);
+                where += ` AND id > $${params.length}`;
+            }
+            if (req.query.types) {
+                params.push(req.query.types.split(','));
+                where += ` AND type = ANY($${params.length})`;
+            }
+            params.push(limit);
+            const backlog = db.prepare(
+                `SELECT id, type, actor_id, target_id, payload, created_at
+                 FROM agent_events ${where}
+                 ORDER BY id ASC
+                 LIMIT ?`
+            ).all(...params);
+
+            for (const row of backlog) {
+                res.write(`id: ${row.id}\n`);
+                res.write(`event: ${row.type}\n`);
+                res.write(`data: ${JSON.stringify(row.payload)}\n\n`);
+            }
+        }
+
+        // Heartbeat
+        const heartbeat = setInterval(() => {
+            res.write(': keepalive\n\n');
+        }, 15000);
+
+        req.on('close', () => {
+            clearInterval(heartbeat);
+        });
+    } else {
+        // Polling fallback - return JSON
+        const { types, since, limit = '100' } = req.query;
+        const typeArray = types ? types.split(',') : null;
+        const sinceId = since ? parseInt(since, 10) : null;
+        const lim = Math.min(parseInt(limit, 10), 500);
+
+        let where = 'WHERE 1=1';
+        const params = [];
+        if (sinceId) {
+            params.push(sinceId);
+            where += ` AND id > $${params.length}`;
+        }
+        if (types) {
+            params.push(types.split(','));
+            where += ` AND type = ANY($${params.length})`;
+        }
+        params.push(lim);
+        const events = db.prepare(
+            `SELECT id, type, actor_id, target_id, payload, created_at
+             FROM agent_events ${where}
+             ORDER BY id ASC
+             LIMIT ?`
+        ).all(...params);
+
+        res.json({ events });
+    }
+});
+
+// ============================================================================
 // HTTP Server + WebSocket
 // ============================================================================
 const server = createServer(app);

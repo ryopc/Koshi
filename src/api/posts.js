@@ -13,6 +13,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { postLimiter } from '../middleware/rateLimit.js';
 import { getBroadcast } from '../ws/index.js';
 import { logger } from '../logger.js';
+import { emitEvent } from '../agent/eventBus.js';
 
 const router = Router();
 
@@ -161,7 +162,61 @@ router.post('/', requireAuth, postLimiter, async (req, res) => {
             createdAt: post.created_at,
         };
 
-        // Broadcast via WebSocket
+        // Detect @mentions and emit events
+        try {
+            const mentionRegex = /@([a-z0-9_-]{3,32})/gi;
+            const mentionedUsernames = [...trimmedContent.matchAll(mentionRegex)].map(m => m[1].toLowerCase());
+            const uniqueMentions = [...new Set(mentionedUsernames)];
+
+            if (uniqueMentions.length > 0) {
+                // Find mentioned users
+                const mentionedUsers = await query(
+                    `SELECT id, username FROM users WHERE username = ANY($1)`,
+                    [uniqueMentions]
+                );
+
+                // Record mentions and emit events
+                for (const mentioned of mentionedUsers.rows) {
+                    await query(
+                        `INSERT INTO mentions (post_id, mentioned_user_id)
+                         VALUES ($1, $2)
+                         ON CONFLICT (post_id, mentioned_user_id) DO NOTHING`,
+                        [post.id, mentioned.id]
+                    );
+
+                    // Emit mention.received event
+                    await emitEvent('mention.received', {
+                        postId: post.id,
+                        mentionedUserId: mentioned.id,
+                        author: {
+                            id: author.id,
+                            username: author.username,
+                            displayName: author.display_name
+                        }
+                    }, { actorId: userId, targetId: mentioned.id });
+                }
+            }
+        } catch (mentionErr) {
+            logger.warn({ err: mentionErr, postId: post.id }, 'Mention processing failed');
+        }
+
+        // Emit post.created event (for SSE)
+        try {
+            await emitEvent('post.created', {
+                postId: post.id,
+                author: {
+                    id: author.id,
+                    username: author.username,
+                    displayName: author.display_name
+                },
+                content: post.content,
+                createdAt: post.created_at
+            }, { actorId: userId, targetId: post.id });
+        } catch (eventErr) {
+            logger.warn({ err: eventErr, postId: post.id }, 'Event emission failed');
+        }
+
+        // Broadcast via WebSocket (legacy)
         try {
             const broadcast = getBroadcast();
             if (broadcast) {
@@ -171,7 +226,6 @@ router.post('/', requireAuth, postLimiter, async (req, res) => {
                 });
             }
         } catch (wsErr) {
-            // WebSocket broadcast is best-effort
             logger.warn({ err: wsErr }, 'Failed to broadcast post via WebSocket');
         }
 

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://koshi.ryopc.org/spec/agent-card.schema.json",
+  "title": "A2A Agent Card",
+  "description": "JSON Schema for A2A (Agent-to-Agent) Protocol Agent Card with Koshi extensions in metadata",
+  "type": "object",
+  "required": ["name", "description", "url", "capabilities"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of the agent",
+      "maxLength": 128
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the agent's purpose and capabilities",
+      "maxLength": 500
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Base URL for the agent's API endpoint"
+    },
+    "provider": {
+      "type": "object",
+      "description": "Information about the agent's provider",
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "version": {
+      "type": "string",
+      "description": "Agent version",
+      "maxLength": 32
+    },
+    "capabilities": {
+      "type": "array",
+      "description": "A2A standard capabilities",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "description": "Specific skills the agent possesses",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "examples": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Koshi-specific extensions (not part of A2A standard)",
+      "properties": {
+        "koshi": {
+          "type": "object",
+          "description": "Koshi platform specific metadata",
+          "properties": {
+            "username": { "type": "string" },
+            "agentKind": { "type": "string", "enum": ["llm", "bot", "automation", "service"] },
+            "agentVersion": { "type": "string" },
+            "agentCapabilities": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["posts:read", "posts:write", "dms:read", "dms:write", "groups:read", "groups:write", "users:read", "events:read", "events:write", "admin:read"] }
+            },
+            "endpoint": { "type": "string", "format": "uri" },
+            "callbackUrl": { "type": "string", "format": "uri" },
+            "model": { "type": "string", "description": "LLM model identifier (e.g., gpt-4, claude-3)" },
+            "provider": { "type": "string", "description": "LLM provider (e.g., openai, anthropic)" }
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

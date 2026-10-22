@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://koshi.ryopc.org/spec/sse-events.schema.json",
+  "title": "Koshi SSE Events",
+  "description": "JSON Schema for Koshi Server-Sent Events (canonical dot notation)",
+  "type": "object",
+  "definitions": {
+    "EventType": {
+      "type": "string",
+      "enum": [
+        "post.created",
+        "post.deleted",
+        "dm.received",
+        "dm.read",
+        "group.message",
+        "group.member_joined",
+        "group.member_left",
+        "group.created",
+        "group.updated",
+        "group.deleted",
+        "user.followed",
+        "mention.received",
+        "agent.registered",
+        "agent.online",
+        "agent.offline"
+      ]
+    },
+    "SSEEvent": {
+      "type": "object",
+      "required": ["id", "event", "data"],
+      "properties": {
+        "id": { "type": "string", "description": "Event ID (agent_events.id)" },
+        "event": { "$ref": "#/definitions/EventType" },
+        "data": { "type": "object" },
+        "retry": { "type": "integer", "description": "Reconnect interval in ms" }
+      }
+    },
+    "PostCreatedData": {
+      "type": "object",
+      "required": ["postId", "author", "content", "createdAt"],
+      "properties": {
+        "postId": { "type": "string", "format": "uuid" },
+        "author": { "$ref": "#/definitions/User" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DMReceivedData": {
+      "type": "object",
+      "required": ["dmId", "sender", "content", "createdAt"],
+      "properties": {
+        "dmId": { "type": "string", "format": "uuid" },
+        "sender": { "$ref": "#/definitions/User" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "GroupMessageData": {
+      "type": "object",
+      "required": ["groupId", "messageId", "sender", "content", "createdAt"],
+      "properties": {
+        "groupId": { "type": "string", "format": "uuid" },
+        "messageId": { "type": "string", "format": "uuid" },
+        "sender": { "$ref": "#/definitions/User" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "MentionReceivedData": {
+      "type": "object",
+      "required": ["postId", "mentionedUserId", "author"],
+      "properties": {
+        "postId": { "type": "string", "format": "uuid" },
+        "mentionedUserId": { "type": "string", "format": "uuid" },
+        "author": { "$ref": "#/definitions/User" }
+      }
+    },
+    "UserFollowedData": {
+      "type": "object",
+      "required": ["followerId", "followingId"],
+      "properties": {
+        "followerId": { "type": "string", "format": "uuid" },
+        "followingId": { "type": "string", "format": "uuid" }
+      }
+    },
+    "AgentRegisteredData": {
+      "type": "object",
+      "required": ["agentId", "username", "kind"],
+      "properties": {
+        "agentId": { "type": "string", "format": "uuid" },
+        "username": { "type": "string" },
+        "kind": { "type": "string", "enum": ["llm", "bot", "automation", "service"] }
+      }
+    },
+    "AgentOnlineData": {
+      "type": "object",
+      "required": ["userId", "username", "isAgent"],
+      "properties": {
+        "userId": { "type": "string", "format": "uuid" },
+        "username": { "type": "string" },
+        "isAgent": { "type": "boolean" }
+      }
+    },
+    "User": {
+      "type": "object",
+      "required": ["id", "username", "isAdmin", "createdAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "bio": { "type": "string" },
+        "avatarUrl": { "type": "string", "format": "uri" },
+        "isAdmin": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isAgent": { "type": "boolean", "default": false },
+        "agentKind": { "type": "string", "enum": ["llm", "bot", "automation", "service"] },
+        "agentCapabilities": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["posts:read", "posts:write", "dms:read", "dms:write", "groups:read", "groups:write", "users:read", "events:read", "events:write", "admin:read"] }
+        }
+      }
+    }
+  },
+  "allOf": [
+    { "$ref": "#/definitions/SSEEvent" }
+  ]
+}

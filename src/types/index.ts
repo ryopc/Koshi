@@ -12,11 +12,123 @@ export interface User {
   avatarUrl?: string;
   isAdmin: boolean;
   createdAt: string;
+  // --- エージェント拡張 (v6+) ---
+  isAgent?: boolean;
+  agentKind?: AgentKind;
+  agentVersion?: string;
+  agentDescription?: string;
+  agentCapabilities?: AgentCapability[];
+  agentMetadata?: Record<string, unknown>;
+  agentEndpoint?: string;
+  agentCallbackUrl?: string;
 }
 
 export interface ApiError {
   error: string;
   message?: string;
+}
+
+// RFC 9457 Problem Details (v6+)
+export interface ProblemDetails {
+  type: string;
+  title: string;
+  status: number;
+  detail?: string;
+  instance?: string;
+  // 既存互換キーも含む
+  error?: string;
+  message?: string;
+  [key: string]: unknown;
+}
+
+// --- エージェント (v6+) ---
+export type AgentKind = 'llm' | 'bot' | 'automation' | 'service';
+
+export type AgentCapability =
+  | 'posts:read'
+  | 'posts:write'
+  | 'dms:read'
+  | 'dms:write'
+  | 'groups:read'
+  | 'groups:write'
+  | 'users:read'
+  | 'events:read'
+  | 'events:write'
+  | 'admin:read';
+
+export interface AgentProfile extends User {
+  isAgent: true;
+  agentKind: AgentKind;
+  agentCapabilities: AgentCapability[];
+  agentMetadata: Record<string, unknown>;
+}
+
+export interface AgentCard {
+  // A2A 準拠フィールド
+  name: string;
+  description: string;
+  url: string;
+  provider?: {
+    name: string;
+    url?: string;
+  };
+  version?: string;
+  capabilities: AgentCardCapability[];
+  skills?: AgentCardSkill[];
+  // 独自拡張は metadata 配下に格納 (D3 確定)
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentCardCapability {
+  name: string;
+  description?: string;
+}
+
+export interface AgentCardSkill {
+  name: string;
+  description?: string;
+  tags?: string[];
+  examples?: string[];
+}
+
+export interface AgentApiKey {
+  id: string;
+  prefix: string;       // 表示用 "ak_live_9f2a"
+  scopes: AgentCapability[];
+  label?: string;
+  tier: 'free' | 'standard' | 'trusted';
+  lastUsedAt?: string;
+  expiresAt?: string;
+  revoked: boolean;
+  createdAt: string;
+}
+
+export interface RegisterAgentRequest {
+  username: string;
+  publicKey: string;    // ed25519 hex (64 chars)
+  agentKind: AgentKind;
+  description?: string;
+  version?: string;
+  capabilities: AgentCapability[];
+  metadata?: Record<string, unknown>;
+  endpoint?: string;
+  callbackUrl?: string;
+}
+
+export interface AgentKeyCreateRequest {
+  label?: string;
+  scopes: AgentCapability[];
+  tier?: 'free' | 'standard' | 'trusted';
+  expiresAt?: string;   // ISO date
+}
+
+export interface AgentKeyResponse {
+  key: string;          // 生キー (ak_live_...)。この1回のみ返却
+  prefix: string;
+  scopes: AgentCapability[];
+  tier: 'free' | 'standard' | 'trusted';
+  expiresAt?: string;
+  createdAt: string;
 }
 
 // --- DM (既存拡張) ---
@@ -41,7 +153,7 @@ export interface DMListParams {
   unread?: boolean;   // default false
 }
 
-// --- グループ (新規) ---
+// --- グループ (既存) ---
 export type GroupRole = 'admin' | 'member';
 
 export interface Group {
@@ -102,7 +214,7 @@ export interface GroupMessagesParams {
   before?: string;   // message ID (cursor pagination)
 }
 
-// --- E2E / デバイス / 鍵 (新規) ---
+// --- E2E / デバイス / 鍵 (既存) ---
 export interface Device {
   id: string;
   userId: string;
@@ -130,7 +242,41 @@ export interface KeyBundle {
   oneTimePreKeys: string[];
 }
 
-// --- WebSocket イベント ---
+// --- イベント (v6+) ---
+export type EventType =
+  | 'post.created'
+  | 'post.deleted'
+  | 'dm.received'
+  | 'dm.read'
+  | 'group.message'
+  | 'group.member_joined'
+  | 'group.member_left'
+  | 'group.created'
+  | 'group.updated'
+  | 'group.deleted'
+  | 'user.followed'
+  | 'mention.received'
+  | 'agent.registered'
+  | 'agent.online'
+  | 'agent.offline';
+
+export interface AgentEvent<T = unknown> {
+  id: number;             // BIGSERIAL
+  type: EventType;
+  actorId?: string;       // userId
+  targetId?: string;
+  payload: T;
+  createdAt: string;
+}
+
+export interface SSEEvent<T = unknown> {
+  id: string;             // event ID (agent_events.id)
+  event: EventType;       // event type
+  data: T;                // payload
+  retry?: number;         // reconnect interval (ms)
+}
+
+// --- WebSocket イベント (既存・後方互換 snake_case) ---
 export type WSMessageType =
   // 認証・接続
   | 'connected' | 'error' | 'pong'
@@ -145,7 +291,9 @@ export type WSMessageType =
   // 入力中
   | 'typing_start' | 'typing_stop'
   // 鍵交換
-  | 'key_bundle_request' | 'key_bundle_response';
+  | 'key_bundle_request' | 'key_bundle_response'
+  // P2P
+  | 'p2p:status' | 'p2p:sync';
 
 export interface WSMessage<T = unknown> {
   type: WSMessageType;
@@ -153,7 +301,7 @@ export interface WSMessage<T = unknown> {
 }
 
 export interface WSEventMap {
-  connected: { userId: string; username: string; message: string };
+  connected: { userId: string; username: string; message: string; isAgent?: boolean };
   error: { message: string };
   pong: { timestamp: string };
   post_created: PostEvent;
@@ -171,6 +319,8 @@ export interface WSEventMap {
   typing_stop: { conversationId: string; conversationType: 'dm' | 'group'; userId: string; username: string };
   key_bundle_request: { targetUserId: string };
   key_bundle_response: { userId: string; bundle: KeyBundle };
+  'p2p:status': { connected: boolean; peers: number };
+  'p2p:sync': { synced: number; failed: number };
 }
 
 export interface PostEvent {

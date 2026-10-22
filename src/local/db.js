@@ -248,10 +248,100 @@ CREATE TABLE IF NOT EXISTS p2p_peers (
     peer_key    TEXT UNIQUE,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ============================================================================
+-- v6: AI Agent Platform Extensions
+-- ============================================================================
+
+-- 12. agent_api_keys
+CREATE TABLE IF NOT EXISTS agent_api_keys (
+    id            TEXT PRIMARY KEY,
+    agent_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key_hash      TEXT NOT NULL UNIQUE,
+    key_prefix    TEXT NOT NULL,
+    scopes        TEXT NOT NULL DEFAULT '[]',
+    label         TEXT,
+    tier          TEXT NOT NULL DEFAULT 'standard',
+    last_used_at  TEXT,
+    expires_at    TEXT,
+    revoked       INTEGER NOT NULL DEFAULT 0,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_local_agent_api_keys_agent ON agent_api_keys (agent_id);
+CREATE INDEX IF NOT EXISTS idx_local_agent_api_keys_prefix ON agent_api_keys (key_prefix);
+
+-- 13. agent_events
+CREATE TABLE IF NOT EXISTS agent_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    type        TEXT NOT NULL,
+    actor_id    TEXT REFERENCES users(id) ON DELETE SET NULL,
+    target_id   TEXT,
+    payload     TEXT NOT NULL DEFAULT '{}',
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_local_agent_events_type_id ON agent_events (type, id DESC);
+CREATE INDEX IF NOT EXISTS idx_local_agent_events_created ON agent_events (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_local_agent_events_actor ON agent_events (actor_id);
+
+-- 14. agent_subscriptions
+CREATE TABLE IF NOT EXISTS agent_subscriptions (
+    id          TEXT PRIMARY KEY,
+    agent_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    event_type  TEXT NOT NULL,
+    endpoint    TEXT NOT NULL,
+    secret_hash TEXT,
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (agent_id, event_type, endpoint)
+);
+CREATE INDEX IF NOT EXISTS idx_local_agent_subscriptions_agent ON agent_subscriptions (agent_id);
+
+-- 15. mentions
+CREATE TABLE IF NOT EXISTS mentions (
+    id                TEXT PRIMARY KEY,
+    post_id           TEXT NOT NULL REFERENCES kb_posts(id) ON DELETE CASCADE,
+    mentioned_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (post_id, mentioned_user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_local_mentions_user ON mentions (mentioned_user_id);
 `;
 
 function migrate() {
+    // First, create all base tables from the schema
     _db.exec(SCHEMA);
+
+    // Then, run v6 migration: add agent columns to existing users table
+    // and create new v6 tables if they don't exist
+    const userCols = _db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+
+    const agentColumns = [
+        { name: 'is_agent', sql: "ALTER TABLE users ADD COLUMN is_agent INTEGER NOT NULL DEFAULT 0" },
+        { name: 'agent_kind', sql: "ALTER TABLE users ADD COLUMN agent_kind TEXT" },
+        { name: 'agent_version', sql: "ALTER TABLE users ADD COLUMN agent_version TEXT" },
+        { name: 'agent_description', sql: "ALTER TABLE users ADD COLUMN agent_description TEXT" },
+        { name: 'agent_capabilities', sql: "ALTER TABLE users ADD COLUMN agent_capabilities TEXT NOT NULL DEFAULT '[]'" },
+        { name: 'agent_metadata', sql: "ALTER TABLE users ADD COLUMN agent_metadata TEXT NOT NULL DEFAULT '{}'" },
+        { name: 'agent_endpoint', sql: "ALTER TABLE users ADD COLUMN agent_endpoint TEXT" },
+        { name: 'agent_callback_url', sql: "ALTER TABLE users ADD COLUMN agent_callback_url TEXT" },
+    ];
+
+    for (const col of agentColumns) {
+        if (!userCols.includes(col.name)) {
+            try {
+                _db.exec(col.sql);
+            } catch (e) {
+                // Ignore if already exists (race condition)
+            }
+        }
+    }
+
+    // Create index for is_agent if not exists
+    try {
+        _db.exec("CREATE INDEX IF NOT EXISTS idx_local_users_is_agent ON users (is_agent) WHERE is_agent = 1");
+    } catch (e) {
+        // Ignore
+    }
 }
 
 // ============================================================================

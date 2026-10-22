@@ -16,15 +16,24 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. users
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS users (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    username    VARCHAR(32) UNIQUE NOT NULL,
-    public_key  TEXT UNIQUE NOT NULL,             -- ed25519 public key (hex-encoded)
-    display_name VARCHAR(64),
-    bio         TEXT,
-    avatar_url  VARCHAR(512),
-    is_admin    BOOLEAN NOT NULL DEFAULT FALSE,   -- admin privileges
-    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username              VARCHAR(32) UNIQUE NOT NULL,
+    public_key            TEXT UNIQUE NOT NULL,             -- ed25519 public key (hex-encoded)
+    display_name          VARCHAR(64),
+    bio                   TEXT,
+    avatar_url            VARCHAR(512),
+    is_admin              BOOLEAN NOT NULL DEFAULT FALSE,   -- admin privileges
+    -- v6: Agent platform extensions
+    is_agent              BOOLEAN NOT NULL DEFAULT FALSE,
+    agent_kind            VARCHAR(32),                      -- 'llm' | 'bot' | 'automation' | 'service'
+    agent_version         VARCHAR(32),
+    agent_description     TEXT,
+    agent_capabilities    JSONB NOT NULL DEFAULT '[]'::jsonb,
+    agent_metadata        JSONB NOT NULL DEFAULT '{}'::jsonb,
+    agent_endpoint        VARCHAR(512),
+    agent_callback_url    VARCHAR(512),
+    created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 -- Index for fast username lookup (login / profile)
@@ -243,3 +252,71 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+
+-- ============================================
+-- v6: AI Agent Platform Extensions
+-- ============================================
+
+-- Index for agent filtering
+CREATE INDEX IF NOT EXISTS idx_users_is_agent ON users (is_agent) WHERE is_agent;
+
+-- ============================================
+-- Agent API Keys (hash stored, raw key shown once)
+-- ============================================
+CREATE TABLE IF NOT EXISTS agent_api_keys (
+    id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agent_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key_hash     TEXT NOT NULL UNIQUE,          -- sha256 hex
+    key_prefix   VARCHAR(16) NOT NULL,          -- display prefix "ak_live_9f2a"
+    scopes       JSONB NOT NULL DEFAULT '[]'::jsonb,
+    label        VARCHAR(64),
+    tier         VARCHAR(16) NOT NULL DEFAULT 'standard',  -- free | standard | trusted
+    last_used_at TIMESTAMPTZ,
+    expires_at   TIMESTAMPTZ,
+    revoked      BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agent_api_keys_agent ON agent_api_keys (agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_api_keys_prefix ON agent_api_keys (key_prefix);
+
+-- ============================================
+-- Agent Events (SSE cursor resume + polling fallback)
+-- ============================================
+CREATE TABLE IF NOT EXISTS agent_events (
+    id         BIGSERIAL PRIMARY KEY,
+    type       VARCHAR(48) NOT NULL,
+    actor_id   UUID REFERENCES users(id) ON DELETE SET NULL,
+    target_id  UUID,
+    payload    JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agent_events_type_id ON agent_events (type, id DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_events_created  ON agent_events (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_events_actor    ON agent_events (actor_id);
+
+-- ============================================
+-- Agent Subscriptions (Webhook delivery)
+-- ============================================
+CREATE TABLE IF NOT EXISTS agent_subscriptions (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agent_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    event_type  VARCHAR(48) NOT NULL,
+    endpoint    VARCHAR(512) NOT NULL,
+    secret_hash TEXT,
+    enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (agent_id, event_type, endpoint)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_subscriptions_agent ON agent_subscriptions (agent_id);
+
+-- ============================================
+-- Mentions (for mention.received events)
+-- ============================================
+CREATE TABLE IF NOT EXISTS mentions (
+    id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    post_id          UUID NOT NULL REFERENCES kb_posts(id) ON DELETE CASCADE,
+    mentioned_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (post_id, mentioned_user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_mentions_user ON mentions (mentioned_user_id);
