@@ -9,7 +9,7 @@
 
 import { logger } from '../logger.js';
 import { broadcast as wsBroadcast, broadcastToGroup as wsBroadcastToGroup } from '../ws/index.js';
-import { getSseManager } from './sse.js';
+import { getSseManager } from '../events/sse.js';
 
 /**
  * Canonical event name → Legacy WebSocket event name mapping.
