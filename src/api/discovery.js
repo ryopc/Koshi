@@ -17,7 +17,7 @@ import { createProblem, notFound } from '../middleware/errors.js';
 import { optionalAuth } from '../middleware/auth.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SPEC_DIR = join(__dirname, 'spec');
+const SPEC_DIR = join(__dirname, '..', 'spec');
 
 const router = Router();
 
@@ -151,14 +151,13 @@ Policy: https://koshi.ryopc.org/security-policy`);
 // ============================================================================
 // GET /openapi.json — OpenAPI 3.1 specification
 // ============================================================================
-router.get('/openapi.json', (req, res) => {
+router.get(['/openapi.json', '/openapi.yaml'], (req, res) => {
     try {
         const specPath = join(SPEC_DIR, 'openapi.yaml');
         const yaml = readFileSync(specPath, 'utf-8');
-        // Simple YAML to JSON conversion for basic OpenAPI
-        // In production, use a proper YAML parser
-        res.set('Content-Type', 'application/json');
-        res.send(yaml); // For now, serve YAML as-is; clients can parse
+        res.set('Content-Type', req.path.endsWith('.json') ? 'application/json' : 'application/yaml');
+        res.set('Content-Type', req.path.endsWith('.json') ? 'application/json; charset=utf-8' : 'application/yaml; charset=utf-8');
+        res.send(yaml);
     } catch (err) {
         logger.error({ err }, 'Failed to read OpenAPI spec');
         res.status(500).json(createProblem({
