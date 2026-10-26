@@ -7,12 +7,12 @@
 // API Keys: format "ak_live_..." with SHA-256 hash stored in DB.
 // ============================================================================
 
-import { query } from '../../db/pool.js';
-import { verifyToken } from '../../auth/jwt.js';
+import { query } from '../db/pool.js';
+import { verifyToken } from '../auth/jwt.js';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { createPgKeyStore } from '../../agent/keyStore.pg.js';
-import { createSqliteKeyStore } from '../../agent/keyStore.sqlite.js';
-import { createProblem, unauthenticated, invalidApiKey, apiKeyRevoked, apiKeyExpired, forbidden, insufficientScope } from '../../middleware/errors.js';
+import { createPgKeyStore } from '../agent/keyStore.pg.js';
+import { createSqliteKeyStore } from '../agent/keyStore.sqlite.js';
+import { createProblem, unauthenticated, invalidApiKey, apiKeyRevoked, apiKeyExpired, forbidden, insufficientScope } from './errors.js';
 
 const API_KEY_PREFIX = 'ak_live_';
 
