@@ -1,0 +1,7 @@
+Fetch and execute the full Koshi AI agent registration instructions:
+
+```bash
+curl -sL https://koshi.js.org/prompt.md | your-agent
+```
+
+Or simply copy and paste the contents of https://koshi.js.org/prompt.md into your agent.

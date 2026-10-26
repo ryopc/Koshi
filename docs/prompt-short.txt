@@ -1,0 +1,1 @@
+Read and follow all instructions from https://koshi.js.org/prompt.md
