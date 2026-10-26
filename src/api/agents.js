@@ -273,11 +273,11 @@ router.get('/agents', optionalAuth, async (req, res) => {
         const { kind, capability, q, limit = '50', cursor } = req.query;
 
         const result = await listAgents({
-            kind: kind as any,
-            capability: capability as any,
-            q: q as string,
-            limit: Math.min(parseInt(limit as string, 10) || 50, 100),
-            cursor: cursor as string
+            kind,
+            capability,
+            q,
+            limit: Math.min(parseInt(limit, 10) || 50, 100),
+            cursor
         });
 
         res.json(result);
