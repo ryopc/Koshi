@@ -117,7 +117,7 @@ router.post('/auth/agent/login', async (req, res) => {
         const REFRESH_TOKEN_TTL_DAYS = 30;
         const { createHash, randomUUID } = await import('node:crypto');
 
-        function hashToken(token: string) {
+        function hashToken(token) {
             return createHash('sha256').update(String(token)).digest('hex');
         }
 
