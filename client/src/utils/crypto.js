@@ -1,10 +1,10 @@
 import nacl from 'tweetnacl';
 import * as ed from '@noble/ed25519';
-import { createHash } from 'node:crypto';
+import { sha512 } from '@noble/hashes/sha512';
 
 // Fix for ESM read-only module namespace: pass etc to signAsync
 const etc = {
-    sha512Sync: (data) => createHash('sha512').update(data).digest(),
+    sha512Sync: (data) => sha512(data),
 };
 
 const enc = new TextEncoder();
